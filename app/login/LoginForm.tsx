@@ -3,20 +3,17 @@
 export const dynamic = "force-dynamic";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const RED = "#C0392B";
 
 export default function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const redirectTo = searchParams.get("redirect") ?? "/dashboard";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,7 +32,7 @@ export default function LoginForm() {
       );
       return;
     }
-    router.push(redirectTo);
+    router.push("/dashboard");
     router.refresh();
   }
 
