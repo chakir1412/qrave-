@@ -1,12 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const RED = "#C0392B";
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          className="min-h-screen flex items-center justify-center bg-[#f8f9fa] px-4 text-sm text-gray-500"
+          style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
+        >
+          Lädt Login…
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -20,10 +37,17 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: err } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     setLoading(false);
     if (err) {
-      setError(err.message === "Invalid login credentials" ? "Ungültige E-Mail oder Passwort." : err.message);
+      setError(
+        err.message === "Invalid login credentials"
+          ? "Ungültige E-Mail oder Passwort."
+          : err.message
+      );
       return;
     }
     router.push(redirectTo);
@@ -49,7 +73,10 @@ export default function LoginPage() {
             </p>
           )}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[#374151] mb-1">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-[#374151] mb-1"
+            >
               E-Mail
             </label>
             <input
@@ -63,7 +90,10 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-[#374151] mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-[#374151] mb-1"
+            >
               Passwort
             </label>
             <input
