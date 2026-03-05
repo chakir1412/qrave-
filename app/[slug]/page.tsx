@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase, fetchDailyPush } from "@/lib/supabase";
 import type { Restaurant, MenuItem } from "@/lib/supabase";
 import SpeisekarteClient from "@/components/SpeisekarteClient";
 
@@ -22,11 +22,30 @@ export default async function SpeisekartePage({
 
   const restaurant = restaurantData as Restaurant;
 
-  const { data: itemsData, error: itemsError } = await supabase
+  const extendedSelect =
+    "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, allergen_ids, sponsored, partner_name, preis_volumen, sort_order, is_highlight, main_tab, section_subtitle";
+  const baseSelect = "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags";
+
+  let itemsData: unknown = null;
+  let itemsError: { message: string } | null = null;
+
+  const res = await supabase
     .from("menu_items")
-    .select("id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags")
+    .select(extendedSelect)
     .eq("restaurant_id", restaurant.id)
     .eq("aktiv", true);
+  itemsData = res.data;
+  itemsError = res.error;
+
+  if (itemsError?.message?.includes("column") || itemsError?.message?.includes("does not exist")) {
+    const fallback = await supabase
+      .from("menu_items")
+      .select(baseSelect)
+      .eq("restaurant_id", restaurant.id)
+      .eq("aktiv", true);
+    itemsData = fallback.data;
+    itemsError = fallback.error;
+  }
 
   if (itemsError) {
     console.error("Supabase menu_items:", itemsError);
@@ -41,11 +60,16 @@ export default async function SpeisekartePage({
     ),
   ].sort();
 
+  const highlights = menuItems.filter((item) => item.is_highlight === true);
+  const dailyPush = await fetchDailyPush(restaurant.id);
+
   return (
     <SpeisekarteClient
       categories={categories}
       menuItems={menuItems}
       restaurantName={restaurant.name}
+      highlights={highlights}
+      dailyPush={dailyPush}
     />
   );
 }

@@ -1,0 +1,40 @@
+export function emojiGradient(e: string): string {
+  const map: Record<string, string> = {
+    "🥗": "linear-gradient(135deg,#e8f5e9,#c8e6c9)",
+    "🦐": "linear-gradient(135deg,#fff3e0,#ffe0b2)",
+    "🧅": "linear-gradient(135deg,#fff8e1,#ffecb3)",
+    "🥬": "linear-gradient(135deg,#e8f5e9,#a5d6a7)",
+    "🥩": "linear-gradient(135deg,#fce4ec,#ef9a9a)",
+    "🐟": "linear-gradient(135deg,#e3f2fd,#90caf9)",
+    "🍝": "linear-gradient(135deg,#fff8e1,#ffe082)",
+    "🥦": "linear-gradient(135deg,#e8f5e9,#81c784)",
+    "🌮": "linear-gradient(135deg,#fff3e0,#ffcc80)",
+    "🌯": "linear-gradient(135deg,#fafafa,#eeeeee)",
+    "🍮": "linear-gradient(135deg,#fff8e1,#ffecb3)",
+    "🍫": "linear-gradient(135deg,#6d4c41,#8d6e63)",
+    "🍓": "linear-gradient(135deg,#fce4ec,#f48fb1)",
+    "🍺": "linear-gradient(135deg,#fff8e1,#f9a825)",
+    "🍷": "linear-gradient(135deg,#4a0010,#880e4f)",
+    "🥂": "linear-gradient(135deg,#f9fbe7,#dce775)",
+    "🍾": "linear-gradient(135deg,#f9fbe7,#afb42b)",
+    "🫧": "linear-gradient(135deg,#e3f2fd,#b3e5fc)",
+    "☕": "linear-gradient(135deg,#4e342e,#795548)",
+    "🧋": "linear-gradient(135deg,#e8f5e9,#a5d6a7)",
+    "🫒": "linear-gradient(135deg,#dcedc8,#558b2f)",
+    "🥜": "linear-gradient(135deg,#fff3e0,#bf360c)",
+    "🧀": "linear-gradient(135deg,#fff8e1,#f9a825)",
+    "🥖": "linear-gradient(135deg,#fff3e0,#e65100)",
+    "🍟": "linear-gradient(135deg,#fff8e1,#f57f17)",
+    "🍖": "linear-gradient(135deg,#fce4ec,#b71c1c)",
+    "🌸": "linear-gradient(135deg,#fce4ec,#f8bbd0)",
+    "🍊": "linear-gradient(135deg,#fff3e0,#ffa000)",
+    "🍋": "linear-gradient(135deg,#fffde7,#f9a825)",
+    "🥃": "linear-gradient(135deg,#4e342e,#8d6e63)",
+    "🌿": "linear-gradient(135deg,#e8f5e9,#66bb6a)",
+    "🫐": "linear-gradient(135deg,#ede7f6,#9575cd)",
+    "🌅": "linear-gradient(135deg,#ff8f00,#ffca28)",
+  };
+
+  return map[e] || "linear-gradient(135deg,#fdf8f0,#f0e8d8)";
+}
+
