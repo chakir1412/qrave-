@@ -1,7 +1,23 @@
+import React from "react";
 import { notFound } from "next/navigation";
 import { supabase, fetchDailyPush } from "@/lib/supabase";
 import type { Restaurant, MenuItem } from "@/lib/supabase";
-import SpeisekarteClient from "@/components/SpeisekarteClient";
+import type { SpeisekarteProps } from "@/components/speisekarte";
+import BarSoleilTemplate from "@/components/templates/BarSoleil";
+import KioskNo7Template from "@/components/templates/KioskNo7";
+import CompoundCafeTemplate from "@/components/templates/CompoundCafe";
+import NamiSushiTemplate from "@/components/templates/NamiSushi";
+import DaMarioTemplate from "@/components/templates/DaMario";
+import RootsTemplate from "@/components/templates/RootsPlantKitchen";
+
+const templateMap: Record<string, React.ComponentType<SpeisekarteProps>> = {
+  "bar-soleil": BarSoleilTemplate,
+  "kiosk-no7": KioskNo7Template,
+  "compound-cafe": CompoundCafeTemplate,
+  "nami-sushi": NamiSushiTemplate,
+  "da-mario": DaMarioTemplate,
+  roots: RootsTemplate,
+};
 
 export default async function SpeisekartePage({
   params,
@@ -12,7 +28,7 @@ export default async function SpeisekartePage({
 
   const { data: restaurantData, error: restaurantError } = await supabase
     .from("restaurants")
-    .select("id, slug, name")
+    .select("id, slug, name, template")
     .eq("slug", slug)
     .single();
 
@@ -24,7 +40,7 @@ export default async function SpeisekartePage({
 
   const extendedSelect =
     "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, allergen_ids, sponsored, partner_name, preis_volumen, sort_order, is_highlight, main_tab, section_subtitle";
-  const baseSelect = "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags";
+  const baseSelect = "id, restaurant_id, name, beschreibung, preis, kategorie, main_tab, bild_url, aktiv, tags";
 
   let itemsData: unknown = null;
   let itemsError: { message: string } | null = null;
@@ -63,15 +79,18 @@ export default async function SpeisekartePage({
   const highlights = menuItems.filter((item) => item.is_highlight === true);
   const dailyPush = await fetchDailyPush(restaurant.id);
 
-  return (
-    <SpeisekarteClient
-      categories={categories}
-      menuItems={menuItems}
-      restaurantName={restaurant.name}
-      highlights={highlights}
-      dailyPush={dailyPush}
-    />
-  );
+  const templateProps: SpeisekarteProps = {
+    categories,
+    menuItems,
+    restaurantName: restaurant.name,
+    highlights,
+    dailyPush,
+  };
+
+  const templateKey = (restaurant.template ?? "bar-soleil") as string;
+  const TemplateComponent = templateMap[templateKey] ?? templateMap["bar-soleil"];
+
+  return <TemplateComponent {...templateProps} />;
 }
 
 export async function generateMetadata({
