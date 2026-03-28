@@ -68,6 +68,7 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
   const [tab, setTab] = useState<FounderMainTab>("overview");
   const [data, setData] = useState<FounderDashboardData>(initialData);
   const [loadError, setLoadError] = useState<string | null>(initialLoadError);
+  const [refreshing, setRefreshing] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const sidebarW = isMobile ? 0 : isTablet ? 56 : 64;
@@ -106,49 +107,70 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
     }
   }, [isMobile, tab]);
 
-  async function onRefresh() {
+  async function loadData() {
+    setRefreshing(true);
     setLoadError(null);
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const [restaurantsRes, scansRes, pipelineRes, todosRes, extRes, tablesRes] = await Promise.all([
-      supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
-      supabase
-        .from("scan_events")
-        .select(
-          "event_type, stunde, wochentag, monat, tisch_nummer, item_name, kategorie, main_tab, duration_seconds, tier, created_at, restaurant_id",
-        )
-        .gt("created_at", sevenDaysAgo)
-        .order("created_at", { ascending: false })
-        .limit(500),
-      supabase.from("founder_pipeline").select("*").order("added_at", { ascending: false }),
-      supabase.from("founder_todos").select("*").order("created_at", { ascending: false }),
-      supabase.from("founder_restaurants").select("*"),
-      supabase
-        .from("restaurant_tables")
-        .select("id, restaurant_id, tisch_nummer, bereich, qr_url, nfc_programmiert, sticker_angebracht, created_at")
-        .order("restaurant_id", { ascending: true })
-        .order("tisch_nummer", { ascending: true }),
-    ]);
-    const errors = [
-      restaurantsRes.error,
-      scansRes.error,
-      pipelineRes.error,
-      todosRes.error,
-      extRes.error,
-      tablesRes.error,
-    ]
-      .filter((x) => x)
-      .map((x) => x?.message ?? "");
-    if (errors.length > 0) {
-      setLoadError(errors.join(" · "));
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const [restaurantsRes, scansRes, pipelineRes, todosRes, extRes, tablesRes] = await Promise.all([
+        supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
+        supabase
+          .from("scan_events")
+          .select(
+            "event_type, stunde, wochentag, monat, tisch_nummer, item_name, kategorie, main_tab, duration_seconds, tier, created_at, restaurant_id",
+          )
+          .gt("created_at", sevenDaysAgo)
+          .order("created_at", { ascending: false })
+          .limit(500),
+        supabase.from("founder_pipeline").select("*").order("added_at", { ascending: false }),
+        supabase.from("founder_todos").select("*").order("created_at", { ascending: false }),
+        supabase.from("founder_restaurants").select("*"),
+        supabase
+          .from("restaurant_tables")
+          .select("id, restaurant_id, tisch_nummer, bereich, qr_url, nfc_programmiert, sticker_angebracht, created_at")
+          .order("restaurant_id", { ascending: true })
+          .order("tisch_nummer", { ascending: true }),
+      ]);
+
+      const labels = [
+        "restaurants",
+        "scan_events",
+        "founder_pipeline",
+        "founder_todos",
+        "founder_restaurants",
+        "restaurant_tables",
+      ] as const;
+      const responses = [restaurantsRes, scansRes, pipelineRes, todosRes, extRes, tablesRes];
+      const partialErrors = responses
+        .map((res, i) => (res.error ? `${labels[i]}: ${res.error.message}` : ""))
+        .filter(Boolean);
+      if (partialErrors.length > 0) {
+        setLoadError(partialErrors.join(" · "));
+      }
+
+      setData((prev) => ({
+        restaurants: restaurantsRes.error
+          ? prev.restaurants
+          : ((restaurantsRes.data ?? []) as FounderDashboardData["restaurants"]),
+        scanEvents: scansRes.error
+          ? prev.scanEvents
+          : ((scansRes.data ?? []) as FounderDashboardData["scanEvents"]),
+        pipeline: pipelineRes.error
+          ? prev.pipeline
+          : ((pipelineRes.data ?? []) as FounderDashboardData["pipeline"]),
+        todos: todosRes.error ? prev.todos : ((todosRes.data ?? []) as FounderDashboardData["todos"]),
+        restaurantExtras: extRes.error
+          ? prev.restaurantExtras
+          : ((extRes.data ?? []) as FounderDashboardData["restaurantExtras"]),
+        restaurantTables: tablesRes.error
+          ? prev.restaurantTables
+          : ((tablesRes.data ?? []) as FounderDashboardData["restaurantTables"]),
+      }));
+    } catch {
+      setLoadError("Fehler beim Laden");
+    } finally {
+      setRefreshing(false);
     }
-    setData({
-      restaurants: (restaurantsRes.data ?? []) as FounderDashboardData["restaurants"],
-      scanEvents: (scansRes.data ?? []) as FounderDashboardData["scanEvents"],
-      pipeline: (pipelineRes.data ?? []) as FounderDashboardData["pipeline"],
-      todos: (todosRes.data ?? []) as FounderDashboardData["todos"],
-      restaurantExtras: (extRes.data ?? []) as FounderDashboardData["restaurantExtras"],
-      restaurantTables: (tablesRes.data ?? []) as FounderDashboardData["restaurantTables"],
-    });
   }
 
   async function handleLogout() {
@@ -210,13 +232,13 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
           restaurantExtras={data.restaurantExtras}
           restaurantTables={data.restaurantTables}
           isMobile={isMobile}
-          onRefresh={() => onRefresh()}
+          onRefresh={() => loadData()}
         />
       ) : null}
       {tab === "kontakte" ? (
-        <KontakteTab pipeline={data.pipeline} isMobile={isMobile} onRefresh={() => onRefresh()} />
+        <KontakteTab pipeline={data.pipeline} isMobile={isMobile} onRefresh={() => loadData()} />
       ) : null}
-      {tab === "todo" ? <TodoTab todos={data.todos} isMobile={isMobile} onRefresh={() => onRefresh()} /> : null}
+      {tab === "todo" ? <TodoTab todos={data.todos} isMobile={isMobile} onRefresh={() => loadData()} /> : null}
       {tab === "settings" && !isMobile ? (
         <div
           style={{
@@ -311,7 +333,8 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
           </div>
           <button
             type="button"
-            onClick={() => void onRefresh()}
+            disabled={refreshing}
+            onClick={() => void loadData()}
             style={{
               padding: "10px 14px",
               borderRadius: 10,
@@ -320,11 +343,12 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
               color: fp.mi,
               fontSize: 12,
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: refreshing ? "not-allowed" : "pointer",
               flexShrink: 0,
+              opacity: refreshing ? 0.7 : 1,
             }}
           >
-            Aktualisieren
+            {refreshing ? "Lädt…" : "Aktualisieren"}
           </button>
         </>
       ) : (
@@ -363,7 +387,8 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
             </span>
             <button
               type="button"
-              onClick={() => void onRefresh()}
+              disabled={refreshing}
+              onClick={() => void loadData()}
               style={{
                 padding: "10px 16px",
                 borderRadius: 10,
@@ -372,10 +397,11 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
                 color: fp.mi,
                 fontSize: 13,
                 fontWeight: 700,
-                cursor: "pointer",
+                cursor: refreshing ? "not-allowed" : "pointer",
+                opacity: refreshing ? 0.7 : 1,
               }}
             >
-              Aktualisieren
+              {refreshing ? "Lädt…" : "Aktualisieren"}
             </button>
           </div>
         </>
