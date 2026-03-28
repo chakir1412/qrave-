@@ -1,15 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import { supabase } from "@/lib/supabase";
 import type {
   FounderRestaurantExtRow,
   FounderRestaurantRow,
+  FounderRestaurantTableRow,
   FounderScanEventRow,
 } from "@/lib/founder-types";
 import { fp } from "../founder-palette";
 
-type SavePatch = {
+type UiStatus = "live" | "setup" | "pause";
+
+type Draft = {
   next_visit: string;
   last_visit: string;
   note: string;
@@ -22,11 +26,16 @@ type Props = {
   restaurants: FounderRestaurantRow[];
   scanEvents: FounderScanEventRow[];
   restaurantExtras: FounderRestaurantExtRow[];
-  saving: boolean;
-  onSaveExt: (restaurantId: string, patch: SavePatch) => Promise<void>;
+  restaurantTables: FounderRestaurantTableRow[];
+  isMobile: boolean;
+  onRefresh: () => Promise<void>;
 };
 
-type UiStatus = "live" | "setup" | "pause";
+const STICKER_TIERS = [
+  { key: "starter", label: "Starter" },
+  { key: "studio", label: "Studio" },
+  { key: "pro", label: "Pro" },
+] as const;
 
 function extForRestaurant(
   extras: FounderRestaurantExtRow[],
@@ -78,19 +87,23 @@ export function RestaurantsTab({
   restaurants,
   scanEvents,
   restaurantExtras,
-  saving,
-  onSaveExt,
+  restaurantTables,
+  isMobile,
+  onRefresh,
 }: Props) {
+  const [section, setSection] = useState<"liste" | "tische">("liste");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<SavePatch>({
-    next_visit: "",
-    last_visit: "",
-    note: "",
-    sticker_tier: "",
-    sticker_paid: false,
-    sticker_count: 0,
-  });
+  const [draftById, setDraftById] = useState<Record<string, Draft>>({});
+  const [pending, setPending] = useState(false);
+  const [tableRestaurantId, setTableRestaurantId] = useState<string>(() => restaurants[0]?.id ?? "");
+  const [newTischNr, setNewTischNr] = useState("");
+  const [newBereich, setNewBereich] = useState("");
+
+  useEffect(() => {
+    if (restaurants.length > 0 && !restaurants.some((r) => r.id === tableRestaurantId)) {
+      setTableRestaurantId(restaurants[0]!.id);
+    }
+  }, [restaurants, tableRestaurantId]);
 
   const scansByRestaurant = useMemo(() => {
     const m = new Map<string, number>();
@@ -107,185 +120,307 @@ export function RestaurantsTab({
     );
   }, [restaurants, scansByRestaurant]);
 
-  function openOverlay(r: FounderRestaurantRow) {
+  const tablesForRestaurant = useMemo(() => {
+    return restaurantTables.filter((t) => t.restaurant_id === tableRestaurantId).sort((a, b) => a.tisch_nummer - b.tisch_nummer);
+  }, [restaurantTables, tableRestaurantId]);
+
+  const run = useCallback(
+    async (op: PromiseLike<{ error: { message: string } | null }>) => {
+      setPending(true);
+      try {
+        const { error } = await Promise.resolve(op);
+        if (error) {
+          window.alert(error.message);
+          return;
+        }
+        await onRefresh();
+      } finally {
+        setPending(false);
+      }
+    },
+    [onRefresh],
+  );
+
+  function openDraft(r: FounderRestaurantRow) {
     const ex = extForRestaurant(restaurantExtras, r.id);
-    setOpenId(r.id);
-    setDraft({
+    const d: Draft = {
       next_visit: ex?.next_visit ?? "",
       last_visit: ex?.last_visit ?? "",
-      note: ex?.note ?? "",
-      sticker_tier: ex?.sticker_tier ?? "",
+      note: ex?.note ?? r.notizen ?? "",
+      sticker_tier: (ex?.sticker_tier ?? "").toLowerCase() || "starter",
       sticker_paid: ex?.sticker_paid ?? false,
-      sticker_count: ex?.sticker_count ?? 0,
-    });
+      sticker_count: ex?.sticker_count ?? r.sticker_anzahl ?? 0,
+    };
+    setDraftById((prev) => ({ ...prev, [r.id]: d }));
+    setExpandedId((cur) => (cur === r.id ? null : r.id));
   }
 
-  async function submitOverlay() {
-    if (!openId) return;
-    await onSaveExt(openId, draft);
-    setOpenId(null);
+  function setDraft(restaurantId: string, patch: Partial<Draft>) {
+    setDraftById((prev) => ({
+      ...prev,
+      [restaurantId]: { ...prev[restaurantId]!, ...patch },
+    }));
   }
 
-  function toggleExpand(id: string) {
-    setExpandedId((cur) => (cur === id ? null : id));
-  }
+  const pad = isMobile ? 14 : 18;
 
-  const overlay = openId ? (
-    <div
-      className="fixed inset-0 z-[300] flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0,0,0,0.75)" }}
-      role="presentation"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="Schließen"
-        onClick={() => !saving && setOpenId(null)}
-      />
-      <div
-        className="relative z-10 w-full max-w-md overflow-hidden"
-        style={{ ...cardShell, padding: 22 }}
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: fp.tx }}>Restaurant-Notizen</h3>
+  const subNav = (
+    <div className="flex gap-2" style={{ marginBottom: 16 }}>
+      {(
+        [
+          { id: "liste" as const, label: "Restaurants" },
+          { id: "tische" as const, label: "Tische" },
+        ] as const
+      ).map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          onClick={() => setSection(s.id)}
+          style={{
+            padding: "10px 18px",
+            borderRadius: 12,
+            border: `1px solid ${section === s.id ? fp.or : fp.line}`,
+            background: section === s.id ? "rgba(255,92,26,0.12)" : "transparent",
+            color: section === s.id ? fp.or : fp.mu,
+            fontWeight: 800,
+            fontSize: 13,
+            cursor: "pointer",
+          }}
+        >
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (section === "tische") {
+    return (
+      <div className="pb-6">
+        {subNav}
+        <div style={{ ...cardShell, padding: pad }}>
+          <label style={{ fontSize: 11, fontWeight: 700, color: fp.mu }}>
+            Restaurant
+            <select
+              value={tableRestaurantId}
+              onChange={(e) => setTableRestaurantId(e.target.value)}
+              style={{ ...inputStyle, cursor: "pointer" }}
+            >
+              {restaurants.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="mt-4 grid gap-3" style={{ gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: fp.mu }}>
+              Tisch-Nummer
+              <input
+                type="number"
+                min={1}
+                value={newTischNr}
+                onChange={(e) => setNewTischNr(e.target.value)}
+                style={inputStyle}
+              />
+            </label>
+            <label style={{ fontSize: 11, fontWeight: 700, color: fp.mu }}>
+              Bereich
+              <input value={newBereich} onChange={(e) => setNewBereich(e.target.value)} style={inputStyle} />
+            </label>
+          </div>
           <button
             type="button"
-            disabled={saving}
-            onClick={() => setOpenId(null)}
+            disabled={pending || !tableRestaurantId}
+            onClick={() => {
+              const n = Number.parseInt(newTischNr, 10);
+              if (!Number.isFinite(n) || n < 1) {
+                window.alert("Bitte gültige Tisch-Nummer eingeben.");
+                return;
+              }
+              void run(
+                supabase.from("restaurant_tables").insert({
+                  restaurant_id: tableRestaurantId,
+                  tisch_nummer: n,
+                  bereich: newBereich.trim() || null,
+                }),
+              ).then(() => {
+                setNewTischNr("");
+                setNewBereich("");
+              });
+            }}
             style={{
-              border: `1px solid ${fp.line}`,
-              background: "transparent",
-              color: fp.mu,
-              borderRadius: 8,
-              padding: "6px 10px",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: saving ? "not-allowed" : "pointer",
+              marginTop: 14,
+              padding: "10px 16px",
+              borderRadius: 12,
+              border: "none",
+              fontWeight: 800,
+              fontSize: 13,
+              color: "#fff",
+              cursor: pending ? "not-allowed" : "pointer",
+              background: `linear-gradient(135deg, ${fp.or}, #ff8c4a)`,
             }}
           >
-            Schließen
+            Tisch hinzufügen
           </button>
+
+          <div className="flex flex-wrap gap-2" style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              disabled={pending || tablesForRestaurant.length === 0}
+              onClick={() => {
+                const lines = tablesForRestaurant.map((t) => t.qr_url ?? "").filter(Boolean);
+                void navigator.clipboard.writeText(lines.join("\n"));
+              }}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 12,
+                border: `1px solid ${fp.line}`,
+                fontWeight: 700,
+                fontSize: 13,
+                color: fp.mi,
+                cursor: pending || tablesForRestaurant.length === 0 ? "not-allowed" : "pointer",
+                background: "rgba(255,255,255,0.04)",
+              }}
+            >
+              Alle QR-URLs kopieren
+            </button>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-2">
+            {tablesForRestaurant.length === 0 ? (
+              <p style={{ color: fp.mu, fontSize: 13 }}>Keine Tische für dieses Restaurant.</p>
+            ) : null}
+            {tablesForRestaurant.map((tb) => (
+              <div
+                key={tb.id}
+                style={{
+                  border: `1px solid ${fp.line}`,
+                  borderRadius: 12,
+                  padding: 12,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div className="min-w-0">
+                  <div style={{ fontWeight: 800, color: fp.tx }}>
+                    Tisch {tb.tisch_nummer}
+                    {tb.bereich ? (
+                      <span style={{ color: fp.mu, fontWeight: 600 }}> · {tb.bereich}</span>
+                    ) : null}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: fp.mi,
+                      marginTop: 4,
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {tb.qr_url ?? "—"}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: fp.mi }}>
+                    <input
+                      type="checkbox"
+                      checked={tb.nfc_programmiert}
+                      disabled={pending}
+                      onChange={(e) =>
+                        void run(
+                          supabase
+                            .from("restaurant_tables")
+                            .update({ nfc_programmiert: e.target.checked })
+                            .eq("id", tb.id),
+                        )
+                      }
+                      style={{ accentColor: fp.or }}
+                    />
+                    NFC
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: fp.mi }}>
+                    <input
+                      type="checkbox"
+                      checked={tb.sticker_angebracht}
+                      disabled={pending}
+                      onChange={(e) =>
+                        void run(
+                          supabase
+                            .from("restaurant_tables")
+                            .update({ sticker_angebracht: e.target.checked })
+                            .eq("id", tb.id),
+                        )
+                      }
+                      style={{ accentColor: fp.green }}
+                    />
+                    Sticker
+                  </label>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => void run(supabase.from("restaurant_tables").delete().eq("id", tb.id))}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: fp.red,
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Löschen
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: fp.mu }}>
-          Nächster Besuch
-          <input
-            value={draft.next_visit}
-            onChange={(e) => setDraft((d) => ({ ...d, next_visit: e.target.value }))}
-            style={inputStyle}
-            placeholder="z. B. 2026-04-01"
-          />
-        </label>
-        <label style={{ display: "block", marginTop: 12, fontSize: 11, fontWeight: 700, color: fp.mu }}>
-          Letzter Besuch
-          <input
-            value={draft.last_visit}
-            onChange={(e) => setDraft((d) => ({ ...d, last_visit: e.target.value }))}
-            style={inputStyle}
-          />
-        </label>
-        <label style={{ display: "block", marginTop: 12, fontSize: 11, fontWeight: 700, color: fp.mu }}>
-          Notiz
-          <textarea
-            value={draft.note}
-            onChange={(e) => setDraft((d) => ({ ...d, note: e.target.value }))}
-            rows={3}
-            style={{ ...inputStyle, resize: "none" as const }}
-          />
-        </label>
-        <label style={{ display: "block", marginTop: 12, fontSize: 11, fontWeight: 700, color: fp.mu }}>
-          Sticker-Tier
-          <input
-            value={draft.sticker_tier}
-            onChange={(e) => setDraft((d) => ({ ...d, sticker_tier: e.target.value }))}
-            style={inputStyle}
-          />
-        </label>
-        <label
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginTop: 14,
-            fontSize: 13,
-            color: fp.tx,
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={draft.sticker_paid}
-            onChange={(e) => setDraft((d) => ({ ...d, sticker_paid: e.target.checked }))}
-            style={{ width: 18, height: 18, accentColor: fp.or }}
-          />
-          Sticker bezahlt
-        </label>
-        <label style={{ display: "block", marginTop: 12, fontSize: 11, fontWeight: 700, color: fp.mu }}>
-          Sticker-Anzahl
-          <input
-            type="number"
-            min={0}
-            value={draft.sticker_count}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, sticker_count: Number.parseInt(e.target.value, 10) || 0 }))
-            }
-            style={inputStyle}
-          />
-        </label>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void submitOverlay()}
-          style={{
-            marginTop: 20,
-            width: "100%",
-            padding: "12px 16px",
-            borderRadius: 12,
-            border: "none",
-            fontWeight: 800,
-            fontSize: 14,
-            color: "#fff",
-            cursor: saving ? "not-allowed" : "pointer",
-            opacity: saving ? 0.6 : 1,
-            background: `linear-gradient(135deg, ${fp.or}, #ff8c4a)`,
-            boxShadow: `0 8px 24px ${fp.or}44`,
-          }}
-        >
-          {saving ? "Speichert …" : "Speichern"}
-        </button>
       </div>
-    </div>
-  ) : null;
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3 pb-6">
+      {subNav}
       {sorted.map((r) => {
-        const ex = extForRestaurant(restaurantExtras, r.id);
         const scans7d = scansByRestaurant.get(r.id) ?? 0;
         const expanded = expandedId === r.id;
         const st = restaurantUiStatus(r);
         const pill = statusPillStyle(st);
-        const notePreview = (ex?.note ?? r.notizen ?? "").trim();
+        const draft = draftById[r.id];
 
         return (
-          <div key={r.id} style={{ ...cardShell, overflow: "hidden" }}>
+          <div key={r.id} style={{ ...cardShell, overflow: "hidden", padding: 0 }}>
             <button
               type="button"
-              onClick={() => toggleExpand(r.id)}
-              className="flex w-full items-center gap-4 p-4 text-left"
-              style={{ background: "transparent", border: "none", cursor: "pointer", color: "inherit" }}
+              onClick={() => {
+                if (!expanded) openDraft(r);
+                else setExpandedId(null);
+              }}
+              className="flex w-full items-center gap-4 text-left"
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "inherit",
+                padding: pad,
+              }}
             >
               <div
                 style={{
-                  width: 48,
-                  height: 48,
+                  width: isMobile ? 44 : 48,
+                  height: isMobile ? 44 : 48,
                   borderRadius: 9999,
                   flexShrink: 0,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 18,
+                  fontSize: isMobile ? 16 : 18,
                   fontWeight: 800,
                   background: "rgba(255,92,26,0.2)",
                   color: fp.or,
@@ -294,7 +429,7 @@ export function RestaurantsTab({
                 {initialLetter(r.name)}
               </div>
               <div className="min-w-0 flex-1">
-                <div style={{ fontWeight: 800, fontSize: 15, color: fp.tx }}>{r.name}</div>
+                <div style={{ fontWeight: 800, fontSize: isMobile ? 14 : 15, color: fp.tx }}>{r.name}</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span style={{ fontSize: 12, color: fp.mu }}>{r.stadt ?? "—"}</span>
                   <span
@@ -315,75 +450,134 @@ export function RestaurantsTab({
                 <div style={{ fontSize: 10, fontWeight: 700, color: fp.mu, textTransform: "uppercase" }}>
                   Scans/Wo
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: fp.blue, fontVariantNumeric: "tabular-nums" }}>
+                <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 800, color: fp.blue, fontVariantNumeric: "tabular-nums" }}>
                   {scans7d}
                 </div>
                 <div style={{ fontSize: 11, color: fp.or, fontWeight: 700 }}>{expanded ? "▲" : "▼"}</div>
               </div>
             </button>
-            {expanded ? (
-              <div style={{ borderTop: `1px solid ${fp.line}`, padding: "16px 18px 18px" }}>
-                <div className="grid grid-cols-2 gap-3">
-                  <div
-                    style={{
-                      borderRadius: 12,
-                      border: `1px solid ${fp.line}`,
-                      background: "rgba(0,0,0,0.2)",
-                      padding: "12px 14px",
-                      textAlign: "center",
-                    }}
-                  >
-                    <div style={{ fontSize: 11, color: fp.mu }}>Sticker</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: fp.tx, fontVariantNumeric: "tabular-nums" }}>
-                      {ex?.sticker_count ?? r.sticker_anzahl ?? 0}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      borderRadius: 12,
-                      border: `1px solid ${fp.line}`,
-                      background: "rgba(0,0,0,0.2)",
-                      padding: "12px 14px",
-                      textAlign: "center",
-                    }}
-                  >
-                    <div style={{ fontSize: 11, color: fp.mu }}>Nächster Besuch</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: fp.mi, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {ex?.next_visit?.trim() || "—"}
-                    </div>
-                  </div>
+            {expanded && draft ? (
+              <div style={{ borderTop: `1px solid ${fp.line}`, padding: pad }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: fp.mu }}>
+                  Nächster Besuch
+                  <input
+                    value={draft.next_visit}
+                    onChange={(e) => setDraft(r.id, { next_visit: e.target.value })}
+                    style={inputStyle}
+                  />
+                </label>
+                <label style={{ display: "block", marginTop: 12, fontSize: 11, fontWeight: 700, color: fp.mu }}>
+                  Letzter Besuch
+                  <input
+                    value={draft.last_visit}
+                    onChange={(e) => setDraft(r.id, { last_visit: e.target.value })}
+                    style={inputStyle}
+                  />
+                </label>
+                <label style={{ display: "block", marginTop: 12, fontSize: 11, fontWeight: 700, color: fp.mu }}>
+                  Notiz
+                  <textarea
+                    value={draft.note}
+                    onChange={(e) => setDraft(r.id, { note: e.target.value })}
+                    rows={3}
+                    style={{ ...inputStyle, resize: "none" as const }}
+                  />
+                </label>
+                <p style={{ margin: "14px 0 6px", fontSize: 11, fontWeight: 700, color: fp.mu }}>Sticker-Tier</p>
+                <div className="flex flex-wrap gap-2">
+                  {STICKER_TIERS.map((tier) => (
+                    <button
+                      key={tier.key}
+                      type="button"
+                      onClick={() => setDraft(r.id, { sticker_tier: tier.key })}
+                      style={{
+                        padding: "8px 14px",
+                        borderRadius: 10,
+                        border: `1px solid ${draft.sticker_tier === tier.key ? fp.or : fp.line}`,
+                        background: draft.sticker_tier === tier.key ? "rgba(255,92,26,0.12)" : "transparent",
+                        color: draft.sticker_tier === tier.key ? fp.or : fp.mi,
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {tier.label}
+                    </button>
+                  ))}
                 </div>
-                {notePreview ? (
-                  <p style={{ margin: "14px 0 0", fontSize: 13, lineHeight: 1.5, color: fp.mi }}>{notePreview}</p>
-                ) : (
-                  <p style={{ margin: "14px 0 0", fontSize: 12, fontStyle: "italic", color: fp.mu }}>Keine Notiz</p>
-                )}
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    marginTop: 14,
+                    fontSize: 13,
+                    color: fp.tx,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={draft.sticker_paid}
+                    onChange={(e) => setDraft(r.id, { sticker_paid: e.target.checked })}
+                    style={{ width: 18, height: 18, accentColor: fp.or }}
+                  />
+                  Sticker bezahlt
+                </label>
+                <label style={{ display: "block", marginTop: 12, fontSize: 11, fontWeight: 700, color: fp.mu }}>
+                  Sticker-Anzahl
+                  <input
+                    type="number"
+                    min={0}
+                    value={draft.sticker_count}
+                    onChange={(e) =>
+                      setDraft(r.id, { sticker_count: Number.parseInt(e.target.value, 10) || 0 })
+                    }
+                    style={inputStyle}
+                  />
+                </label>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => openOverlay(r)}
+                    disabled={pending}
+                    onClick={() =>
+                      void run(
+                        supabase.from("founder_restaurants").upsert(
+                          {
+                            restaurant_id: r.id,
+                            next_visit: draft.next_visit.trim() || null,
+                            last_visit: draft.last_visit.trim() || null,
+                            note: draft.note.trim() || null,
+                            sticker_tier: draft.sticker_tier.trim() || null,
+                            sticker_paid: draft.sticker_paid,
+                            sticker_count: draft.sticker_count,
+                            updated_at: new Date().toISOString(),
+                          },
+                          { onConflict: "restaurant_id" },
+                        ),
+                      )
+                    }
                     style={{
                       flex: 1,
-                      minWidth: 120,
-                      padding: "10px 14px",
+                      minWidth: 140,
+                      padding: "12px 16px",
                       borderRadius: 12,
                       border: "none",
                       fontWeight: 800,
-                      fontSize: 13,
+                      fontSize: 14,
                       color: "#fff",
-                      cursor: "pointer",
+                      cursor: pending ? "not-allowed" : "pointer",
                       background: `linear-gradient(135deg, ${fp.or}, #ff8c4a)`,
                       boxShadow: `0 6px 20px ${fp.or}40`,
                     }}
                   >
-                    Bearbeiten
+                    Speichern
                   </button>
                   <a
                     href={`/${r.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      padding: "10px 14px",
+                      padding: "12px 16px",
                       borderRadius: 12,
                       border: `1px solid ${fp.line}`,
                       fontWeight: 700,
@@ -392,7 +586,6 @@ export function RestaurantsTab({
                       textDecoration: "none",
                       display: "inline-flex",
                       alignItems: "center",
-                      justifyContent: "center",
                     }}
                   >
                     Speisekarte
@@ -403,7 +596,6 @@ export function RestaurantsTab({
           </div>
         );
       })}
-      {overlay}
     </div>
   );
 }

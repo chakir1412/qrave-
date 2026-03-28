@@ -33,7 +33,7 @@ export default async function FounderPage() {
   }
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const [restaurantsRes, scansRes, pipelineRes, todosRes, extRes] = await Promise.all([
+  const [restaurantsRes, scansRes, pipelineRes, todosRes, extRes, tablesRes] = await Promise.all([
     supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
     supabase
       .from("scan_events")
@@ -46,7 +46,23 @@ export default async function FounderPage() {
     supabase.from("founder_pipeline").select("*").order("added_at", { ascending: false }),
     supabase.from("founder_todos").select("*").order("created_at", { ascending: false }),
     supabase.from("founder_restaurants").select("*"),
+    supabase
+      .from("restaurant_tables")
+      .select("id, restaurant_id, tisch_nummer, bereich, qr_url, nfc_programmiert, sticker_angebracht, created_at")
+      .order("restaurant_id", { ascending: true })
+      .order("tisch_nummer", { ascending: true }),
   ]);
+
+  const initErrors = [
+    restaurantsRes.error,
+    scansRes.error,
+    pipelineRes.error,
+    todosRes.error,
+    extRes.error,
+    tablesRes.error,
+  ]
+    .filter((x) => x)
+    .map((x) => x?.message ?? "");
 
   const data: FounderDashboardData = {
     restaurants: (restaurantsRes.data ?? []) as FounderDashboardData["restaurants"],
@@ -54,7 +70,8 @@ export default async function FounderPage() {
     pipeline: (pipelineRes.data ?? []) as FounderDashboardData["pipeline"],
     todos: (todosRes.data ?? []) as FounderDashboardData["todos"],
     restaurantExtras: (extRes.data ?? []) as FounderDashboardData["restaurantExtras"],
+    restaurantTables: (tablesRes.data ?? []) as FounderDashboardData["restaurantTables"],
   };
 
-  return <FounderDashboard data={data} />;
+  return <FounderDashboard data={data} initialLoadError={initErrors.length > 0 ? initErrors.join(" · ") : null} />;
 }

@@ -9,8 +9,8 @@ export const fp = {
   yellow: "#FFD426",
   red: "#FF4B6E",
   tx: "rgba(255,255,255,0.92)",
-  mu: "rgba(255,255,255,0.42)",
+  mu: "rgba(255,255,255,0.35)",
   mi: "rgba(255,255,255,0.62)",
-  line: "rgba(255,255,255,0.08)",
+  line: "rgba(255,255,255,0.07)",
   line2: "rgba(255,255,255,0.12)",
 } as const;

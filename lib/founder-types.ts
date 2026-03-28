@@ -64,10 +64,23 @@ export type FounderWerbepartnerRow = {
   created_at: string;
 };
 
+/** Founder-Tisch-QR (Migration restaurant_tables). */
+export type FounderRestaurantTableRow = {
+  id: string;
+  restaurant_id: string;
+  tisch_nummer: number;
+  bereich: string | null;
+  qr_url: string | null;
+  nfc_programmiert: boolean;
+  sticker_angebracht: boolean;
+  created_at: string;
+};
+
 export type FounderDashboardData = {
   restaurants: FounderRestaurantRow[];
   scanEvents: FounderScanEventRow[];
   pipeline: FounderPipelineRow[];
   todos: FounderTodoRow[];
   restaurantExtras: FounderRestaurantExtRow[];
+  restaurantTables: FounderRestaurantTableRow[];
 };

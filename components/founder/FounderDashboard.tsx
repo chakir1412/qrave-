@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconTodo,
 } from "./founder-sidebar-icons";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { RestaurantsTab } from "./tabs/RestaurantsTab";
 import { KontakteTab } from "./tabs/KontakteTab";
@@ -22,21 +23,32 @@ import { TodoTab } from "./tabs/TodoTab";
 
 type Props = {
   data: FounderDashboardData;
+  initialLoadError?: string | null;
 };
 
-const SIDEBAR_W = 64;
+const PHASE_LIVE_TARGET = 50;
 
 const tabs: {
   id: FounderMainTab;
   label: string;
-  Icon: (p: { active: boolean }) => ReactElement;
+  navMobile: string;
+  Icon: (p: { active: boolean; size?: number }) => ReactElement;
 }[] = [
-  { id: "overview", label: "Übersicht", Icon: IconOverview },
-  { id: "restaurants", label: "Restaurants", Icon: IconRestaurants },
-  { id: "kontakte", label: "Kontakte", Icon: IconKontakte },
-  { id: "todo", label: "To-Do", Icon: IconTodo },
-  { id: "settings", label: "Einstellungen", Icon: IconSettings },
+  { id: "overview", label: "Übersicht", navMobile: "Übersicht", Icon: IconOverview },
+  { id: "restaurants", label: "Restaurants", navMobile: "Restaurants", Icon: IconRestaurants },
+  { id: "kontakte", label: "Kontakte", navMobile: "Kontakte", Icon: IconKontakte },
+  { id: "todo", label: "To-Do", navMobile: "To-Do", Icon: IconTodo },
+  { id: "settings", label: "Einstellungen", navMobile: "⋯", Icon: IconSettings },
 ];
+
+const MOBILE_TAB_IDS: FounderMainTab[] = ["overview", "restaurants", "kontakte", "todo"];
+
+function greetingDE(): string {
+  const h = new Date().getHours();
+  if (h < 11) return "Guten Morgen";
+  if (h < 18) return "Guten Tag";
+  return "Guten Abend";
+}
 
 function formatFounderDate(): string {
   return new Date().toLocaleDateString("de-DE", {
@@ -47,30 +59,19 @@ function formatFounderDate(): string {
   });
 }
 
-const sidebarStyle: CSSProperties = {
-  position: "fixed",
-  left: 0,
-  top: 0,
-  zIndex: 50,
-  width: SIDEBAR_W,
-  height: "100vh",
-  background: fp.sidebar,
-  borderRight: `1px solid ${fp.line}`,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  paddingTop: 16,
-  paddingBottom: 16,
-  boxShadow: "4px 0 24px rgba(0,0,0,0.25)",
-};
-
-export function FounderDashboard({ data: initialData }: Props) {
+export function FounderDashboard({ data: initialData, initialLoadError = null }: Props) {
   const router = useRouter();
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const isTablet = useMediaQuery("(min-width: 768px) and (max-width: 1023px)");
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+
   const [tab, setTab] = useState<FounderMainTab>("overview");
   const [data, setData] = useState<FounderDashboardData>(initialData);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(initialLoadError);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  const sidebarW = isMobile ? 0 : isTablet ? 56 : 64;
+  const aktivLive = data.restaurants.filter((r) => r.aktiv).length;
 
   useEffect(() => {
     setData(initialData);
@@ -99,10 +100,16 @@ export function FounderDashboard({ data: initialData }: Props) {
     window.localStorage.setItem("founder-dashboard-tab", tab);
   }, [tab]);
 
-  async function loadData() {
+  useEffect(() => {
+    if (isMobile && tab === "settings") {
+      setTab("overview");
+    }
+  }, [isMobile, tab]);
+
+  async function onRefresh() {
     setLoadError(null);
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const [restaurantsRes, scansRes, pipelineRes, todosRes, extRes] = await Promise.all([
+    const [restaurantsRes, scansRes, pipelineRes, todosRes, extRes, tablesRes] = await Promise.all([
       supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
       supabase
         .from("scan_events")
@@ -115,8 +122,20 @@ export function FounderDashboard({ data: initialData }: Props) {
       supabase.from("founder_pipeline").select("*").order("added_at", { ascending: false }),
       supabase.from("founder_todos").select("*").order("created_at", { ascending: false }),
       supabase.from("founder_restaurants").select("*"),
+      supabase
+        .from("restaurant_tables")
+        .select("id, restaurant_id, tisch_nummer, bereich, qr_url, nfc_programmiert, sticker_angebracht, created_at")
+        .order("restaurant_id", { ascending: true })
+        .order("tisch_nummer", { ascending: true }),
     ]);
-    const errors = [restaurantsRes.error, scansRes.error, pipelineRes.error, todosRes.error, extRes.error]
+    const errors = [
+      restaurantsRes.error,
+      scansRes.error,
+      pipelineRes.error,
+      todosRes.error,
+      extRes.error,
+      tablesRes.error,
+    ]
       .filter((x) => x)
       .map((x) => x?.message ?? "");
     if (errors.length > 0) {
@@ -128,127 +147,8 @@ export function FounderDashboard({ data: initialData }: Props) {
       pipeline: (pipelineRes.data ?? []) as FounderDashboardData["pipeline"],
       todos: (todosRes.data ?? []) as FounderDashboardData["todos"],
       restaurantExtras: (extRes.data ?? []) as FounderDashboardData["restaurantExtras"],
+      restaurantTables: (tablesRes.data ?? []) as FounderDashboardData["restaurantTables"],
     });
-  }
-
-  async function saveRestaurantExt(
-    restaurantId: string,
-    patch: {
-      next_visit: string;
-      last_visit: string;
-      note: string;
-      sticker_tier: string;
-      sticker_paid: boolean;
-      sticker_count: number;
-    },
-  ) {
-    setBusy(true);
-    try {
-      const row = {
-        restaurant_id: restaurantId,
-        next_visit: patch.next_visit.trim() || null,
-        last_visit: patch.last_visit.trim() || null,
-        note: patch.note.trim() || null,
-        sticker_tier: patch.sticker_tier.trim() || null,
-        sticker_paid: patch.sticker_paid,
-        sticker_count: patch.sticker_count,
-        updated_at: new Date().toISOString(),
-      };
-      const { error } = await supabase.from("founder_restaurants").upsert(row, {
-        onConflict: "restaurant_id",
-      });
-      if (error) {
-        setLoadError(error.message);
-        return;
-      }
-      await loadData();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function addPipeline(entry: {
-    name: string;
-    contact: string;
-    phone: string;
-    area: string;
-    heat: string;
-    stage: string;
-  }) {
-    setBusy(true);
-    try {
-      const { error } = await supabase.from("founder_pipeline").insert({
-        name: entry.name,
-        contact: entry.contact || null,
-        phone: entry.phone || null,
-        area: entry.area || null,
-        heat: entry.heat,
-        stage: entry.stage,
-      });
-      if (error) {
-        setLoadError(error.message);
-        return;
-      }
-      await loadData();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function addWerbepartner(entry: {
-    name: string;
-    company: string;
-    contact: string;
-    phone: string;
-    mrr_monthly: number;
-  }) {
-    void entry;
-  }
-
-  async function toggleTodo(id: string, done: boolean) {
-    setBusy(true);
-    try {
-      const { error } = await supabase.from("founder_todos").update({ done }).eq("id", id);
-      if (error) {
-        setLoadError(error.message);
-        return;
-      }
-      await loadData();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function setTodoPrio(id: string, prio: "h" | "m" | "l") {
-    setBusy(true);
-    try {
-      const { error } = await supabase.from("founder_todos").update({ prio }).eq("id", id);
-      if (error) {
-        setLoadError(error.message);
-        return;
-      }
-      await loadData();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function addTodo(text: string, sub: string, prio: "h" | "m" | "l") {
-    setBusy(true);
-    try {
-      const { error } = await supabase.from("founder_todos").insert({
-        text,
-        sub: sub || null,
-        prio,
-      });
-      if (error) {
-        setLoadError(error.message);
-        return;
-      }
-      await loadData();
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function handleLogout() {
@@ -258,57 +158,66 @@ export function FounderDashboard({ data: initialData }: Props) {
 
   const currentLabel = tabs.find((t) => t.id === tab)?.label ?? "Übersicht";
 
+  const sidebarStyle: CSSProperties = {
+    position: "fixed",
+    left: 0,
+    top: 0,
+    zIndex: 50,
+    width: sidebarW,
+    height: "100vh",
+    background: fp.sidebar,
+    borderRight: `1px solid ${fp.line}`,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    paddingTop: isTablet ? 12 : 16,
+    paddingBottom: isTablet ? 12 : 16,
+    boxShadow: "4px 0 24px rgba(0,0,0,0.25)",
+  };
+
+  const navBtnSize = isTablet ? 44 : 48;
+  const logoBox = isTablet ? 36 : 40;
+
   const mainInner = (
     <>
       {loadError ? (
         <div
           style={{
-            marginBottom: 20,
-            padding: "14px 18px",
+            marginBottom: isMobile ? 14 : 20,
+            padding: isMobile ? "12px 14px" : "14px 18px",
             borderRadius: 14,
             border: `1px solid ${fp.red}55`,
             background: "rgba(255,75,110,0.1)",
             color: fp.red,
-            fontSize: 13,
+            fontSize: isMobile ? 12 : 13,
             lineHeight: 1.5,
           }}
         >
           {loadError}
-          <div style={{ marginTop: 8, color: fp.mu, fontSize: 12 }}>
-            Hast du die Founder-Migration in Supabase ausgeführt?
+          <div style={{ marginTop: 8, color: fp.mu, fontSize: 11 }}>
+            Tabelle <code style={{ color: fp.mi }}>restaurant_tables</code> ggf. per Migration anlegen.
           </div>
         </div>
       ) : null}
 
-      {tab === "overview" ? <OverviewTab data={data} /> : null}
+      {tab === "overview" ? (
+        <OverviewTab data={data} isMobile={isMobile} isTablet={isTablet} isDesktop={isDesktop} />
+      ) : null}
       {tab === "restaurants" ? (
         <RestaurantsTab
           restaurants={data.restaurants}
           scanEvents={data.scanEvents}
           restaurantExtras={data.restaurantExtras}
-          saving={busy}
-          onSaveExt={(id, p) => saveRestaurantExt(id, p)}
+          restaurantTables={data.restaurantTables}
+          isMobile={isMobile}
+          onRefresh={() => onRefresh()}
         />
       ) : null}
       {tab === "kontakte" ? (
-        <KontakteTab
-          pipeline={data.pipeline}
-          werbepartner={[]}
-          busy={busy}
-          onAddPipeline={(row) => addPipeline(row)}
-          onAddWerbepartner={(row) => addWerbepartner(row)}
-        />
+        <KontakteTab pipeline={data.pipeline} isMobile={isMobile} onRefresh={() => onRefresh()} />
       ) : null}
-      {tab === "todo" ? (
-        <TodoTab
-          todos={data.todos}
-          busy={busy}
-          onToggle={(id, done) => toggleTodo(id, done)}
-          onPrio={(id, prio) => setTodoPrio(id, prio)}
-          onAdd={(text, sub, prio) => addTodo(text, sub, prio)}
-        />
-      ) : null}
-      {tab === "settings" ? (
+      {tab === "todo" ? <TodoTab todos={data.todos} isMobile={isMobile} onRefresh={() => onRefresh()} /> : null}
+      {tab === "settings" && !isMobile ? (
         <div
           style={{
             background: fp.card,
@@ -321,7 +230,7 @@ export function FounderDashboard({ data: initialData }: Props) {
         >
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: fp.tx }}>Einstellungen</h2>
           <p style={{ margin: "12px 0 0", fontSize: 14, color: fp.mu, lineHeight: 1.55 }}>
-            Platzhalter für künftige Founder-Einstellungen (Benachrichtigungen, Exporte, API-Keys).
+            Platzhalter für künftige Founder-Einstellungen.
           </p>
           <p style={{ margin: "16px 0 0", fontSize: 13, color: fp.mi }}>
             Angemeldet als <strong style={{ color: fp.tx }}>{userEmail ?? "—"}</strong>
@@ -331,119 +240,130 @@ export function FounderDashboard({ data: initialData }: Props) {
     </>
   );
 
-  return (
+  const phasePill = (
     <div
       style={{
-        minHeight: "100vh",
-        fontFamily: "inherit",
-        color: fp.tx,
-        background: "transparent",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 12px",
+        borderRadius: 9999,
+        border: `1px solid ${fp.or}44`,
+        background: "rgba(255,92,26,0.1)",
+        marginTop: isMobile ? 8 : 10,
       }}
     >
-      <aside style={sidebarStyle} aria-label="Hauptnavigation">
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 12,
-            marginBottom: 20,
-            background: `linear-gradient(135deg, ${fp.or}, #ff8c4a)`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 900,
-            fontSize: 16,
-            color: "#fff",
-            boxShadow: `0 6px 20px ${fp.or}55`,
-          }}
-        >
-          Q
-        </div>
-        <nav className="flex flex-1 flex-col items-center gap-1" style={{ flex: 1 }}>
-          {tabs.map((t) => {
-            const active = tab === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                title={t.label}
-                aria-label={t.label}
-                aria-current={active ? "page" : undefined}
-                onClick={() => setTab(t.id)}
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 12,
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: active ? "rgba(255,92,26,0.15)" : "transparent",
-                  boxShadow: active ? `inset 0 0 0 1px ${fp.or}44` : "none",
-                }}
-              >
-                <t.Icon active={active} />
-              </button>
-            );
-          })}
-        </nav>
-        <button
-          type="button"
-          title="Abmelden"
-          aria-label="Abmelden"
-          onClick={() => void handleLogout()}
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            border: "none",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(255,75,110,0.08)",
-            marginTop: 8,
-          }}
-        >
-          <IconLogout />
-        </button>
-      </aside>
+      <span style={{ width: 6, height: 6, borderRadius: 9999, background: fp.or, boxShadow: `0 0 8px ${fp.or}` }} />
+      <span style={{ fontSize: 11, fontWeight: 800, color: fp.tx }}>Phase 1 — Frankfurt</span>
+      <span style={{ fontSize: 11, fontWeight: 800, color: fp.or, fontVariantNumeric: "tabular-nums" }}>
+        {aktivLive} / {PHASE_LIVE_TARGET}
+      </span>
+    </div>
+  );
 
-      <div style={{ marginLeft: SIDEBAR_W, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-        <header
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 40,
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16,
-            padding: "18px 28px",
-            borderBottom: `1px solid ${fp.line}`,
-            background: "rgba(12,12,15,0.85)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-          }}
-        >
-          <div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: fp.tx, letterSpacing: "-0.02em" }}>
+  const topbar = (
+    <header
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 40,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: isMobile ? "14px 16px" : isTablet ? "16px 20px" : "18px 28px",
+        borderBottom: `1px solid ${fp.line}`,
+        background: "rgba(12,12,15,0.9)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+      }}
+    >
+      {isMobile ? (
+        <>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                flexShrink: 0,
+                background: `linear-gradient(135deg, ${fp.or}, #ff8c4a)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 900,
+                fontSize: 15,
+                color: "#fff",
+              }}
+            >
+              Q
+            </div>
+            <div className="min-w-0">
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: fp.mu, textTransform: "uppercase" }}>
+                {greetingDE()}
+              </p>
+              <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 800, color: fp.tx, lineHeight: 1.2 }}>
+                Founder
+              </p>
+              {phasePill}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void onRefresh()}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: `1px solid ${fp.line}`,
+              background: "rgba(255,255,255,0.04)",
+              color: fp.mi,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            Aktualisieren
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="min-w-0 flex-1">
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: fp.mu, textTransform: "uppercase" }}>
+              {greetingDE()}
+            </p>
+            <h1
+              style={{
+                margin: "4px 0 0",
+                fontSize: isTablet ? 18 : 20,
+                fontWeight: 800,
+                color: fp.tx,
+                letterSpacing: "-0.02em",
+              }}
+            >
               {currentLabel}
             </h1>
             <p style={{ margin: "4px 0 0", fontSize: 12, color: fp.mu }}>{formatFounderDate()}</p>
+            {phasePill}
           </div>
-          <div className="flex items-center gap-3">
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             <span
-              className="hidden sm:inline"
-              style={{ fontSize: 12, color: fp.mu, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis" }}
+              style={{
+                fontSize: 12,
+                color: fp.mu,
+                maxWidth: 200,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                display: isTablet ? "none" : "block",
+              }}
             >
               {userEmail ?? ""}
             </span>
             <button
               type="button"
-              onClick={() => void loadData()}
+              onClick={() => void onRefresh()}
               style={{
                 padding: "10px 16px",
                 borderRadius: 10,
@@ -458,18 +378,167 @@ export function FounderDashboard({ data: initialData }: Props) {
               Aktualisieren
             </button>
           </div>
-        </header>
+        </>
+      )}
+    </header>
+  );
 
+  const bottomNav = isMobile ? (
+    <nav
+      style={{
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 60,
+        display: "flex",
+        justifyContent: "space-around",
+        alignItems: "stretch",
+        padding: "8px 6px calc(8px + env(safe-area-inset-bottom, 0px))",
+        borderTop: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(12,12,15,0.9)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        boxShadow: "0 -8px 32px rgba(0,0,0,0.35)",
+      }}
+      aria-label="Hauptnavigation"
+    >
+      {MOBILE_TAB_IDS.map((id) => {
+        const t = tabs.find((x) => x.id === id)!;
+        const active = tab === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              padding: "6px 4px",
+              border: "none",
+              borderRadius: 12,
+              cursor: "pointer",
+              background: active ? "rgba(255,92,26,0.12)" : "transparent",
+              color: active ? fp.or : fp.mu,
+            }}
+            aria-current={active ? "page" : undefined}
+          >
+            <t.Icon active={active} size={20} />
+            <span style={{ fontSize: 9, fontWeight: 800, textAlign: "center", lineHeight: 1.15, maxWidth: 72 }}>
+              {t.navMobile}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  ) : null;
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        fontFamily: "inherit",
+        color: fp.tx,
+        background: "transparent",
+        paddingBottom: isMobile ? "calc(72px + env(safe-area-inset-bottom, 0px))" : 0,
+      }}
+    >
+      {!isMobile ? (
+        <aside style={sidebarStyle} aria-label="Hauptnavigation">
+          <div
+            style={{
+              width: logoBox,
+              height: logoBox,
+              borderRadius: 12,
+              marginBottom: isTablet ? 14 : 20,
+              background: `linear-gradient(135deg, ${fp.or}, #ff8c4a)`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 900,
+              fontSize: isTablet ? 14 : 16,
+              color: "#fff",
+              boxShadow: `0 6px 20px ${fp.or}55`,
+            }}
+          >
+            Q
+          </div>
+          <nav className="flex flex-1 flex-col items-center gap-1" style={{ flex: 1 }}>
+            {tabs.map((t) => {
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  title={t.label}
+                  aria-label={t.label}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setTab(t.id)}
+                  style={{
+                    width: navBtnSize,
+                    height: navBtnSize,
+                    borderRadius: 12,
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: active ? "rgba(255,92,26,0.15)" : "transparent",
+                    boxShadow: active ? `inset 0 0 0 1px ${fp.or}44` : "none",
+                  }}
+                >
+                  <t.Icon active={active} size={isTablet ? 20 : 22} />
+                </button>
+              );
+            })}
+          </nav>
+          <button
+            type="button"
+            title="Abmelden"
+            aria-label="Abmelden"
+            onClick={() => void handleLogout()}
+            style={{
+              width: navBtnSize,
+              height: navBtnSize,
+              borderRadius: 12,
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(255,75,110,0.08)",
+              marginTop: 8,
+            }}
+          >
+            <IconLogout size={isTablet ? 20 : 22} />
+          </button>
+        </aside>
+      ) : null}
+
+      <div
+        style={{
+          marginLeft: isMobile ? 0 : sidebarW,
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {topbar}
         <main
           style={{
             flex: 1,
             overflow: "auto",
-            padding: "24px 28px 40px",
+            padding: isMobile ? "16px 14px 24px" : isTablet ? "20px 20px 32px" : "24px 28px 40px",
           }}
         >
           {mainInner}
         </main>
       </div>
+
+      {bottomNav}
     </div>
   );
 }
