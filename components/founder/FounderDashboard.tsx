@@ -1,53 +1,96 @@
 "use client";
 
-import { Roboto } from "next/font/google";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { FOUNDER_DESKTOP_MEDIA, useMediaQuery } from "@/hooks/useMediaQuery";
+import { useEffect, useState } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { supabase } from "@/lib/supabase";
 import type { FounderDashboardData } from "@/lib/founder-types";
 import type { FounderMainTab } from "./constants";
-import { founderDash, founderGlassCard } from "./constants";
+import { fp } from "./founder-palette";
+import {
+  IconKontakte,
+  IconLogout,
+  IconOverview,
+  IconRestaurants,
+  IconSettings,
+  IconTodo,
+} from "./founder-sidebar-icons";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { RestaurantsTab } from "./tabs/RestaurantsTab";
 import { KontakteTab } from "./tabs/KontakteTab";
 import { TodoTab } from "./tabs/TodoTab";
 
-const roboto = Roboto({
-  subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
-  display: "swap",
-});
-
 type Props = {
   data: FounderDashboardData;
 };
 
-const tabs: { id: FounderMainTab; label: string; icon: string }[] = [
-  { id: "overview", label: "Übersicht", icon: "📊" },
-  { id: "restaurants", label: "Restaurants", icon: "🏪" },
-  { id: "kontakte", label: "Kontakte", icon: "🤝" },
-  { id: "todo", label: "To-Do", icon: "✅" },
+const SIDEBAR_W = 64;
+
+const tabs: {
+  id: FounderMainTab;
+  label: string;
+  Icon: (p: { active: boolean }) => ReactElement;
+}[] = [
+  { id: "overview", label: "Übersicht", Icon: IconOverview },
+  { id: "restaurants", label: "Restaurants", Icon: IconRestaurants },
+  { id: "kontakte", label: "Kontakte", Icon: IconKontakte },
+  { id: "todo", label: "To-Do", Icon: IconTodo },
+  { id: "settings", label: "Einstellungen", Icon: IconSettings },
 ];
+
+function formatFounderDate(): string {
+  return new Date().toLocaleDateString("de-DE", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+const sidebarStyle: CSSProperties = {
+  position: "fixed",
+  left: 0,
+  top: 0,
+  zIndex: 50,
+  width: SIDEBAR_W,
+  height: "100vh",
+  background: fp.sidebar,
+  borderRight: `1px solid ${fp.line}`,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  paddingTop: 16,
+  paddingBottom: 16,
+  boxShadow: "4px 0 24px rgba(0,0,0,0.25)",
+};
 
 export function FounderDashboard({ data: initialData }: Props) {
   const router = useRouter();
-  const isDesktop = useMediaQuery(FOUNDER_DESKTOP_MEDIA);
   const [tab, setTab] = useState<FounderMainTab>("overview");
   const [data, setData] = useState<FounderDashboardData>(initialData);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
-  const navRef = useRef<HTMLDivElement>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     setData(initialData);
   }, [initialData]);
 
   useEffect(() => {
+    void supabase.auth.getUser().then(({ data: u }) => {
+      setUserEmail(u.user?.email ?? null);
+    });
+  }, []);
+
+  useEffect(() => {
     const stored = window.localStorage.getItem("founder-dashboard-tab");
-    if (stored === "overview" || stored === "restaurants" || stored === "kontakte" || stored === "todo") {
+    if (
+      stored === "overview" ||
+      stored === "restaurants" ||
+      stored === "kontakte" ||
+      stored === "todo" ||
+      stored === "settings"
+    ) {
       setTab(stored);
     }
   }, []);
@@ -55,17 +98,6 @@ export function FounderDashboard({ data: initialData }: Props) {
   useEffect(() => {
     window.localStorage.setItem("founder-dashboard-tab", tab);
   }, [tab]);
-
-  useEffect(() => {
-    if (!navOpen) return;
-    function onDoc(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setNavOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [navOpen]);
 
   async function loadData() {
     setLoadError(null);
@@ -224,25 +256,25 @@ export function FounderDashboard({ data: initialData }: Props) {
     router.replace("/founder/login");
   }
 
-  function selectTab(id: FounderMainTab) {
-    setTab(id);
-    setNavOpen(false);
-  }
+  const currentLabel = tabs.find((t) => t.id === tab)?.label ?? "Übersicht";
 
-  const tabContent = (
+  const mainInner = (
     <>
       {loadError ? (
         <div
-          className="mb-4 px-4 py-3 text-xs leading-relaxed"
           style={{
-            ...founderGlassCard,
-            borderColor: "rgba(255,75,110,0.35)",
-            background: "rgba(255,75,110,0.08)",
-            color: founderDash.re,
+            marginBottom: 20,
+            padding: "14px 18px",
+            borderRadius: 14,
+            border: `1px solid ${fp.red}55`,
+            background: "rgba(255,75,110,0.1)",
+            color: fp.red,
+            fontSize: 13,
+            lineHeight: 1.5,
           }}
         >
           {loadError}
-          <div className="mt-2" style={{ color: founderDash.mu }}>
+          <div style={{ marginTop: 8, color: fp.mu, fontSize: 12 }}>
             Hast du die Founder-Migration in Supabase ausgeführt?
           </div>
         </div>
@@ -276,287 +308,168 @@ export function FounderDashboard({ data: initialData }: Props) {
           onAdd={(text, sub, prio) => addTodo(text, sub, prio)}
         />
       ) : null}
+      {tab === "settings" ? (
+        <div
+          style={{
+            background: fp.card,
+            borderRadius: 16,
+            border: `1px solid ${fp.line}`,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+            padding: 28,
+            maxWidth: 560,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: fp.tx }}>Einstellungen</h2>
+          <p style={{ margin: "12px 0 0", fontSize: 14, color: fp.mu, lineHeight: 1.55 }}>
+            Platzhalter für künftige Founder-Einstellungen (Benachrichtigungen, Exporte, API-Keys).
+          </p>
+          <p style={{ margin: "16px 0 0", fontSize: 13, color: fp.mi }}>
+            Angemeldet als <strong style={{ color: fp.tx }}>{userEmail ?? "—"}</strong>
+          </p>
+        </div>
+      ) : null}
     </>
-  );
-
-  const refreshBtn = (
-    <button
-      type="button"
-      onClick={() => void loadData()}
-      className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition active:scale-[0.98]"
-      style={{
-        ...founderGlassCard,
-        borderRadius: 14,
-        color: founderDash.or,
-      }}
-    >
-      Aktualisieren
-    </button>
   );
 
   return (
     <div
-      className={`${roboto.className} relative min-h-screen`}
-      style={{ backgroundColor: founderDash.bg, color: founderDash.tx }}
+      style={{
+        minHeight: "100vh",
+        fontFamily: "inherit",
+        color: fp.tx,
+        background: "transparent",
+      }}
     >
-      <div className="founder-dash-aurora" aria-hidden>
-        <div className="founder-dash-al founder-dash-al1" />
-        <div className="founder-dash-al founder-dash-al2" />
-        <div className="founder-dash-al founder-dash-al3" />
-        <div className="founder-dash-al founder-dash-al4" />
-      </div>
-
-      {isDesktop ? (
-        <div className="flex min-h-screen">
-          <aside
-            className="fixed left-0 top-0 z-40 flex h-screen w-[220px] flex-col border-r px-3 py-5"
-            style={{
-              ...founderGlassCard,
-              borderRadius: 0,
-              borderTop: "none",
-              borderBottom: "none",
-              borderLeft: "none",
-              background: "rgba(7,8,24,0.65)",
-              borderColor: "rgba(255,255,255,0.11)",
-            }}
-          >
-            <div className="mb-8 flex justify-center px-2">
-              <Image
-                src="/qrave-logo.png"
-                alt="Qrave"
-                width={120}
-                height={36}
-                className="h-8 w-auto brightness-0 invert"
-                priority
-              />
-            </div>
-            <nav className="flex flex-col gap-1">
-              {tabs.map((t) => {
-                const active = tab === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => selectTab(t.id)}
-                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition"
-                    style={{
-                      backgroundColor: active ? founderDash.ord : "transparent",
-                      color: active ? founderDash.or : founderDash.mi,
-                      border: active ? `1px solid ${founderDash.orm}` : "1px solid transparent",
-                    }}
-                  >
-                    <span aria-hidden>{t.icon}</span>
-                    {t.label}
-                  </button>
-                );
-              })}
-            </nav>
-            <div className="flex-1" />
-            <div
-              className="mt-4 space-y-2 border-t pt-4"
-              style={{ borderColor: "rgba(255,255,255,0.11)" }}
-            >
-              <div className="px-2 text-xs font-semibold" style={{ color: founderDash.mi }}>
-                Chakir Q
-              </div>
+      <aside style={sidebarStyle} aria-label="Hauptnavigation">
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            marginBottom: 20,
+            background: `linear-gradient(135deg, ${fp.or}, #ff8c4a)`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 900,
+            fontSize: 16,
+            color: "#fff",
+            boxShadow: `0 6px 20px ${fp.or}55`,
+          }}
+        >
+          Q
+        </div>
+        <nav className="flex flex-1 flex-col items-center gap-1" style={{ flex: 1 }}>
+          {tabs.map((t) => {
+            const active = tab === t.id;
+            return (
               <button
+                key={t.id}
                 type="button"
-                onClick={() => void handleLogout()}
-                className="w-full rounded-xl py-2.5 text-xs font-bold"
+                title={t.label}
+                aria-label={t.label}
+                aria-current={active ? "page" : undefined}
+                onClick={() => setTab(t.id)}
                 style={{
-                  border: `1px solid ${founderDash.bo}`,
-                  color: founderDash.re,
-                  background: "rgba(255,75,110,0.08)",
+                  width: 48,
+                  height: 48,
+                  borderRadius: 12,
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: active ? "rgba(255,92,26,0.15)" : "transparent",
+                  boxShadow: active ? `inset 0 0 0 1px ${fp.or}44` : "none",
                 }}
               >
-                Abmelden
+                <t.Icon active={active} />
               </button>
-            </div>
-          </aside>
-          <main
-            className="min-h-screen flex-1"
-            style={{
-              paddingTop: "1.5rem",
-              paddingRight: "1.5rem",
-              paddingBottom: "2rem",
-              paddingLeft: "calc(220px + 1.5rem)",
-            }}
-          >
-            <div className="mx-auto w-full max-w-[1200px]">{tabContent}</div>
-          </main>
-        </div>
-      ) : (
-        <>
-          <div className="relative z-10 mx-auto max-w-[430px] px-4 pb-28 pt-4">
-            <header ref={navRef} className="relative mb-3 flex items-center justify-between gap-2">
-              <div className="relative min-w-0">
-                <button
-                  type="button"
-                  onClick={() => setNavOpen((o) => !o)}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left"
-                  style={{ ...founderGlassCard, borderRadius: 16 }}
-                  aria-expanded={navOpen}
-                  aria-haspopup="true"
-                >
-                  <span className="truncate text-sm font-black" style={{ color: founderDash.tx }}>
-                    Chakir Q
-                  </span>
-                  <span className="ml-auto text-[10px] font-bold" style={{ color: founderDash.or }}>
-                    {navOpen ? "▲" : "▼"}
-                  </span>
-                </button>
-                {navOpen ? (
-                  <div
-                    className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden py-1"
-                    style={{ ...founderGlassCard, borderRadius: 16, padding: 6 }}
-                  >
-                    {tabs.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => selectTab(t.id)}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-bold"
-                        style={{
-                          backgroundColor: tab === t.id ? founderDash.ord : "transparent",
-                          color: tab === t.id ? founderDash.or : founderDash.mi,
-                        }}
-                      >
-                        <span aria-hidden>{t.icon}</span>
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-              {refreshBtn}
-            </header>
+            );
+          })}
+        </nav>
+        <button
+          type="button"
+          title="Abmelden"
+          aria-label="Abmelden"
+          onClick={() => void handleLogout()}
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(255,75,110,0.08)",
+            marginTop: 8,
+          }}
+        >
+          <IconLogout />
+        </button>
+      </aside>
 
-            <div
-              className="mb-4 flex items-center justify-center px-3 py-2 text-center text-[11px] font-bold tracking-wide"
-              style={{ ...founderGlassCard, borderRadius: 14, color: founderDash.ye }}
-            >
-              Phase 1 — Frankfurt
-            </div>
-
-            {tabContent}
+      <div style={{ marginLeft: SIDEBAR_W, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <header
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 40,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+            padding: "18px 28px",
+            borderBottom: `1px solid ${fp.line}`,
+            background: "rgba(12,12,15,0.85)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+          }}
+        >
+          <div>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: fp.tx, letterSpacing: "-0.02em" }}>
+              {currentLabel}
+            </h1>
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: fp.mu }}>{formatFounderDate()}</p>
           </div>
+          <div className="flex items-center gap-3">
+            <span
+              className="hidden sm:inline"
+              style={{ fontSize: 12, color: fp.mu, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis" }}
+            >
+              {userEmail ?? ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 10,
+                border: `1px solid ${fp.line}`,
+                background: "rgba(255,255,255,0.04)",
+                color: fp.mi,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Aktualisieren
+            </button>
+          </div>
+        </header>
 
-          <nav
-            className="fixed bottom-0 left-0 right-0 z-[100] border-t px-2 pt-2"
-            style={{
-              backgroundColor: "rgba(7,8,24,0.82)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              borderColor: "rgba(255,255,255,0.11)",
-              paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
-            }}
-          >
-            <div className="mx-auto flex max-w-[430px] items-stretch justify-between gap-1">
-              {tabs.map((t) => {
-                const active = tab === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTab(t.id)}
-                    className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl py-2 text-[10px] font-bold transition active:scale-[0.98]"
-                    style={{
-                      backgroundColor: active ? founderDash.ord : "transparent",
-                      color: active ? founderDash.or : founderDash.mu,
-                      border: active ? `1px solid ${founderDash.orm}` : "1px solid transparent",
-                    }}
-                  >
-                    <span className="text-base leading-none" aria-hidden>
-                      {t.icon}
-                    </span>
-                    <span className="truncate px-0.5">{t.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </nav>
-        </>
-      )}
-
-      <style jsx global>{`
-        .founder-dash-aurora {
-          position: fixed;
-          inset: 0;
-          z-index: -1;
-          pointer-events: none;
-          overflow: hidden;
-          background: #070818;
-        }
-        .founder-dash-al {
-          position: absolute;
-          inset: 0;
-          will-change: transform;
-        }
-        .founder-dash-al1 {
-          background: radial-gradient(
-            ellipse 120% 40% at 60% 20%,
-            rgba(255, 92, 26, 0.12) 0%,
-            transparent 70%
-          );
-          animation: founderDashAurora1 14s ease-in-out infinite alternate;
-        }
-        .founder-dash-al2 {
-          background: radial-gradient(
-            ellipse 100% 35% at 30% 50%,
-            rgba(91, 155, 255, 0.1) 0%,
-            transparent 68%
-          );
-          animation: founderDashAurora2 18s ease-in-out infinite alternate;
-        }
-        .founder-dash-al3 {
-          background: radial-gradient(
-            ellipse 90% 30% at 70% 70%,
-            rgba(52, 232, 158, 0.08) 0%,
-            transparent 65%
-          );
-          animation: founderDashAurora3 12s ease-in-out infinite alternate;
-        }
-        .founder-dash-al4 {
-          background: radial-gradient(
-            ellipse 80% 25% at 20% 80%,
-            rgba(255, 75, 110, 0.07) 0%,
-            transparent 62%
-          );
-          animation: founderDashAurora4 20s ease-in-out infinite alternate;
-        }
-        @keyframes founderDashAurora1 {
-          0% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          100% {
-            transform: translate3d(4%, 5%, 0) scale(1.08);
-          }
-        }
-        @keyframes founderDashAurora2 {
-          0% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          100% {
-            transform: translate3d(6%, -4%, 0) scale(1.06);
-          }
-        }
-        @keyframes founderDashAurora3 {
-          0% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          100% {
-            transform: translate3d(-5%, 3%, 0) scale(1.1);
-          }
-        }
-        @keyframes founderDashAurora4 {
-          0% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          100% {
-            transform: translate3d(5%, -6%, 0) scale(1.07);
-          }
-        }
-      `}</style>
+        <main
+          style={{
+            flex: 1,
+            overflow: "auto",
+            padding: "24px 28px 40px",
+          }}
+        >
+          {mainInner}
+        </main>
+      </div>
     </div>
   );
 }

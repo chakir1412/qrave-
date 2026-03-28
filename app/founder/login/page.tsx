@@ -61,14 +61,10 @@ export default function FounderLoginPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden" style={{ backgroundColor: ui.bg }}>
-      <div className="pointer-events-none absolute inset-0">
-        <div className="aurora aurora-a" />
-        <div className="aurora aurora-b" />
-        <div className="aurora aurora-c" />
-        <div className="aurora aurora-d" />
-      </div>
-
+    <main
+      className="relative min-h-screen"
+      style={{ backgroundColor: "transparent", background: "transparent" }}
+    >
       <div className="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col px-5 pb-8 pt-8">
         <div className="mb-7 flex flex-col items-center text-center">
           <img
@@ -93,8 +89,8 @@ export default function FounderLoginPage() {
           style={{
             backgroundColor: ui.glass,
             borderColor: ui.border,
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
+            backdropFilter: "blur(30px)",
+            WebkitBackdropFilter: "blur(30px)",
             boxShadow: "0 20px 80px rgba(0,0,0,0.45)",
           }}
         >
@@ -196,78 +192,6 @@ export default function FounderLoginPage() {
         </section>
       </div>
 
-      <style jsx>{`
-        .aurora {
-          position: absolute;
-          border-radius: 9999px;
-          filter: blur(58px);
-          opacity: 0.4;
-        }
-        .aurora-a {
-          width: 320px;
-          height: 320px;
-          left: -90px;
-          top: -70px;
-          background: rgba(255, 92, 26, 0.44);
-          animation: auroraA 18s ease-in-out infinite alternate;
-        }
-        .aurora-b {
-          width: 300px;
-          height: 300px;
-          right: -85px;
-          top: 8%;
-          background: rgba(120, 95, 255, 0.28);
-          animation: auroraB 23s ease-in-out infinite alternate;
-        }
-        .aurora-c {
-          width: 290px;
-          height: 290px;
-          left: 15%;
-          bottom: 8%;
-          background: rgba(255, 212, 38, 0.24);
-          animation: auroraC 20s ease-in-out infinite alternate;
-        }
-        .aurora-d {
-          width: 250px;
-          height: 250px;
-          right: 5%;
-          bottom: -40px;
-          background: rgba(255, 75, 110, 0.24);
-          animation: auroraD 25s ease-in-out infinite alternate;
-        }
-        @keyframes auroraA {
-          0% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          100% {
-            transform: translate3d(60px, 30px, 0) scale(1.18);
-          }
-        }
-        @keyframes auroraB {
-          0% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          100% {
-            transform: translate3d(-80px, 42px, 0) scale(1.22);
-          }
-        }
-        @keyframes auroraC {
-          0% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          100% {
-            transform: translate3d(35px, -45px, 0) scale(1.2);
-          }
-        }
-        @keyframes auroraD {
-          0% {
-            transform: translate3d(0, 0, 0) scale(1);
-          }
-          100% {
-            transform: translate3d(-30px, -55px, 0) scale(1.16);
-          }
-        }
-      `}</style>
     </main>
   );
 }

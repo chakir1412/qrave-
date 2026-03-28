@@ -74,7 +74,8 @@ export default function FounderAuthCallbackPage() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#070818",
+        background: "transparent",
+        backgroundColor: "transparent",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

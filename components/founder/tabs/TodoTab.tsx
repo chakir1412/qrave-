@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import type { FounderTodoRow } from "@/lib/founder-types";
-import { FOUNDER_DESKTOP_MEDIA, useMediaQuery } from "@/hooks/useMediaQuery";
-import { founderDash, founderGlassCard } from "../constants";
+import { fp } from "../founder-palette";
 
 type Prio = "h" | "m" | "l";
 
@@ -14,11 +14,11 @@ function nextPrio(p: string | null | undefined): Prio {
   return "h";
 }
 
-function prioLabel(p: string | null | undefined): string {
+function prioDotColor(p: string | null | undefined): string {
   const v = (p ?? "m").toLowerCase();
-  if (v === "h") return "Hoch";
-  if (v === "l") return "Niedrig";
-  return "Mittel";
+  if (v === "h") return fp.red;
+  if (v === "l") return "rgba(255,255,255,0.28)";
+  return fp.yellow;
 }
 
 type Props = {
@@ -29,8 +29,26 @@ type Props = {
   onAdd: (text: string, sub: string, prio: Prio) => Promise<void>;
 };
 
+const cardShell: CSSProperties = {
+  background: fp.card,
+  borderRadius: 16,
+  border: `1px solid ${fp.line}`,
+  boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+};
+
+const inputStyle: CSSProperties = {
+  width: "100%",
+  marginTop: 6,
+  padding: "10px 12px",
+  borderRadius: 10,
+  border: `1px solid ${fp.line}`,
+  background: "rgba(0,0,0,0.25)",
+  color: fp.tx,
+  fontSize: 13,
+  outline: "none",
+};
+
 export function TodoTab({ todos, busy, onToggle, onPrio, onAdd }: Props) {
-  const isDesktop = useMediaQuery(FOUNDER_DESKTOP_MEDIA);
   const [text, setText] = useState("");
   const [sub, setSub] = useState("");
   const [prio, setPrio] = useState<Prio>("m");
@@ -42,41 +60,33 @@ export function TodoTab({ todos, busy, onToggle, onPrio, onAdd }: Props) {
   });
 
   return (
-    <div
-      className={
-        isDesktop
-          ? "mx-auto flex w-full max-w-3xl flex-col gap-6 pb-4"
-          : "flex flex-col gap-4 pb-28"
-      }
-    >
-      <section className={isDesktop ? "p-6" : "p-4"} style={founderGlassCard}>
-        <h3 className="text-sm font-extrabold" style={{ color: founderDash.or }}>
-          Neues To-Do
-        </h3>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pb-6">
+      <div style={{ ...cardShell, padding: 22 }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: fp.or }}>Neues To-Do</h3>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Aufgabe"
-          className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none md:py-3 md:text-base"
-          style={{ backgroundColor: founderDash.s2, borderColor: founderDash.bo, color: founderDash.tx }}
+          style={{ ...inputStyle, marginTop: 14 }}
         />
         <input
           value={sub}
           onChange={(e) => setSub(e.target.value)}
           placeholder="Untertitel (optional)"
-          className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none md:py-3"
-          style={{ backgroundColor: founderDash.s2, borderColor: founderDash.bo, color: founderDash.tx }}
+          style={inputStyle}
         />
-        <select
-          value={prio}
-          onChange={(e) => setPrio(e.target.value as Prio)}
-          className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none md:py-3"
-          style={{ backgroundColor: founderDash.s2, borderColor: founderDash.bo, color: founderDash.tx }}
-        >
-          <option value="h">Priorität: Hoch</option>
-          <option value="m">Priorität: Mittel</option>
-          <option value="l">Priorität: Niedrig</option>
-        </select>
+        <label style={{ display: "block", marginTop: 12, fontSize: 11, fontWeight: 700, color: fp.mu }}>
+          Priorität
+          <select
+            value={prio}
+            onChange={(e) => setPrio(e.target.value as Prio)}
+            style={{ ...inputStyle, cursor: "pointer" }}
+          >
+            <option value="h">Hoch</option>
+            <option value="m">Mittel</option>
+            <option value="l">Niedrig</option>
+          </select>
+        </label>
         <button
           type="button"
           disabled={busy || !text.trim()}
@@ -87,64 +97,106 @@ export function TodoTab({ todos, busy, onToggle, onPrio, onAdd }: Props) {
               setPrio("m");
             })
           }
-          className="mt-4 w-full rounded-xl py-3 text-sm font-bold text-white disabled:opacity-50 md:py-3.5 md:text-base"
-          style={{ background: `linear-gradient(135deg, ${founderDash.or}, ${founderDash.or2})` }}
+          style={{
+            marginTop: 18,
+            width: "100%",
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "none",
+            fontWeight: 800,
+            fontSize: 14,
+            color: "#fff",
+            cursor: busy || !text.trim() ? "not-allowed" : "pointer",
+            opacity: busy || !text.trim() ? 0.5 : 1,
+            background: `linear-gradient(135deg, ${fp.or}, #ff8c4a)`,
+            boxShadow: `0 8px 24px ${fp.or}44`,
+          }}
         >
           Hinzufügen
         </button>
-      </section>
+      </div>
 
-      <div className={isDesktop ? "space-y-3" : "space-y-2"}>
-        {sorted.map((t) => (
-          <div
-            key={t.id}
-            className={isDesktop ? "flex gap-4 rounded-[20px] border p-4" : "flex gap-3 rounded-[20px] border p-3"}
-            style={{
-              ...founderGlassCard,
-              opacity: t.done ? 0.55 : 1,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => void onToggle(t.id, !t.done)}
-              className={`mt-0.5 flex shrink-0 items-center justify-center rounded-md border text-xs font-bold ${isDesktop ? "h-8 w-8 text-sm" : "h-6 w-6"}`}
-              style={{
-                borderColor: founderDash.orm,
-                color: t.done ? founderDash.gr : founderDash.mu,
-                backgroundColor: founderDash.s2,
-              }}
-              aria-label={t.done ? "Als offen markieren" : "Als erledigt markieren"}
-            >
-              {t.done ? "✓" : ""}
-            </button>
-            <div className="min-w-0 flex-1">
-              <div className={`font-semibold ${isDesktop ? "text-base" : ""}`} style={{ color: founderDash.tx }}>
-                {t.text}
-              </div>
-              {t.sub ? (
-                <div className={`text-xs ${isDesktop ? "mt-1 text-sm" : ""}`} style={{ color: founderDash.mu }}>
-                  {t.sub}
-                </div>
-              ) : null}
-              <div className={`mt-2 flex flex-wrap gap-2 ${isDesktop ? "mt-3" : ""}`}>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void onPrio(t.id, nextPrio(t.prio))}
-                  className={`rounded-lg border font-bold uppercase ${isDesktop ? "px-3 py-1.5 text-xs" : "px-2 py-1 text-[10px]"}`}
-                  style={{ borderColor: founderDash.bo, color: founderDash.or }}
-                >
-                  Prio: {prioLabel(t.prio)}
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+      <div style={{ ...cardShell, padding: "8px 0" }}>
         {sorted.length === 0 ? (
-          <p className="text-center text-xs" style={{ color: founderDash.mu }}>
-            Keine Todos.
-          </p>
+          <p style={{ padding: "20px 22px", margin: 0, color: fp.mu, fontSize: 14 }}>Keine To-Dos.</p>
         ) : null}
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {sorted.map((t) => (
+            <li
+              key={t.id}
+              style={{
+                borderBottom: `1px solid ${fp.line}`,
+                padding: "14px 18px",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 14,
+              }}
+            >
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void onToggle(t.id, !t.done)}
+                aria-label={t.done ? "Als offen markieren" : "Als erledigt markieren"}
+                style={{
+                  width: 22,
+                  height: 22,
+                  marginTop: 2,
+                  borderRadius: 6,
+                  border: `2px solid ${t.done ? fp.green : fp.line2}`,
+                  background: t.done ? fp.green : "transparent",
+                  cursor: busy ? "not-allowed" : "pointer",
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#0c0c0f",
+                  fontSize: 14,
+                  fontWeight: 900,
+                }}
+              >
+                {t.done ? "✓" : ""}
+              </button>
+              <span
+                title="Priorität wechseln"
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 9999,
+                  marginTop: 8,
+                  background: prioDotColor(t.prio),
+                  flexShrink: 0,
+                  cursor: busy ? "not-allowed" : "pointer",
+                  boxShadow: `0 0 10px ${prioDotColor(t.prio)}66`,
+                }}
+                role="button"
+                tabIndex={0}
+                onClick={() => !busy && void onPrio(t.id, nextPrio(t.prio))}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && !busy) {
+                    e.preventDefault();
+                    void onPrio(t.id, nextPrio(t.prio));
+                  }
+                }}
+              />
+              <div className="min-w-0 flex-1">
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: fp.tx,
+                    textDecoration: t.done ? "line-through" : "none",
+                    opacity: t.done ? 0.45 : 1,
+                  }}
+                >
+                  {t.text}
+                </div>
+                {t.sub ? (
+                  <div style={{ marginTop: 4, fontSize: 12, color: fp.mu }}>{t.sub}</div>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
