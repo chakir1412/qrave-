@@ -62,7 +62,7 @@ function heroScanLabel(range: OverviewScanRange): string {
     case "today":
       return "Scans (heute)";
     case "week":
-      return "Scans (7 Tage)";
+      return "QR Scans (7 Tage)";
     case "month":
       return "Scans (30 Tage)";
     case "year":
@@ -301,7 +301,7 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
         </div>
         <div style={cardStyle(pad)}>
           <p style={{ fontSize: kpiTitleFs, fontWeight: 700, letterSpacing: "0.06em", color: fp.mu, margin: 0 }}>
-            SCANS HEUTE
+            QR SCANS HEUTE
           </p>
           <p
             style={{

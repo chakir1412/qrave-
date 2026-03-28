@@ -16,12 +16,16 @@ export async function loadFounderDashboardData(
   const scanBase = () =>
     supabase.from("scan_events").select(SCAN_SELECT).order("created_at", { ascending: false }).limit(500);
 
-  const [r1, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl] = await Promise.all([
+  /** Nur echte QR/NFC-Scans für KPIs und Overview-Zeiträume. */
+  const scanBaseQr = () => scanBase().eq("event_type", "scan");
+
+  const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl] = await Promise.all([
     supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
-    scanBase().gte("created_at", todayStart),
     scanBase().gte("created_at", weekStart),
-    scanBase().gte("created_at", monthStart),
-    scanBase().gte("created_at", yearStart),
+    scanBaseQr().gte("created_at", todayStart),
+    scanBaseQr().gte("created_at", weekStart),
+    scanBaseQr().gte("created_at", monthStart),
+    scanBaseQr().gte("created_at", yearStart),
     supabase.from("founder_pipeline").select("*").order("added_at", { ascending: false }),
     supabase.from("founder_todos").select("*").order("created_at", { ascending: false }),
     supabase.from("founder_restaurants").select("*"),
@@ -37,6 +41,7 @@ export async function loadFounderDashboardData(
     if (r.error) errors.push(`${label}: ${r.error.message}`);
   };
   note(r1, "restaurants");
+  note(rAllWeek, "scan_events_all_week");
   note(rToday, "scan_events_today");
   note(rWeek, "scan_events_week");
   note(rMonth, "scan_events_month");
@@ -50,7 +55,7 @@ export async function loadFounderDashboardData(
 
   const data: FounderDashboardData = {
     restaurants: (r1.data ?? []) as FounderDashboardData["restaurants"],
-    scanEvents: scanEventsWeek,
+    scanEvents: (rAllWeek.data ?? []) as FounderDashboardData["scanEvents"],
     scanEventsToday: (rToday.data ?? []) as FounderDashboardData["scanEventsToday"],
     scanEventsWeek,
     scanEventsMonth: (rMonth.data ?? []) as FounderDashboardData["scanEventsMonth"],
