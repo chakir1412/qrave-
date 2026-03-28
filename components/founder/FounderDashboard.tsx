@@ -8,6 +8,7 @@ import type { FounderDashboardData } from "@/lib/founder-types";
 import type { FounderMainTab } from "./constants";
 import { fp } from "./founder-palette";
 import {
+  IconAnalytics,
   IconKontakte,
   IconLogout,
   IconOverview,
@@ -20,6 +21,7 @@ import { OverviewTab } from "./tabs/OverviewTab";
 import { RestaurantsTab } from "./tabs/RestaurantsTab";
 import { KontakteTab } from "./tabs/KontakteTab";
 import { TodoTab } from "./tabs/TodoTab";
+import { AnalyticsTab } from "./tabs/AnalyticsTab";
 
 type Props = {
   data: FounderDashboardData;
@@ -36,6 +38,7 @@ const tabs: {
 }[] = [
   { id: "overview", label: "Übersicht", navMobile: "Übersicht", Icon: IconOverview },
   { id: "restaurants", label: "Restaurants", navMobile: "Restaurants", Icon: IconRestaurants },
+  { id: "analytics", label: "Analytics", navMobile: "Analytics", Icon: IconAnalytics },
   { id: "kontakte", label: "Kontakte", navMobile: "Kontakte", Icon: IconKontakte },
   { id: "todo", label: "To-Do", navMobile: "To-Do", Icon: IconTodo },
   { id: "settings", label: "Einstellungen", navMobile: "⋯", Icon: IconSettings },
@@ -89,6 +92,7 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
     if (
       stored === "overview" ||
       stored === "restaurants" ||
+      stored === "analytics" ||
       stored === "kontakte" ||
       stored === "todo" ||
       stored === "settings"
@@ -102,7 +106,7 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
   }, [tab]);
 
   useEffect(() => {
-    if (isMobile && tab === "settings") {
+    if (isMobile && (tab === "settings" || tab === "analytics")) {
       setTab("overview");
     }
   }, [isMobile, tab]);
@@ -185,6 +189,13 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
           restaurantTables={data.restaurantTables}
           isMobile={isMobile}
           onRefresh={() => loadData()}
+        />
+      ) : null}
+      {tab === "analytics" && !isMobile ? (
+        <AnalyticsTab
+          data={data}
+          isTablet={isTablet}
+          isDesktop={isDesktop}
         />
       ) : null}
       {tab === "kontakte" ? (

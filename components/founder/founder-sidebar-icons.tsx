@@ -65,6 +65,17 @@ export function IconTodo({ active, size = 22 }: IconProps) {
   );
 }
 
+export function IconAnalytics({ active, size = 22 }: IconProps) {
+  const s = stroke(active);
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <line x1="18" y1="20" x2="18" y2="10" stroke={s} strokeWidth="2" strokeLinecap="round" />
+      <line x1="12" y1="20" x2="12" y2="4" stroke={s} strokeWidth="2" strokeLinecap="round" />
+      <line x1="6" y1="20" x2="6" y2="14" stroke={s} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconSettings({ active, size = 22 }: IconProps) {
   const s = stroke(active);
   return (

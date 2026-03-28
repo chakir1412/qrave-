@@ -43,4 +43,10 @@ export const founderDash = {
   ye: "#FFD426",
 } as const;
 
-export type FounderMainTab = "overview" | "restaurants" | "kontakte" | "todo" | "settings";
+export type FounderMainTab =
+  | "overview"
+  | "restaurants"
+  | "analytics"
+  | "kontakte"
+  | "todo"
+  | "settings";

@@ -169,6 +169,20 @@ const glassBtn: CSSProperties = {
   backdropFilter: "blur(8px)",
 };
 
+const glassActionBtn: CSSProperties = {
+  ...glassBtn,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+};
+
+const actionIconWrap: CSSProperties = {
+  display: "flex",
+  color: "rgba(255,255,255,0.6)",
+};
+
 const inputBase: CSSProperties = {
   width: "100%",
   padding: "12px 14px",
@@ -572,6 +586,45 @@ export function RestaurantsTab({
   );
 }
 
+function IconQrCodes() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <g stroke="currentColor" strokeWidth={2} strokeLinecap="round" fill="none">
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+        <path d="M14 14h1v1h-1z M16 14h1v1h-1z M14 16h1v1h-1z M16 16h3v3h-3z" />
+      </g>
+    </svg>
+  );
+}
+
+function IconAnalytics() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <polyline
+        points="22 12 18 12 15 21 9 3 6 12 2 12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconSticker() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <g stroke="currentColor" strokeWidth={2} strokeLinecap="round" fill="none">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+        <circle cx="12" cy="10" r="3" />
+      </g>
+    </svg>
+  );
+}
+
 function FilterChip({
   active,
   label,
@@ -877,14 +930,23 @@ function RestaurantCard({
           </div>
 
           <div className="flex flex-wrap gap-2" style={{ gap: 8 }}>
-            <button type="button" disabled={pending} onClick={onOpenTables} style={glassBtn}>
-              QR-Codes
+            <button type="button" disabled={pending} onClick={onOpenTables} style={glassActionBtn}>
+              <span style={actionIconWrap}>
+                <IconQrCodes />
+              </span>
+              <span>QR-Codes</span>
             </button>
-            <button type="button" disabled={pending} onClick={onOpenAnalytics} style={glassBtn}>
-              Analytics
+            <button type="button" disabled={pending} onClick={onOpenAnalytics} style={glassActionBtn}>
+              <span style={actionIconWrap}>
+                <IconAnalytics />
+              </span>
+              <span>Analytics</span>
             </button>
-            <button type="button" disabled={pending} onClick={onOpenStickerModal} style={glassBtn}>
-              Sticker
+            <button type="button" disabled={pending} onClick={onOpenStickerModal} style={glassActionBtn}>
+              <span style={actionIconWrap}>
+                <IconSticker />
+              </span>
+              <span>Sticker</span>
             </button>
           </div>
         </div>
