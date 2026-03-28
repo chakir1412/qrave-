@@ -49,6 +49,77 @@ export function prevBerlinYmd(ymd: string): string {
   return berlinYmd(new Date(t0 - 1));
 }
 
+/** Nächster Kalendertag (Europe/Berlin) zu `YYYY-MM-DD`. */
+export function nextBerlinYmd(ymd: string): string {
+  const startMs = new Date(startOfBerlinYmdUtcIso(ymd)).getTime();
+  for (let h = 20; h <= 30; h++) {
+    const y = berlinYmd(new Date(startMs + h * 60 * 60 * 1000));
+    if (y !== ymd) return y;
+  }
+  return berlinYmd(new Date(startMs + 48 * 60 * 60 * 1000));
+}
+
+/** Inklusive Tage von `fromYmd` bis `toYmd` (beide Europe/Berlin). */
+export function iterateBerlinDaysInclusive(fromYmd: string, toYmd: string): string[] {
+  const out: string[] = [];
+  let y = fromYmd;
+  for (let guard = 0; guard < 4000; guard++) {
+    out.push(y);
+    if (y === toYmd) break;
+    y = nextBerlinYmd(y);
+  }
+  return out;
+}
+
+/** Anzahl Kalendertage inklusive Endpunkte. */
+export function berlinDaySpanInclusive(fromYmd: string, toYmd: string): number {
+  return iterateBerlinDaysInclusive(fromYmd, toYmd).length;
+}
+
+/** Mo–So: Mo = 0 … So = 6 (Europe/Berlin, Mitternacht des Tags). */
+export function berlinWeekdayMon0(ymd: string): number {
+  const short = new Date(startOfBerlinYmdUtcIso(ymd)).toLocaleDateString("en-US", {
+    timeZone: "Europe/Berlin",
+    weekday: "short",
+  });
+  const map: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+  return map[short.slice(0, 3)] ?? 0;
+}
+
+/** Montag der Kalenderwoche (Europe/Berlin), die `ymd` enthält. */
+export function mondayBerlinYmdFromYmd(ymd: string): string {
+  const w = berlinWeekdayMon0(ymd);
+  let cur = ymd;
+  for (let i = 0; i < w; i++) {
+    cur = prevBerlinYmd(cur);
+  }
+  return cur;
+}
+
+/** Jahr und Monat (1–12) in Europe/Berlin für einen ISO-Zeitpunkt. */
+export function berlinYearMonthFromIso(iso: string): { y: number; m: number } {
+  const d = new Date(iso);
+  const y = Number(d.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin", year: "numeric" }));
+  const m = Number(d.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin", month: "numeric" }));
+  return { y, m };
+}
+
+/** Alle Kalendertage eines Monats (1–12) in Europe/Berlin. */
+export function iterateBerlinMonthDays(year: number, month1to12: number): string[] {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  let ymd = `${year}-${pad(month1to12)}-01`;
+  const out: string[] = [];
+  for (let guard = 0; guard < 35; guard++) {
+    const d = new Date(startOfBerlinYmdUtcIso(ymd));
+    const cy = Number(d.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin", year: "numeric" }));
+    const cm = Number(d.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin", month: "numeric" }));
+    if (cy !== year || cm !== month1to12) break;
+    out.push(ymd);
+    ymd = nextBerlinYmd(ymd);
+  }
+  return out;
+}
+
 /** Letzte `n` Kalendertage in Berlin, ältester zuerst (letzter Eintrag = heute Berlin). */
 export function lastNCalendarDaysBerlin(n: number, ref: Date = new Date()): string[] {
   const out: string[] = [];

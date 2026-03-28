@@ -1,6 +1,7 @@
 "use client";
 
 import { Inter } from "next/font/google";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
@@ -10,7 +11,7 @@ import type {
   FounderRestaurantTableRow,
   FounderScanEventRow,
 } from "@/lib/founder-types";
-import { berlinYmd, lastNCalendarDaysBerlin } from "@/lib/berlin-time";
+import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -35,7 +36,7 @@ const STICKER_TIERS = [
 
 type SortMode = "scans" | "az";
 
-type SubView = { kind: "tables" | "analytics"; restaurantId: string } | null;
+type SubView = { kind: "tables"; restaurantId: string } | null;
 
 function extForRestaurant(
   extras: FounderRestaurantExtRow[],
@@ -202,6 +203,7 @@ export function RestaurantsTab({
   isMobile,
   onRefresh,
 }: Props) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterBezirk, setFilterBezirk] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("scans");
@@ -289,25 +291,6 @@ export function RestaurantsTab({
       .sort((a, b) => a.tisch_nummer - b.tisch_nummer);
   }, [restaurantTables, subView]);
 
-  const analyticsSeries = useMemo(() => {
-    if (!subView || subView.kind !== "analytics") return { labels: [] as string[], counts: [] as number[] };
-    const rid = subView.restaurantId;
-    const ymds = lastNCalendarDaysBerlin(7);
-    const idx = new Map(ymds.map((y, i) => [y, i]));
-    const counts = ymds.map(() => 0);
-    for (const e of scanEvents) {
-      if (e.restaurant_id !== rid) continue;
-      const y = berlinYmd(new Date(e.created_at));
-      const i = idx.get(y);
-      if (i !== undefined) counts[i]++;
-    }
-    const labels = ymds.map((y) => {
-      const d = new Date(`${y}T12:00:00Z`);
-      return d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric" });
-    });
-    return { labels, counts };
-  }, [subView, scanEvents]);
-
   if (subView && subRestaurant) {
     return (
       <div className={`${inter.className} pb-8`} style={{ fontFamily: "inherit" }}>
@@ -330,8 +313,7 @@ export function RestaurantsTab({
           {subRestaurant.name}
         </h2>
 
-        {subView.kind === "tables" ? (
-          <div style={{ ...cardBase, padding: isMobile ? 16 : 22 }}>
+        <div style={{ ...cardBase, padding: isMobile ? 16 : 22 }}>
             <p style={{ margin: "0 0 14px", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)" }}>
               TISCHE · QR & NFC
             </p>
@@ -491,14 +473,6 @@ export function RestaurantsTab({
               ))}
             </div>
           </div>
-        ) : (
-          <div style={{ ...cardBase, padding: isMobile ? 16 : 22 }}>
-            <p style={{ margin: "0 0 12px", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)" }}>
-              SCANS · LETZTE 7 TAGE (ALLE EVENTS)
-            </p>
-            <AnalyticsBars labels={analyticsSeries.labels} counts={analyticsSeries.counts} isMobile={isMobile} />
-          </div>
-        )}
       </div>
     );
   }
@@ -546,7 +520,10 @@ export function RestaurantsTab({
           pending={pending}
           onToggleExpand={() => setExpandedId((cur) => (cur === r.id ? null : r.id))}
           onOpenTables={() => setSubView({ kind: "tables", restaurantId: r.id })}
-          onOpenAnalytics={() => setSubView({ kind: "analytics", restaurantId: r.id })}
+          onOpenAnalytics={() => {
+            const { fromYmd, toYmd } = defaultLast7Ymd();
+            router.push(`/founder/restaurants/${r.id}/analytics?from=${fromYmd}&to=${toYmd}`);
+          }}
           onOpenStickerModal={() => setStickerModalFor(r.id)}
         />
       ))}
@@ -973,40 +950,6 @@ function VisitBlock({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#fff" }}>{value}</p>
-    </div>
-  );
-}
-
-function AnalyticsBars({
-  labels,
-  counts,
-  isMobile,
-}: {
-  labels: string[];
-  counts: number[];
-  isMobile: boolean;
-}) {
-  const max = Math.max(1, ...counts);
-  const h = isMobile ? 140 : 160;
-  return (
-    <div className="w-full overflow-x-auto">
-      <div className="flex items-end gap-1" style={{ height: h, minWidth: 280 }}>
-        {counts.map((c, i) => (
-          <div key={labels[i] ?? i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
-            <div
-              className="w-full max-w-[28px] rounded-t-md"
-              style={{
-                height: `${Math.max(4, (c / max) * (h - 36))}px`,
-                background: `linear-gradient(180deg, ${ORANGE}, rgba(255,92,26,0.4))`,
-                boxShadow: c > 0 ? `0 0 6px ${ORANGE}55` : "none",
-              }}
-            />
-            <span className="truncate text-center text-[9px] font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>
-              {labels[i] ?? ""}
-            </span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
