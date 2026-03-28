@@ -43,13 +43,13 @@ function selectScanEvents(data: FounderDashboardData, range: OverviewScanRange):
 function heroScanLabel(range: OverviewScanRange): string {
   switch (range) {
     case "today":
-      return "Scans (heute)";
+      return "Besuche (heute)";
     case "week":
-      return "QR Scans (7 Tage)";
+      return "Besuche (7 Tage)";
     case "month":
-      return "Scans (30 Tage)";
+      return "Besuche (30 Tage)";
     case "year":
-      return "Scans (Jahr)";
+      return "Besuche (Jahr)";
     default: {
       const _e: never = range;
       return _e;
@@ -284,7 +284,7 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
         </div>
         <div style={cardStyle(pad)}>
           <p style={{ fontSize: kpiTitleFs, fontWeight: 700, letterSpacing: "0.06em", color: fp.mu, margin: 0 }}>
-            QR SCANS HEUTE
+            BESUCHE HEUTE
           </p>
           <p
             style={{
@@ -458,7 +458,7 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
         </div>
         <div style={{ marginTop: 16 }}>
           <div className="flex justify-between text-xs" style={{ color: fp.mi, fontSize: isMobile ? 11 : 12 }}>
-            <span>Wochen-Scans (Ziel {WEEK_SCAN_TARGET})</span>
+            <span>Wochen-Besuche (Ziel {WEEK_SCAN_TARGET})</span>
             <span style={{ fontWeight: 700, color: fp.tx }}>{weekPct}%</span>
           </div>
           <ProgressBar pct={weekPct} accent={fp.blue} />

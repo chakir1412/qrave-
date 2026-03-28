@@ -1,9 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FounderDashboardData } from "@/lib/founder-types";
 import { startOfBerlinYearUtcIso } from "@/lib/berlin-time";
+import { dedupeSessionsKeepFirstEvent } from "@/lib/dedupe-scan-sessions";
+
+/** Wie SCAN_SELECT, plus id/session_id für eindeutige Sessions pro Zeitfenster. */
+const SESSION_WINDOW_SELECT =
+  "id,session_id,event_type,stunde,wochentag,monat,tisch_nummer,item_name,kategorie,main_tab,duration_seconds,tier,created_at,restaurant_id";
 
 const SCAN_SELECT =
   "event_type,stunde,wochentag,monat,tisch_nummer,item_name,kategorie,main_tab,duration_seconds,tier,created_at,restaurant_id";
+
+/** Höheres Limit, damit Deduplizierung nach session_id im Fenster nicht verzerrt. */
+const SESSION_WINDOW_ROW_LIMIT = 4000;
 
 export async function loadFounderDashboardData(
   supabase: SupabaseClient,
@@ -17,19 +25,23 @@ export async function loadFounderDashboardData(
   const monthStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const yearStart = startOfBerlinYearUtcIso();
 
-  const scanBase = () =>
-    supabase.from("scan_events").select(SCAN_SELECT).order("created_at", { ascending: false }).limit(500);
+  const scanBaseAllTypes = (limit: number) =>
+    supabase.from("scan_events").select(SCAN_SELECT).order("created_at", { ascending: false }).limit(limit);
 
-  /** Nur echte QR/NFC-Scans für KPIs und Overview-Zeiträume. */
-  const scanBaseQr = () => scanBase().eq("event_type", "scan");
+  const sessionWindowBase = () =>
+    supabase
+      .from("scan_events")
+      .select(SESSION_WINDOW_SELECT)
+      .order("created_at", { ascending: false })
+      .limit(SESSION_WINDOW_ROW_LIMIT);
 
   const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl] = await Promise.all([
     supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
-    scanBase().gte("created_at", weekStart),
-    scanBaseQr().gte("created_at", todayStart),
-    scanBaseQr().gte("created_at", weekStart),
-    scanBaseQr().gte("created_at", monthStart),
-    scanBaseQr().gte("created_at", yearStart),
+    scanBaseAllTypes(500).gte("created_at", weekStart),
+    sessionWindowBase().gte("created_at", todayStart),
+    sessionWindowBase().gte("created_at", weekStart),
+    sessionWindowBase().gte("created_at", monthStart),
+    sessionWindowBase().gte("created_at", yearStart),
     supabase.from("founder_pipeline").select("*").order("added_at", { ascending: false }),
     supabase.from("founder_todos").select("*").order("created_at", { ascending: false }),
     supabase.from("founder_restaurants").select("*"),
@@ -55,15 +67,26 @@ export async function loadFounderDashboardData(
   note(rExt, "founder_restaurants");
   note(rTbl, "restaurant_tables");
 
-  const scanEventsWeek = (rWeek.data ?? []) as FounderDashboardData["scanEventsWeek"];
+  const scanEventsToday = dedupeSessionsKeepFirstEvent(
+    (rToday.data ?? []) as FounderDashboardData["scanEventsToday"],
+  );
+  const scanEventsWeek = dedupeSessionsKeepFirstEvent(
+    (rWeek.data ?? []) as FounderDashboardData["scanEventsWeek"],
+  );
+  const scanEventsMonth = dedupeSessionsKeepFirstEvent(
+    (rMonth.data ?? []) as FounderDashboardData["scanEventsMonth"],
+  );
+  const scanEventsYear = dedupeSessionsKeepFirstEvent(
+    (rYear.data ?? []) as FounderDashboardData["scanEventsYear"],
+  );
 
   const data: FounderDashboardData = {
     restaurants: (r1.data ?? []) as FounderDashboardData["restaurants"],
     scanEvents: (rAllWeek.data ?? []) as FounderDashboardData["scanEvents"],
-    scanEventsToday: (rToday.data ?? []) as FounderDashboardData["scanEventsToday"],
+    scanEventsToday,
     scanEventsWeek,
-    scanEventsMonth: (rMonth.data ?? []) as FounderDashboardData["scanEventsMonth"],
-    scanEventsYear: (rYear.data ?? []) as FounderDashboardData["scanEventsYear"],
+    scanEventsMonth,
+    scanEventsYear,
     pipeline: (rPipe.data ?? []) as FounderDashboardData["pipeline"],
     todos: (rTodo.data ?? []) as FounderDashboardData["todos"],
     restaurantExtras: (rExt.data ?? []) as FounderDashboardData["restaurantExtras"],

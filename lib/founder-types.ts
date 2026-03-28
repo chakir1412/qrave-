@@ -2,6 +2,8 @@ import type { Restaurant } from "@/lib/supabase";
 
 /** Zeilen wie in der Spezifikation (scan_events, letzte 7 Tage) */
 export type FounderScanEventRow = {
+  id?: string;
+  session_id?: string | null;
   event_type: string;
   stunde: number | null;
   wochentag: number | null;
