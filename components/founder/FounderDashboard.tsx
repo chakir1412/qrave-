@@ -111,9 +111,17 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
     setRefreshing(true);
     setLoadError(null);
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      console.log("loadData user:", user?.id);
+
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const [restaurantsRes, scansRes, pipelineRes, todosRes, extRes, tablesRes] = await Promise.all([
-        supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
+
+      const restaurantsRes = await supabase.from("restaurants").select("*");
+      console.log("restaurants result:", restaurantsRes.data?.length, restaurantsRes.error);
+
+      const [scansRes, pipelineRes, todosRes, extRes, tablesRes] = await Promise.all([
         supabase
           .from("scan_events")
           .select(
