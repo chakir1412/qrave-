@@ -1,15 +1,20 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SpeisekarteProps } from "@/components/speisekarte";
 import { useWishlist } from "@/components/shared/useWishlist";
 import { useDailyPush } from "@/components/shared/useDailyPush";
 import { useAnalytics } from "@/components/shared/useAnalytics";
+import ConsentBanner from "@/components/ConsentBanner";
 import ItemModal from "@/components/speisekarte/ItemModal";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { DailyPushBanner, DailyPushPopup } from "@/components/speisekarte/DailyPush";
 import type { MenuItem } from "@/lib/supabase";
 import { getItemEmoji, getDisplayPrice } from "@/components/speisekarte/utils";
+import type { FilterKey } from "@/components/speisekarte/constants";
+import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
+
+const KIOSK_TRACK_FILTER: FilterKey = "all";
 
 type Section = { kategorie: string; subtitle: string | null; items: MenuItem[] };
 
@@ -44,10 +49,17 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     menuItems,
     restaurantName,
     dailyPush = null,
+    accentColor,
+    logoUrl,
+    restaurantId,
+    tischNummer,
   } = props;
+
+  const ACCENT = (accentColor ?? "#FFD600").trim() || "#FFD600";
 
   const [mainTab, setMainTab] = useState<MainTab>("food");
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
+  const [consentGiven, setConsentGiven] = useState(false);
 
   const {
     entries,
@@ -66,9 +78,15 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     open: dailyPopupOpen,
     openPopup: openDailyPopup,
     closePopup: closeDailyPopup,
-  } = useDailyPush(dailyPush ?? null);
+  } = useDailyPush(dailyPush ?? null, consentGiven);
 
   const { track } = useAnalytics();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = window.localStorage.getItem("qrave_consent");
+    if (v) setConsentGiven(true);
+  }, []);
 
   useMemo(() => {
     track("view_menu", {
@@ -112,11 +130,37 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     return sectionsByMain.get(mainTab) ?? [];
   }, [sectionsByMain, mainTab]);
 
+  const { onCategorySectionRef, trackWishlistAdd, trackWishlistRemove } =
+    useSpeisekarteTier1Tracking({
+      restaurantId,
+      tischNummer,
+      effectiveMainTab: mainTab,
+      filter: KIOSK_TRACK_FILTER,
+      modalItem,
+    });
+
   const handleAddToWishlist = useCallback(
     (item: MenuItem) => {
       addToWishlist(item, 1);
+      try {
+        trackWishlistAdd(item);
+      } catch {
+        /* ignore */
+      }
     },
-    [addToWishlist],
+    [addToWishlist, trackWishlistAdd],
+  );
+
+  const handleRemoveFromWishlist = useCallback(
+    (itemId: string) => {
+      removeFromWishlist(itemId);
+      try {
+        trackWishlistRemove(itemId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [removeFromWishlist, trackWishlistRemove],
   );
 
   const { main: heroMain, accent: heroAccent } = splitNameForHero(restaurantName || "KIOSK No. 7");
@@ -132,8 +176,15 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
       className="min-h-screen speisekarte-template"
       style={{ backgroundColor: KIOSK_COLORS.bg, color: KIOSK_COLORS.text, fontFamily: "'Nunito', system-ui, sans-serif" }}
     >
+      {!consentGiven && (
+        <ConsentBanner
+          onConsent={() => {
+            setConsentGiven(true);
+          }}
+        />
+      )}
       {/* Hero */}
-      <div className="relative min-h-[260px] overflow-hidden flex flex-col">
+      <div className="relative overflow-hidden flex flex-col">
         <div
           style={{
             position: "absolute",
@@ -142,25 +193,92 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
             right: 0,
             height: 6,
             background:
-              "repeating-linear-gradient(90deg,#FFD600 0,#FFD600 40px,#FF3B30 40px,#FF3B30 80px,#00C853 80px,#00C853 120px,#2979FF 120px,#2979FF 160px,#FF4081 160px,#FF4081 200px)",
+              `repeating-linear-gradient(90deg,${ACCENT} 0,${ACCENT} 40px,#FF3B30 40px,#FF3B30 80px,#00C853 80px,#00C853 120px,#2979FF 120px,#2979FF 160px,#FF4081 160px,#FF4081 200px)`,
           }}
         />
         <div
-          className="flex-1 flex flex-col items-start justify-end pt-24 pb-5 px-5"
+          className="px-4 pt-3 pb-2"
           style={{
             background: "linear-gradient(160deg,#1a0a00 0%,#0A0A0A 60%)",
           }}
         >
+          {/* Zeile 1: Logo links, HOT SPOT rechts */}
+          <div className="flex items-center justify-between mb-1.5">
+            <div
+              style={{
+                width: 140,
+                height: 44,
+                overflow: "hidden",
+              }}
+            >
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt={`${restaurantName} Logo`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    objectPosition: "left center",
+                    display: "block",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    fontFamily: "'Bebas Neue', system-ui, sans-serif",
+                    fontSize: 24,
+                    letterSpacing: ".08em",
+                  }}
+                >
+                  {heroMain || "KIOSK"}
+                  <span style={{ color: ACCENT, display: "block" }}>
+                    {heroAccent || "No. 7"}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div
+              style={{
+                backgroundColor: KIOSK_COLORS.red,
+                color: "#fff",
+                fontFamily: "'Bebas Neue', system-ui, sans-serif",
+                fontSize: 13,
+                letterSpacing: ".08em",
+                padding: "6px 12px",
+                borderRadius: 6,
+                transform: "rotate(2deg)",
+              }}
+            >
+              🔥 HOT SPOT
+            </div>
+          </div>
+
+          {/* Zeile 2: Tagline */}
           <div
-            className="inline-flex items-center gap-[6px] mb-[14px]"
             style={{
-              backgroundColor: KIOSK_COLORS.yellow,
+              fontSize: 11,
+              fontWeight: 600,
+              color: KIOSK_COLORS.muted,
+              letterSpacing: ".12em",
+              textTransform: "uppercase",
+            }}
+          >
+            Eats · Drinks · Vibes
+          </div>
+
+          {/* Zeile 3: Jetzt offen */}
+          <div
+            className="inline-flex items-center gap-[6px] mt-1"
+            style={{
+              backgroundColor: ACCENT,
               color: "#000",
               fontSize: 9,
               fontWeight: 900,
               letterSpacing: ".18em",
               textTransform: "uppercase",
-              padding: "5px 12px",
+              padding: "4px 10px",
               borderRadius: 4,
             }}
           >
@@ -174,54 +292,12 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
             />
             Jetzt offen
           </div>
-          <div
-            style={{
-              fontFamily: "'Bebas Neue', system-ui, sans-serif",
-              fontSize: "clamp(52px,16vw,88px)",
-              lineHeight: 0.92,
-              letterSpacing: ".02em",
-              marginBottom: 6,
-            }}
-          >
-            {heroMain || "KIOSK"}
-            <span style={{ color: KIOSK_COLORS.yellow, display: "block" }}>
-              {heroAccent || "No. 7"}
-            </span>
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: KIOSK_COLORS.muted,
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-            }}
-          >
-            Eats · Drinks · Vibes
-          </div>
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            top: 20,
-            right: 16,
-            backgroundColor: KIOSK_COLORS.red,
-            color: "#fff",
-            fontFamily: "'Bebas Neue', system-ui, sans-serif",
-            fontSize: 13,
-            letterSpacing: ".08em",
-            padding: "6px 12px",
-            borderRadius: 6,
-            transform: "rotate(2deg)",
-          }}
-        >
-          🔥 HOT SPOT
         </div>
       </div>
 
       {/* Special bar – Daily Push */}
       {dailyPush && (
-        <div className="px-4" style={{ transform: "translateY(-18px)" }}>
+        <div className="px-4 mt-2">
           <DailyPushBanner dailyPush={dailyPush} onOpenPopup={openDailyPopup} />
         </div>
       )}
@@ -236,7 +312,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
           padding: "0 16px",
         }}
       >
-        <div className="flex overflow-x-auto gap-1 py-1" style={{ scrollbarWidth: "none" }}>
+        <div className="flex gap-1 py-1">
           {(["food", "drinks", "snacks", "order", "info"] as MainTab[]).map((tab) => {
             const label =
               tab === "food"
@@ -253,11 +329,12 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                 key={tab}
                 type="button"
                 onClick={() => setMainTab(tab)}
-                className="flex-shrink-0 pb-2.5 pt-3 px-3 text-[11px] font-extrabold uppercase tracking-[0.08em]"
+                className="pb-2.5 pt-3 px-2 text-[10px] font-extrabold uppercase tracking-[0.08em]"
                 style={{
-                  whiteSpace: "nowrap",
-                  borderBottom: `3px solid ${mainTab === tab ? KIOSK_COLORS.yellow : "transparent"}`,
-                  color: mainTab === tab ? KIOSK_COLORS.yellow : KIOSK_COLORS.dim,
+                  flex: 1,
+                  borderBottom: `3px solid ${mainTab === tab ? ACCENT : "transparent"}`,
+                  color: mainTab === tab ? ACCENT : KIOSK_COLORS.dim,
+                  textAlign: "center",
                 }}
               >
                 {label}
@@ -272,7 +349,10 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
         {(showFood || showDrinks || showSnacks) && (
           <div>
             {currentSections.map((sec) => (
-              <section key={sec.kategorie}>
+              <section
+                key={sec.kategorie}
+                ref={(el) => onCategorySectionRef(sec.kategorie, el)}
+              >
                 <div className="flex items-center justify-between py-4">
                   <div
                     style={{
@@ -374,7 +454,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                               style={{
                                 fontFamily: "'Bebas Neue', system-ui, sans-serif",
                                 fontSize: 28,
-                                color: KIOSK_COLORS.yellow,
+                                color: ACCENT,
                               }}
                             >
                               {getDisplayPrice(item)}
@@ -422,7 +502,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                           style={{
                             fontFamily: "'Bebas Neue', system-ui, sans-serif",
                             fontSize: 22,
-                            color: KIOSK_COLORS.yellow,
+                            color: ACCENT,
                           }}
                         >
                           {getDisplayPrice(item)}
@@ -446,7 +526,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                   letterSpacing: ".04em",
                 }}
               >
-                DEINE <span style={{ color: KIOSK_COLORS.yellow }}>ORDER</span>
+                DEINE <span style={{ color: ACCENT }}>ORDER</span>
               </div>
             </div>
             {entries.length === 0 ? (
@@ -515,7 +595,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                       style={{
                         fontFamily: "'Bebas Neue', system-ui, sans-serif",
                         fontSize: 18,
-                        color: KIOSK_COLORS.yellow,
+                        color: ACCENT,
                         minWidth: 52,
                         textAlign: "right",
                       }}
@@ -550,7 +630,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                   letterSpacing: ".04em",
                 }}
               >
-                KIOSK <span style={{ color: KIOSK_COLORS.yellow }}>No. 7</span>
+                KIOSK <span style={{ color: ACCENT }}>No. 7</span>
               </div>
             </div>
             <div
@@ -567,7 +647,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                   fontWeight: 900,
                   letterSpacing: ".2em",
                   textTransform: "uppercase",
-                  color: KIOSK_COLORS.yellow,
+                  color: ACCENT,
                   marginBottom: 8,
                 }}
               >
@@ -591,9 +671,10 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
       {modalItem && (
         <ItemModal
           item={modalItem}
-          alsoOrdered={menuItems.filter((i) => i.id !== modalItem.id && i.kategorie !== modalItem.kategorie).slice(0, 4)}
+          allItems={menuItems}
           onClose={() => setModalItem(null)}
           onAddToCart={handleAddToWishlist}
+          theme="bar-soleil"
         />
       )}
 
@@ -603,7 +684,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
         overlayZIndex={999}
         cart={entries}
         onUpdateQty={updateQty}
-        onRemove={removeFromWishlist}
+        onRemove={handleRemoveFromWishlist}
         cartTotal={wishlistTotal}
         onClear={clearWishlist}
         restaurantName={restaurantName}
@@ -613,6 +694,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
       {dailyPush && (
         <DailyPushPopup
           dailyPush={dailyPush}
+          menuItems={menuItems}
           open={dailyPopupOpen}
           onClose={closeDailyPopup}
           onAddToCart={handleAddToWishlist}
@@ -649,7 +731,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
             padding: 7,
             borderRadius: 10,
             cursor: "pointer",
-            color: mainTab === "food" ? KIOSK_COLORS.yellow : KIOSK_COLORS.dim,
+            color: mainTab === "food" ? ACCENT : KIOSK_COLORS.dim,
             fontSize: 10,
             fontWeight: 800,
             letterSpacing: ".06em",
@@ -676,7 +758,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
             padding: 7,
             borderRadius: 10,
             cursor: "pointer",
-            color: mainTab === "order" ? KIOSK_COLORS.yellow : KIOSK_COLORS.dim,
+            color: mainTab === "order" ? ACCENT : KIOSK_COLORS.dim,
             fontSize: 10,
             fontWeight: 800,
             letterSpacing: ".06em",

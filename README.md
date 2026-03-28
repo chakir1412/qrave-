@@ -34,3 +34,22 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Qrave AI Project Rules
+
+This repository defines project-specific AI rules for the Qrave project:
+
+- Central skill: `.cursor/skills/qrave-project-rules/SKILL.md`
+- Additional context: `.cursor/skills/qrave-project-rules/reference.md`
+- Usage examples: `.cursor/skills/qrave-project-rules/examples.md`
+
+These files describe how components are structured (`components/speisekarte/`, `components/templates/`, `components/shared/`), how Supabase migrations under `supabase/migrations/` must be handled, the expected git workflow (no direct pushes to `main`, German commit messages), and Qrave-specific product constraints (e.g. demo slug `qrave-demo`, Light Mode only).
+
+**Supabase Auth:** Nur `import { supabase } from "@/lib/supabase"`, Session mit `await supabase.auth.getSession()`, bei fehlender Session `redirect('/login')` (Server) bzw. `router.replace('/login')` in Client-Komponenten. **Nicht:** `@supabase/auth-helpers-nextjs`, `createServerComponentClient`, eigener `createClient` aus `@/lib/supabase`. Details: Skill „Supabase Auth“.
+
+### KI-Speisekarten-Import (Dashboard)
+
+- Route: `POST /api/parse-menu` (PDF oder JPG/PNG, max. 32 MB).
+- Route: `POST /api/import-url` (JSON `{ url, restaurantId? }` — HTML abrufen, Text extrahieren, gleiche Claude-Auswertung wie Datei-Import).
+- Umgebungsvariable: `ANTHROPIC_API_KEY` (Claude, Modell `claude-sonnet-4-20250514`).
+- PDFs nutzen den Anthropic-Beta-Header `pdfs-2024-09-25` (siehe [Claude PDF-Dokumentation](https://docs.claude.com/en/docs/build-with-claude/pdf-support)).

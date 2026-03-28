@@ -21,10 +21,10 @@ CREATE POLICY "Authenticated insert daily_push" ON daily_push FOR INSERT TO auth
 CREATE POLICY "Authenticated update daily_push" ON daily_push FOR UPDATE TO authenticated USING (true);
 CREATE POLICY "Authenticated delete daily_push" ON daily_push FOR DELETE TO authenticated USING (true);
 
--- Testeintrag für heutiges Datum und Restaurant mit slug = 'chinaski'
+-- Testeintrag für heutiges Datum und Restaurant mit slug = 'qrave-demo'
 INSERT INTO daily_push (restaurant_id, active_date, item_emoji, item_name, item_desc)
 SELECT id, CURRENT_DATE, '🥩', 'Rinderfilet (200g)', 'Heute besonders empfohlen vom Chef'
 FROM restaurants
-WHERE slug = 'chinaski'
+WHERE slug = 'qrave-demo'
 ON CONFLICT (restaurant_id, active_date) DO NOTHING;
 

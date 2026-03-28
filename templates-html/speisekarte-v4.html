@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Bar Soleil</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme: light;
+  --bg:#0F0D0A;--surface:#1A1712;--card:#221F1A;--card2:#2A2520;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --copper:#C8894E;--copper2:#E8A96E;--gold:#F0C060;
+  --text:#F0EBE3;--muted:#8A7E70;--dim:#4A4238;
+  --green:#7A9E6E;--red:#C4785A;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overscroll-behavior:none}
+
+/* ─── HERO ─── */
+.hero{position:relative;height:280px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 24px 72px}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(200,137,78,0.35) 0%,transparent 60%),linear-gradient(180deg,#1a1208 0%,var(--bg) 100%)}
+.hero-lines{position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.022) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.012) 40px)}
+.hero-status{position:absolute;top:18px;right:18px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green);font-weight:500}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.hero-badge{position:relative;font-size:10px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--copper);border:1px solid rgba(200,137,78,.3);padding:5px 14px;border-radius:99px;margin-bottom:14px;background:rgba(200,137,78,.08)}
+.hero-name{position:relative;font-family:'Playfair Display',serif;font-size:clamp(48px,14vw,72px);font-weight:400;line-height:1;letter-spacing:-.02em}
+.hero-name span{font-style:italic;color:var(--copper2)}
+.hero-sub{position:relative;font-size:11px;font-weight:300;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-top:10px}
+
+/* ─── SPECIAL BAR ─── */
+.special-bar{margin:0 16px;transform:translateY(-26px);background:linear-gradient(135deg,var(--copper),#9A5C28);border-radius:16px;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 8px 32px rgba(200,137,78,.28);cursor:pointer;position:relative;overflow:hidden;transition:transform .18s}
+.special-bar::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 80% 50%,rgba(255,255,255,.14) 0%,transparent 60%)}
+.special-bar:active{transform:translateY(-24px) scale(.98)}
+.special-bar-label{font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.55);margin-bottom:3px}
+.special-bar-name{font-family:'Playfair Display',serif;font-size:18px;font-style:italic;color:white;position:relative}
+.special-bar-price{font-size:22px;font-weight:300;color:white;font-family:'Playfair Display',serif;position:relative}
+.special-bar-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:2px;text-align:right}
+
+/* ─── TABS ─── */
+.tabs-wrap{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:0 16px}
+.tabs{display:flex;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:13px 15px 11px;font-size:12px;font-weight:500;letter-spacing:.05em;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;transition:color .18s,border-color .18s;white-space:nowrap;display:flex;align-items:center;gap:6px;user-select:none;position:relative}
+.tab.active{color:var(--copper2);border-bottom-color:var(--copper2)}
+.tab-badge{position:absolute;top:8px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--red);color:white;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:scale(0);transition:transform .2s}
+.tab-badge.show{transform:scale(1)}
+
+/* ─── CONTENT ─── */
+.content{padding:4px 16px 110px}
+.section{display:none}
+.section.active{display:block}
+.sec-header{padding:22px 0 14px;display:flex;align-items:baseline;justify-content:space-between}
+.sec-title{font-family:'Playfair Display',serif;font-size:26px;font-weight:400}
+.sec-title em{font-style:italic;color:var(--copper2)}
+.sec-count{font-size:11px;color:var(--muted)}
+.sec-note{font-size:11px;color:var(--muted);font-style:italic;margin-top:-8px;margin-bottom:14px}
+
+/* ─── COCKTAIL CARDS ─── */
+.cocktail-card{display:flex;align-items:center;gap:14px;background:var(--card);border-radius:16px;padding:14px;margin-bottom:10px;border:1px solid var(--border);cursor:pointer;transition:transform .15s,border-color .2s;overflow:hidden}
+.cocktail-card:active{transform:scale(.975)}
+.cocktail-card.featured{border-color:rgba(200,137,78,.22);background:linear-gradient(135deg,#241808,#1C1510)}
+.cocktail-thumb{width:76px;height:76px;border-radius:12px;object-fit:cover;flex-shrink:0;overflow:hidden;background:var(--surface)}
+.cocktail-thumb img{width:100%;height:100%;object-fit:cover}
+.cocktail-info{flex:1;min-width:0}
+.cocktail-name{font-family:'Playfair Display',serif;font-size:18px;line-height:1.2;margin-bottom:4px}
+.cocktail-name em{font-style:italic;color:var(--copper2)}
+.cocktail-desc{font-size:11px;color:var(--muted);font-weight:300;line-height:1.5;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cocktail-bottom{display:flex;align-items:center;justify-content:space-between}
+.cocktail-price{font-family:'Playfair Display',serif;font-size:18px;color:var(--copper)}
+.cocktail-card.featured .cocktail-price{color:var(--copper2)}
+
+/* ─── TAGS ─── */
+.tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:99px;border:1px solid}
+.tag-hit{color:var(--copper2);border-color:rgba(200,137,78,.3);background:rgba(200,137,78,.08)}
+.tag-new{color:var(--red);border-color:rgba(196,120,90,.3);background:rgba(196,120,90,.07)}
+.tag-vegan{color:var(--green);border-color:rgba(122,158,110,.3);background:rgba(122,158,110,.07)}
+.tag-soft{color:var(--muted);border-color:var(--dim);background:rgba(255,255,255,.03)}
+.tag-prem{color:var(--gold);border-color:rgba(240,192,96,.3);background:rgba(240,192,96,.06)}
+
+/* ─── WINE / COFFEE CARDS ─── */
+.list-card{background:var(--card);border-radius:16px;margin-bottom:10px;border:1px solid var(--border);overflow:hidden}
+.list-row{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;gap:12px;transition:background .15s}
+.list-row:last-child{border:none}
+.list-row:active{background:rgba(255,255,255,.04)}
+.list-info{flex:1}
+.list-name{font-family:'Playfair Display',serif;font-size:16px;margin-bottom:3px}
+.list-name em{font-style:italic;color:var(--copper2)}
+.list-sub{font-size:11px;color:var(--muted);font-weight:300}
+.list-right{text-align:right;flex-shrink:0}
+.list-price{font-family:'Playfair Display',serif;font-size:17px;color:var(--copper)}
+.list-price2{font-size:11px;color:var(--dim);margin-top:2px}
+.list-arrow{color:var(--dim);font-size:14px;margin-left:8px;flex-shrink:0}
+
+/* ─── FOOD GRID ─── */
+.food-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.food-card{background:var(--card);border-radius:14px;padding:16px 14px;border:1px solid var(--border);cursor:pointer;transition:transform .15s}
+.food-card:active{transform:scale(.97)}
+.food-emoji{font-size:26px;margin-bottom:8px}
+.food-name{font-family:'Playfair Display',serif;font-size:14px;line-height:1.2;margin-bottom:5px}
+.food-name em{font-style:italic;color:var(--copper2)}
+.food-desc{font-size:10px;color:var(--muted);font-weight:300;line-height:1.5;margin-bottom:10px}
+.food-bottom{display:flex;align-items:center;justify-content:space-between}
+.food-price{font-size:15px;color:var(--copper);font-family:'Playfair Display',serif}
+
+/* ─── HAPPY HOUR BANNER ─── */
+.hh-banner{background:linear-gradient(135deg,rgba(122,158,110,.15),rgba(122,158,110,.05));border:1px solid rgba(122,158,110,.25);border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.hh-icon{font-size:26px}
+.hh-label{font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:2px}
+.hh-text{font-size:13px;color:var(--text)}
+.hh-sub{font-size:11px;color:var(--muted);margin-top:1px}
+
+/* ─── MERKLISTE ─── */
+.wishlist-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;text-align:center;gap:12px}
+.wishlist-empty-icon{font-size:52px;opacity:.3}
+.wishlist-empty-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--muted)}
+.wishlist-empty-sub{font-size:13px;color:var(--dim);line-height:1.6}
+.wishlist-item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border)}
+.wishlist-img{width:48px;height:48px;border-radius:9px;overflow:hidden;background:var(--surface);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.wishlist-img img{width:100%;height:100%;object-fit:cover}
+.wishlist-info{flex:1;min-width:0}
+.wishlist-name{font-family:'Playfair Display',serif;font-size:15px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wishlist-cat{font-size:10px;color:var(--muted);font-weight:300}
+.wishlist-price{font-family:'Playfair Display',serif;font-size:15px;color:var(--copper);flex-shrink:0;min-width:52px;text-align:right}
+.qty-stepper{display:flex;align-items:center;gap:0;flex-shrink:0;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:99px;overflow:hidden}
+.qty-btn{width:30px;height:30px;border:none;background:none;color:var(--copper2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0}
+.qty-btn:active{background:rgba(200,137,78,.15)}
+.qty-num{font-size:14px;font-weight:500;color:var(--text);min-width:22px;text-align:center}
+.wishlist-total{background:var(--card2);border-radius:16px;padding:18px 20px;margin-top:8px;border:1px solid var(--border2)}
+.wishlist-total-row{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:8px}
+.wishlist-total-sum{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--border)}
+.wishlist-total-label{font-family:'Playfair Display',serif;font-size:18px;color:var(--text)}
+.wishlist-total-price{font-family:'Playfair Display',serif;font-size:26px;color:var(--copper2)}
+.wishlist-cta{width:100%;padding:16px;border-radius:16px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--copper),#9A5C28);color:white;font-size:15px;font-weight:500;font-family:'DM Sans',sans-serif;margin-top:12px;box-shadow:0 6px 24px rgba(200,137,78,.25);transition:transform .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.wishlist-cta:active{transform:scale(.97)}
+
+/* ─── PRÄSENTATIONS-MODUS ─── */
+.present-overlay{position:fixed;inset:0;z-index:1000;background:#FFFDF8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;transform:translateY(100%);transition:transform .4s cubic-bezier(.32,.72,0,1)}
+.present-overlay.open{transform:translateY(0)}
+.present-header{font-family:'Playfair Display',serif;font-size:14px;font-weight:400;color:#8A7060;letter-spacing:.1em;text-align:center;margin-bottom:8px}
+.present-bar-name{font-family:'Playfair Display',serif;font-size:28px;color:#1C1410;text-align:center;margin-bottom:32px}
+.present-bar-name em{font-style:italic;color:#C8894E}
+.present-items{width:100%;display:flex;flex-direction:column;gap:12px;margin-bottom:32px}
+.present-item{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#F5F0E8;border-radius:14px;border:1px solid rgba(200,137,78,.15)}
+.present-item-left{display:flex;align-items:center;gap:12px}
+.present-item-emoji{font-size:22px}
+.present-item-name{font-family:'Playfair Display',serif;font-size:17px;color:#1C1410}
+.present-item-cat{font-size:11px;color:#8A7060;margin-top:2px}
+.present-item-price{font-family:'Playfair Display',serif;font-size:20px;color:#C8894E}
+.present-total{width:100%;display:flex;justify-content:space-between;align-items:baseline;padding:16px 18px;background:#C8894E;border-radius:14px;margin-bottom:32px}
+.present-total-label{font-family:'Playfair Display',serif;font-size:18px;color:white}
+.present-total-price{font-family:'Playfair Display',serif;font-size:28px;color:white}
+.present-close{padding:14px 40px;border-radius:99px;border:2px solid rgba(200,137,78,.3);background:none;color:#8A7060;font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer}
+.present-close:active{background:rgba(200,137,78,.08)}
+
+/* ─── INFO ─── */
+.info-card{background:var(--card);border-radius:16px;padding:18px;margin-bottom:10px;border:1px solid var(--border)}
+.info-label{font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--copper);margin-bottom:8px}
+.info-value{font-family:'Playfair Display',serif;font-size:15px;color:var(--text);line-height:1.5}
+.info-sub{font-size:12px;color:var(--muted);margin-top:4px;font-weight:300}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.hours-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.hours-row:last-child{border:none}
+.hours-day{color:var(--muted);font-weight:300}
+.hours-time.today{color:var(--green);font-weight:500}
+
+/* ─── OVERLAY + SHEET ─── */
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0);pointer-events:none;transition:background .35s ease,backdrop-filter .35s}
+.overlay.open{background:rgba(0,0,0,.75);pointer-events:all;backdrop-filter:blur(6px)}
+.sheet{position:fixed;bottom:0;left:0;right:0;z-index:600;background:#1C1914;border-radius:28px 28px 0 0;max-height:92vh;overflow-y:auto;transform:translateY(105%);transition:transform .42s cubic-bezier(.32,.72,0,1);overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:36px;height:4px;border-radius:99px;background:rgba(255,255,255,.15);margin:14px auto 0}
+
+/* sheet image */
+.sheet-img-wrap{position:relative;height:200px;overflow:hidden;margin:12px 16px 0;border-radius:18px}
+.sheet-img-wrap.no-img{height:120px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:56px}
+.sheet-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.sheet-img-gradient{position:absolute;inset:0;background:linear-gradient(0deg,rgba(28,25,20,.95) 0%,transparent 50%)}
+.sheet-badge-float{position:absolute;top:14px;right:14px;font-size:9px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--copper2);border:1px solid rgba(200,137,78,.4);padding:5px 12px;border-radius:99px;background:rgba(28,25,20,.75);backdrop-filter:blur(8px)}
+.sheet-price-float{position:absolute;bottom:16px;right:16px;font-family:'Playfair Display',serif;font-size:28px;color:var(--copper2);text-shadow:0 2px 12px rgba(0,0,0,.5)}
+
+/* sheet body */
+.sheet-body{padding:16px 18px 40px}
+.sheet-name{font-family:'Playfair Display',serif;font-size:clamp(22px,6vw,28px);font-weight:400;line-height:1.1;margin-bottom:4px}
+.sheet-name em{font-style:italic;color:var(--copper2)}
+.sheet-tagline{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.55}
+.sheet-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+
+/* section labels */
+.s-label{font-size:8px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--copper);margin-bottom:8px}
+
+/* ingredients */
+.ingr-list{display:flex;flex-direction:column;gap:6px;margin-bottom:20px}
+.ingr-item{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+.ingr-emoji{font-size:17px;flex-shrink:0;width:24px;text-align:center}
+.ingr-info{flex:1}
+.ingr-name{font-size:13px;font-weight:400;color:var(--text)}
+.ingr-detail{font-size:10px;color:var(--muted);margin-top:1px;font-weight:300}
+.ingr-amount{font-family:'Playfair Display',serif;font-size:12px;color:var(--copper);white-space:nowrap}
+
+/* flavour */
+.flavour-bars{display:flex;flex-direction:column;gap:7px;margin-bottom:20px}
+.flavour-row{display:flex;align-items:center;gap:10px}
+.flavour-label{font-size:11px;color:var(--muted);width:62px;flex-shrink:0}
+.flavour-track{flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden}
+.flavour-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--copper),var(--copper2));width:0;transition:width .7s cubic-bezier(.4,0,.2,1)}
+
+/* pairing */
+.pairing-title{font-size:9px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--copper);margin-bottom:12px}
+.pairing-list{display:flex;gap:8px;margin-bottom:24px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.pairing-list::-webkit-scrollbar{display:none}
+.pairing-card{flex-shrink:0;width:120px;background:var(--card2);border-radius:12px;padding:12px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s,transform .15s}
+.pairing-card:active{transform:scale(.96)}
+.pairing-card:hover,.pairing-card.selected{border-color:rgba(200,137,78,.4);background:rgba(200,137,78,.06)}
+.pairing-card.selected .pairing-add{background:var(--copper);color:white;border-color:var(--copper)}
+.pairing-emoji{font-size:22px;margin-bottom:6px}
+.pairing-name{font-family:'Playfair Display',serif;font-size:13px;margin-bottom:2px}
+.pairing-price{font-size:11px;color:var(--copper)}
+.pairing-add{display:inline-flex;align-items:center;justify-content:center;margin-top:6px;width:24px;height:24px;border-radius:50%;background:rgba(200,137,78,.12);border:1px solid rgba(200,137,78,.3);color:var(--copper2);font-size:14px;transition:all .15s}
+
+/* story / description block */
+.story-block{background:rgba(255,255,255,.025);border-left:2px solid var(--copper);border-radius:0 12px 12px 0;padding:10px 14px;margin-bottom:18px}
+.story-text{font-size:12px;color:var(--muted);line-height:1.65;font-style:italic}
+
+/* CTA */
+.sheet-cta{width:100%;padding:16px;border-radius:16px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--copper),#9A5C28);color:white;font-size:15px;font-weight:500;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 6px 24px rgba(200,137,78,.28);transition:transform .15s,background .25s;position:relative;overflow:hidden}
+.sheet-cta::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 70% 50%,rgba(255,255,255,.15) 0%,transparent 60%)}
+.sheet-cta:active{transform:scale(.97)}
+.sheet-cta.added{background:linear-gradient(135deg,#4A7A3A,#2E5028)}
+
+/* ─── WELCOME POPUP ─── */
+.welcome-overlay{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.8);backdrop-filter:blur(10px);display:flex;align-items:flex-end;justify-content:center;transition:opacity .35s,visibility .35s}
+.welcome-overlay.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.welcome-sheet{background:linear-gradient(180deg,#231E17 0%,#1A1612 100%);border-radius:28px 28px 0 0;padding:28px 24px max(32px,env(safe-area-inset-bottom));width:100%;max-width:480px;border-top:1px solid rgba(200,137,78,.2);animation:sheetUp .5s cubic-bezier(.32,.72,0,1) forwards}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.welcome-title{font-family:'Playfair Display',serif;font-size:22px;font-weight:400;text-align:center;margin-bottom:24px}
+.welcome-title em{font-style:italic;color:var(--copper2)}
+.welcome-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}
+.welcome-tile{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:16px;padding:18px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.welcome-tile-icon{font-size:32px;line-height:1}
+.welcome-tile-label{font-size:13px;font-weight:500;color:var(--text)}
+.welcome-tile-sub{font-size:10px;color:var(--muted);text-align:center;line-height:1.4}
+.welcome-btn{width:100%;padding:15px;border-radius:14px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--copper),#9A5C28);color:white;font-size:15px;font-weight:500;font-family:'DM Sans',sans-serif;box-shadow:0 6px 24px rgba(200,137,78,.3);position:relative;overflow:hidden}
+.welcome-btn::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 70% 50%,rgba(255,255,255,.15) 0%,transparent 60%)}
+.welcome-btn:active{transform:scale(.98)}
+
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--card);border:1px solid rgba(200,137,78,.3);border-radius:99px;padding:10px 20px;font-size:13px;color:var(--text);white-space:nowrap;opacity:0;transition:opacity .22s,transform .22s;z-index:999;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ─── BOTTOM NAV ─── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(15,13,10,.95);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:10px 24px max(16px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-around;gap:12px;z-index:400}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:8px 12px;border-radius:14px;transition:background .15s;color:var(--dim);font-size:11px;font-weight:500;letter-spacing:.04em;border:none;background:none;position:relative}
+.nav-btn.active{color:var(--copper2);background:rgba(200,137,78,.08)}
+.nav-icon{font-size:19px;line-height:1}
+.nav-call{flex:1;background:linear-gradient(135deg,var(--copper),#9A5C28);border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;cursor:pointer;font-size:10px;color:white;border:none;box-shadow:0 4px 16px rgba(200,137,78,.3)}
+.nav-wishlist-badge{position:absolute;top:2px;right:10px;min-width:16px;height:16px;border-radius:99px;background:var(--red);color:white;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;transform:scale(0);transition:transform .2s}
+.nav-wishlist-badge.show{transform:scale(1)}
+
+/* ─── ANIMATIONS ─── */
+.section.active .cocktail-card{animation:slideUp .28s ease both}
+.section.active .cocktail-card:nth-child(2){animation-delay:.04s}
+.section.active .cocktail-card:nth-child(3){animation-delay:.08s}
+.section.active .cocktail-card:nth-child(4){animation-delay:.12s}
+.section.active .cocktail-card:nth-child(5){animation-delay:.16s}
+@keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-bg"></div><div class="hero-lines"></div>
+  <div class="hero-status"><div class="status-dot"></div> Jetzt geöffnet</div>
+  <div class="hero-badge">Frankfurt am Main</div>
+  <div class="hero-name">Bar <span>Soleil</span></div>
+  <div class="hero-sub">Getränke &nbsp;·&nbsp; Weine &nbsp;·&nbsp; Bites</div>
+</div>
+
+<div class="special-bar" id="special-bar">
+  <div>
+    <div class="special-bar-label">✦ Heutiger Special</div>
+    <div class="special-bar-name">Aperol Garden</div>
+  </div>
+  <div>
+    <div class="special-bar-price">9 €</div>
+    <div class="special-bar-sub">Jetzt ansehen ↗</div>
+  </div>
+</div>
+
+<div class="tabs-wrap">
+  <div class="tabs">
+    <div class="tab active" id="tab-cocktails" onclick="switchTab('cocktails')">🍸 Cocktails</div>
+    <div class="tab" id="tab-weine" onclick="switchTab('weine')">🍷 Weine</div>
+    <div class="tab" id="tab-kaffee" onclick="switchTab('kaffee')">☕ Kaffee</div>
+    <div class="tab" id="tab-bites" onclick="switchTab('bites')">🫒 Bites</div>
+    <div class="tab" id="tab-info" onclick="switchTab('info')">📍 Info</div>
+    <span id="tab-badge" style="display:none"></span>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- COCKTAILS -->
+  <div class="section active" id="cocktails">
+    <div class="sec-header"><div class="sec-title">Signature <em>Cocktails</em></div><div class="sec-count">8 Drinks</div></div>
+    <div class="sec-note">Tippe auf einen Drink für Details & Zutaten</div>
+    <div id="cocktail-list"></div>
+  </div>
+
+  <!-- WEINE -->
+  <div class="section" id="weine">
+    <div class="hh-banner"><div class="hh-icon">🎉</div><div><div class="hh-label">Happy Hour</div><div class="hh-text">Täglich 16–18 Uhr</div><div class="hh-sub">Alle Weine –20%</div></div></div>
+    <div class="sec-header"><div class="sec-title"><em>Weiß</em>wein</div></div>
+    <div class="list-card" id="white-wines"></div>
+    <div class="sec-header" style="padding-top:12px"><div class="sec-title"><em>Rot</em>wein</div></div>
+    <div class="list-card" id="red-wines"></div>
+    <div class="sec-header" style="padding-top:12px"><div class="sec-title">Rosé & <em>Sekt</em></div></div>
+    <div class="list-card" id="sparkling-wines"></div>
+  </div>
+
+  <!-- KAFFEE -->
+  <div class="section" id="kaffee">
+    <div class="sec-header"><div class="sec-title">Kaffee & <em>Soft</em></div></div>
+    <div class="list-card" id="coffee-list"></div>
+  </div>
+
+  <!-- BITES -->
+  <div class="section" id="bites">
+    <div class="sec-header"><div class="sec-title">Bar <em>Bites</em></div><div class="sec-count">Küche bis 22h</div></div>
+    <div class="food-grid" id="bites-grid"></div>
+  </div>
+
+  <!-- MERKLISTE -->
+  <div class="section" id="merkliste">
+    <div class="sec-header"><div class="sec-title">Deine <em>Merkliste</em></div></div>
+    <div id="wishlist-content"></div>
+  </div>
+
+  <!-- INFO -->
+  <div class="section" id="info">
+    <div class="sec-header"><div class="sec-title"><em>Bar</em> Soleil</div></div>
+    <div class="info-grid">
+      <div class="info-card"><div class="info-label">📍 Adresse</div><div class="info-value">Schillerstr. 12</div><div class="info-sub">Frankfurt am Main</div></div>
+      <div class="info-card"><div class="info-label">📞 Telefon</div><div class="info-value">069 123 456</div><div class="info-sub">Reservierungen</div></div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">🕐 Öffnungszeiten</div>
+      <div class="hours-row"><span class="hours-day">Mo – Do</span><span class="hours-time">09:00 – 00:00</span></div>
+      <div class="hours-row"><span class="hours-day">Freitag</span><span class="hours-time today">09:00 – 02:00 ✓ Heute</span></div>
+      <div class="hours-row"><span class="hours-day">Samstag</span><span class="hours-time">10:00 – 02:00</span></div>
+      <div class="hours-row"><span class="hours-day">Sonntag</span><span class="hours-time">10:00 – 23:00</span></div>
+      <div class="hours-row"><span class="hours-day">Küche</span><span class="hours-time">bis 22:00</span></div>
+    </div>
+    <div class="info-card"><div class="info-label">ℹ️ Hinweise</div><div class="info-sub" style="font-size:12px;line-height:1.7">Alle Preise inkl. MwSt. · Allergene auf Anfrage · Änderungen vorbehalten.</div></div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- WELCOME POPUP -->
+<div class="welcome-overlay" id="welcome-overlay">
+  <div class="welcome-sheet">
+    <div class="welcome-title">Willkommen bei <em>Bar Soleil</em></div>
+    <div class="welcome-tiles">
+      <div class="welcome-tile">
+        <div class="welcome-tile-icon">👆</div>
+        <div class="welcome-tile-label">Antippen</div>
+        <div class="welcome-tile-sub">Details & Fotos</div>
+      </div>
+      <div class="welcome-tile">
+        <div class="welcome-tile-icon">🔖</div>
+        <div class="welcome-tile-label">Merken</div>
+        <div class="welcome-tile-sub">Favoriten speichern</div>
+      </div>
+      <div class="welcome-tile">
+        <div class="welcome-tile-icon">🙋</div>
+        <div class="welcome-tile-label">Zeigen</div>
+        <div class="welcome-tile-sub">Kellner bestellt</div>
+      </div>
+    </div>
+    <button class="welcome-btn" onclick="dismissWelcome()">Los geht's →</button>
+  </div>
+</div>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+
+<!-- BOTTOM SHEET -->
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheet-img-area"></div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-karte" onclick="setNav(this,'cocktails')"><span class="nav-icon">🍸</span>Karte</button>
+  <button class="nav-btn" id="nav-wish" onclick="setNav(this,'merkliste')">
+    <span class="nav-icon">🔖</span>Merkliste
+    <span class="nav-wishlist-badge" id="nav-badge">0</span>
+  </button>
+</div>
+
+<script>
+// ------------------------------------------
+// DATA
+// ------------------------------------------
+const cocktails = [
+  {
+    id:'c1', type:'cocktail', name:'Aperol Garden', nameHtml:'<em>Aperol</em> Garden', price:'9 €', priceNum:9,
+    badge:'✦ Heutiger Special', featured:true,
+    tags:['tag-new:Nur heute','tag-vegan:Vegan'],
+    img:'https://images.unsplash.com/photo-1609951651556-5334e2706168?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1609951651556-5334e2706168?w=180&q=80&fit=crop',
+    tagline:'Unser heutiger Special — frisch, fruchtig und belebend. Perfekt für den Einstieg in den Abend.',
+    story:'Klassischer Spritz, neu gedacht — mit frischem Basilikum und Limette. Leicht, fruchtig, perfekt für den Einstieg.',
+    ingredients:[
+      {emoji:'🍊',name:'Aperol',detail:'Originale Rezeptur, Italien'},
+      {emoji:'🌿',name:'Frisches Basilikum',detail:'Täglich frisch geliefert'},
+      {emoji:'🍋',name:'Limette',detail:'Frisch gepresst'},
+      {emoji:'💧',name:'Fever-Tree Mediterranean Tonic',detail:'Natürliche Aromen'},
+      {emoji:'🧊',name:'Crushed Ice',detail:'Extra fein'},
+    ],
+    flavour:{Süße:70,Säure:55,Bitterkeit:40,Frische:90,Stärke:30},
+    pairings:['b1','b2']
+  },
+  {
+    id:'c2', type:'cocktail', name:'Golden Hour', nameHtml:'<em>Golden</em> Hour', price:'13 €', priceNum:13,
+    badge:'⭐ Bestseller', featured:true,
+    tags:['tag-hit:Bestseller','tag-new:Neu'],
+    img:'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=180&q=80&fit=crop',
+    tagline:'Unser absoluter Bestseller. Hendrick\'s Gin trifft auf frischen Dill und knackige Gurke.',
+    story:'Inspiriert von Londoner Gin-Garden-Parties. Hendrick\'s trifft auf frischen Dill und Gurke — unser meistbestellter Drink.',
+    ingredients:[
+      {emoji:'🌿',name:"Hendrick's Gin",detail:'Scottish Premium Gin, 44%'},
+      {emoji:'🥒',name:'Gurke',detail:'Frisch geschnitten'},
+      {emoji:'🌱',name:'Frischer Dill',detail:'Täglich frisch'},
+      {emoji:'🍋',name:'Limette',detail:'Frisch gepresst'},
+      {emoji:'💧',name:'Fever-Tree Indian Tonic',detail:'Premium Tonic Water'},
+      {emoji:'🌸',name:'Eisblume',detail:'Zur Dekoration'},
+    ],
+    flavour:{Süße:30,Säure:60,Frische:95,Bitterkeit:45,Stärke:65},
+    pairings:['b3','b4']
+  },
+  {
+    id:'c3', type:'cocktail', name:'Soleil Spritz', nameHtml:'<em>Soleil</em> Spritz', price:'11 €', priceNum:11,
+    badge:'Klassiker', featured:false,
+    tags:['tag-hit:Klassiker'],
+    img:'https://images.unsplash.com/photo-1551538827-9c037cb4f32a?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1551538827-9c037cb4f32a?w=180&q=80&fit=crop',
+    tagline:'Der Klassiker neu interpretiert. Aperol und Prosecco treffen auf mediterranes Tonic und Blutorange.',
+    story:'Unser Spritz mit Twist: Fever-Tree Mediterranean Tonic statt Soda gibt ihm eine feine blumige Note.',
+    ingredients:[
+      {emoji:'🍊',name:'Aperol',detail:'Classico'},
+      {emoji:'🍾',name:'Prosecco DOC',detail:'Villa Sandi Brut'},
+      {emoji:'💧',name:'Fever-Tree Mediterranean',detail:'Tonic Water'},
+      {emoji:'🩸',name:'Blutorange',detail:'Frische Scheibe'},
+      {emoji:'🌿',name:'Rosmarin',detail:'Frisch'},
+    ],
+    flavour:{Süße:65,Säure:50,Frische:80,Bitterkeit:55,Stärke:25},
+    pairings:['b1','b5']
+  },
+  {
+    id:'c4', type:'cocktail', name:'Midnight Negroni', nameHtml:'Midnight <em>Negroni</em>', price:'12 €', priceNum:12,
+    badge:'Intensiv', featured:false,
+    tags:[],
+    img:'https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=180&q=80&fit=crop',
+    tagline:'Intensiv, dunkel, komplex. Ein Negroni für alle, die es tiefgründig und charaktervoll mögen.',
+    story:'Drei Zutaten, perfekte Harmonie. Flambierte Orangenzeste und geräucherter Eis geben ihm eine dunkle, unvergleichliche Tiefe.',
+    ingredients:[
+      {emoji:'🍒',name:'Campari',detail:'Bitter Liqueur, 25%'},
+      {emoji:'🍷',name:'Vermouth Rosso',detail:'Carpano Antica Formula'},
+      {emoji:'🌿',name:'Tanqueray Gin',detail:'London Dry, 43.1%'},
+      {emoji:'🍊',name:'Orangenzeste',detail:'Flammbiert am Tisch'},
+      {emoji:'🧊',name:'Geräucherter Eis',detail:'Mit Kirschholz'},
+    ],
+    flavour:{Süße:40,Bitterkeit:90,Stärke:85,Säure:30,Frische:25},
+    pairings:['b3','b6']
+  },
+  {
+    id:'c5', type:'cocktail', name:'Paloma Rosa', nameHtml:'<em>Paloma</em> Rosa', price:'11 €', priceNum:11,
+    badge:'Neu', featured:false,
+    tags:['tag-new:Neu'],
+    img:'https://images.unsplash.com/photo-1587223962930-cb7f31384c19?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1587223962930-cb7f31384c19?w=180&q=80&fit=crop',
+    tagline:'Mexiko meets Frankfurt. Espolon Tequila, frische Grapefruit und ein Hauch Chili.',
+    story:'In Mexiko beliebter als der Margarita. Tequila, Grapefruit und eine Spur Chili — erfrischend und mit Kick.',
+    ingredients:[
+      {emoji:'🌵',name:'Espolon Tequila',detail:'Blanco, Jalisco, Mexiko'},
+      {emoji:'🍊',name:'Grapefruit',detail:'Frisch gepresst'},
+      {emoji:'💧',name:'Fever-Tree Pink Grapefruit',detail:'Soda Water'},
+      {emoji:'🧂',name:'Fleur de Sel',detail:'Am Glasrand'},
+      {emoji:'🌶️',name:'Chili',detail:'Hauchdünn geschnitten'},
+    ],
+    flavour:{Säure:80,Frische:85,Süße:35,Stärke:60,Bitterkeit:20},
+    pairings:['b2','b4']
+  },
+  {
+    id:'c6', type:'cocktail', name:'Espresso Martini', nameHtml:'Espresso <em>Martini</em>', price:'13 €', priceNum:13,
+    badge:'Late Night', featured:false,
+    tags:['tag-hit:Abend-Hit'],
+    img:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=180&q=80&fit=crop',
+    tagline:'Der perfekte Wachmacher nach dem Abendessen. Samtig, intensiv, unwiderstehlich.',
+    story:'Erfunden um aufzuwecken und zu entspannen. Frischer Doppelespresso, Vodka, Kahlua — eisgekalt geschüttelt bis der Schaum perfekt ist.',
+    ingredients:[
+      {emoji:'☕', name:'Doppelter Espresso', detail:'Frisch gezogen, Illy'},
+      {emoji:'🍸', name:'Absolut Vodka', detail:'Premium, 40%'},
+      {emoji:'🍫', name:'Kahlua', detail:'Kaffeelikör, Mexiko'},
+      {emoji:'🍬', name:'Zuckersirup', detail:'Hausgemacht'},
+      {emoji:'☕', name:'3 Kaffeebohnen', detail:'Zur Dekoration'},
+    ],
+    flavour:{Bitterkeit:75,Süße:60,Stärke:70,Frische:30,Säure:45},
+    pairings:['b5','b7']
+  },
+  {
+    id:'c7', type:'cocktail', name:'Watermelon Smash', nameHtml:'Watermelon <em>Smash</em>', price:'11 €', priceNum:11,
+    badge:'Sommer-Drink', featured:false,
+    tags:['tag-new:Saisonal','tag-vegan:Vegan'],
+    img:'https://images.unsplash.com/photo-1497534446932-c925b458314e?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1497534446932-c925b458314e?w=180&q=80&fit=crop',
+    tagline:'Sommer im Glas — frische Wassermelone, Minze und ein Hauch Schärfe.',
+    story:'Nur wenn Wassermelonen Saison haben. Täglich frisch gepresst, mit Tequila und einer Spur Jalapeño — ein echter Hingucker.',
+    ingredients:[
+      {emoji:'🍉', name:'Frische Wassermelone', detail:'Täglich gepresst'},
+      {emoji:'🌵', name:'Espolon Tequila Blanco', detail:'Mexiko, 40%'},
+      {emoji:'🍋', name:'Limette', detail:'Frisch gepresst'},
+      {emoji:'🌶️', name:'Jalapeno', detail:'1 Scheibe, optional'},
+      {emoji:'🌿', name:'Frische Minze', detail:'Gestampft'},
+      {emoji:'🧊', name:'Crushed Ice', detail:'—'},
+    ],
+    flavour:{Frische:95,Süße:65,Säure:60,Stärke:45,Bitterkeit:15},
+    pairings:['b1','b4']
+  },
+  {
+    id:'c8', type:'cocktail', name:'Hugo Deluxe', nameHtml:'Hugo <em>Deluxe</em>', price:'10 €', priceNum:10,
+    badge:'Leicht & Frisch', featured:false,
+    tags:['tag-soft:Alkoholfrei mögl.'],
+    img:'https://images.unsplash.com/photo-1536935338788-846bb9981813?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1536935338788-846bb9981813?w=180&q=80&fit=crop',
+    tagline:'Der Sommerhit aus Südtirol — Holunderblüte, Minze und knisternder Prosecco.',
+    story:'Der Klassiker vom Südtiroler Vinschgau. Hausgemachter Holunderblütensirup und frische Minze — leicht, blumig, nie zu süß.',
+    ingredients:[
+      {emoji:'🌸', name:'Holunderblütensirup', detail:'Hausgemacht'},
+      {emoji:'🍾', name:'Prosecco DOC', detail:'Villa Sandi Brut'},
+      {emoji:'💧', name:'Fever-Tree Soda', detail:'Naturell'},
+      {emoji:'🌿', name:'Frische Minze', detail:'Täglich frisch'},
+      {emoji:'🍋', name:'Limette', detail:'Frische Scheibe'},
+      {emoji:'🧊', name:'Eiswürfel', detail:'—'},
+    ],
+    flavour:{Frische:90,Süße:70,Säure:40,Bitterkeit:10,Stärke:20},
+    pairings:['b2','b1']
+  },
+];
+
+const wines = {
+  white:[
+    {id:'w1',type:'wine',name:'Grauburgunder',nameHtml:'Grauburgunder',origin:'Weingut Salwey, Baden · trocken',price:'6 €',priceNum:6,price2:'Fl. 26 €',story:'Cremig, mineralisch, elegant. Weißer Pfirsich, langer Abgang — ein Paradebeispiel aus Baden.',img:null,emoji:'🍾',tags:[],pairings:['b1','b5']},
+    {id:'w2',type:'wine',name:'Riesling Spätlese',nameHtml:'Riesling <em>Spätlese</em>',origin:'Mosel · feinherb · fruchtig',price:'7 €',priceNum:7,price2:'Fl. 29 €',story:'Lebendige Säure, typische Schiefer-Mineralik der Mosel. Feinherb, ausgewogen, elegant.',img:null,emoji:'🍋',tags:[],pairings:['b1','b3']},
+  ],
+  red:[
+    {id:'w3',type:'wine',name:'Primitivo',nameHtml:'Primitivo',origin:'Puglia, Italien · vollmundig · Kirsche',price:'6 €',priceNum:6,price2:'Fl. 27 €',story:'Kraftvoll aus der Puglia. Reife Kirsche, dunkle Schokolade, samtige Tannine — vollmundig und wärmend.',img:null,emoji:'🍇',tags:[],pairings:['b6','b3']},
+  ],
+  sparkling:[
+    {id:'w4',type:'wine',name:'Rosé Provence',nameHtml:'<em>Rosé</em> Provence',origin:'Château Miraval · frisch · Erdbeere',price:'7 €',priceNum:7,price2:'Fl. 30 €',story:'Einer der begehrtesten Rosés der Welt. Erdbeere, weiße Blüten, Hauch Grapefruit — der Inbegriff der Provence.',img:null,emoji:'🌸',tags:['tag-hit:Beliebt'],pairings:['b1','b2']},
+    {id:'w5',type:'wine',name:'Prosecco DOC',nameHtml:'Prosecco DOC',origin:'Villa Sandi · brut · fein perlend',price:'6 €',priceNum:6,price2:'Fl. 28 €',story:'Feine Perlage, frische Apfel- und Birnennoten. Der ideale Aperitif — leicht, lebendig, einladend.',img:null,emoji:'🥂',tags:[],pairings:['b1','b5']},
+    {id:'w6',type:'wine',name:'Champagner',nameHtml:'Champagner',origin:'Moët & Chandon Brut Imperial',price:'14 €',priceNum:14,price2:'Fl. 68 €',story:'Der meistverkaufte Champagner der Welt. Cremige Brioche, grüner Apfel, feine Bläschen — für Momente die zählen.',img:null,emoji:'🍾',tags:['tag-prem:Premium'],pairings:['b5','b3']},
+  ]
+};
+
+const coffees = [
+  {id:'k1',type:'coffee',name:'Espresso',nameHtml:'Espresso',origin:'Illy · doppelt +0,50 €',price:'2,80 €',priceNum:2.8,story:'100% Arabica, 9 Länder, eine Crema. Karamell, dunkle Schokolade — intensiv und samtig.',img:null,emoji:'☕',tags:[],pairings:['b5','b2']},
+  {id:'k2',type:'coffee',name:'Flat White',nameHtml:'Flat White',origin:'Doppelter Ristretto · Hafermilch',price:'4,50 €',priceNum:4.5,story:'Stärker und seidiger als ein Cappuccino. Doppelter Ristretto, micro-geschäumte Hafermilch — cremig und ausgewogen.',img:null,emoji:'🥛',tags:['tag-vegan:Vegan'],pairings:['b5','b6']},
+  {id:'k3',type:'coffee',name:'Cold Brew Tonic',nameHtml:'<em>Cold Brew</em> Tonic',origin:'Cold Brew · Fever-Tree · Orangenzeste',price:'5,50 €',priceNum:5.5,story:'12h Cold Brew trifft Fever-Tree Tonic — leicht bitter, sprudelnd, mit Orangenzeste. Unser Sommer-Liebling.',img:null,emoji:'🧊',tags:['tag-new:Sommer-Hit'],pairings:['b2','b4']},
+  {id:'k4',type:'coffee',name:'Matcha Latte',nameHtml:'Matcha <em>Latte</em>',origin:'Ceremonial Grade · Oat Milk',price:'5,20 €',priceNum:5.2,story:'Ceremonial Grade aus Uji, Japan. Grasig, Umami, samtig — mit Hafermilch ein Moment der Ruhe.',img:null,emoji:'🍵',tags:['tag-vegan:Vegan','tag-new:Neu'],pairings:['b1','b5']},
+  {id:'k5',type:'coffee',name:'Lemonade House',nameHtml:'Lemonade <em>House</em>',origin:'Zitrone · Ingwer · Minze · Soda',price:'4,20 €',priceNum:4.2,story:'Täglich frisch zubereitet. Zitrone, Ingwer, Minze, Honig — aufgefüllt mit Soda. Lebendig und erfrischend.',img:null,emoji:'🍋',tags:['tag-vegan:Vegan','tag-soft:Alkoholfrei'],pairings:['b4','b2']},
+];
+
+const bites = [
+  {
+    id:'b1', type:'bite', name:'Oliven mariniert', nameHtml:'Oliven <em>mariniert</em>', emoji:'🫒',
+    desc:'Castelvetrano & Kalamata · Chili · Zitronenzeste · Thymian',
+    price:'4,50 €', priceNum:4.5, tags:['tag-vegan:Vegan'],
+    badge:'Vegan', tagline:'Der perfekte Einstieg — klein, intensiv und voller Charakter.',
+    img:'https://images.unsplash.com/photo-1593095657752-de017ab4f70e?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1593095657752-de017ab4f70e?w=180&q=80&fit=crop',
+    story:'Castelvetrano aus Sizilien trifft Kalamata aus Griechenland — mariniert mit Chili, Zeste und Thymian. Klein aber komplex.',
+    ingredients:[
+      {emoji:'🫒', name:'Castelvetrano Oliven', detail:'Sizilien, mild & buttrig'},
+      {emoji:'🫒', name:'Kalamata Oliven', detail:'Griechenland, kräftig & würzig'},
+      {emoji:'🌶️', name:'Frischer Chili', detail:'Täglich frisch geschnitten'},
+      {emoji:'🍋', name:'Zitronenzeste', detail:'Bio-Zitrone'},
+      {emoji:'🌿', name:'Thymian', detail:'Frisch'},
+      {emoji:'🫙', name:'Olivenöl extra virgin', detail:'Kaltgepresst'},
+    ],
+    drinkPairings:['w5','c3']
+  },
+  {
+    id:'b2', type:'bite', name:'Burrata & Tomate', nameHtml:'Burrata & <em>Tomate</em>', emoji:'🧀',
+    desc:'Heirloom-Tomaten · Basilikumöl · Fleur de Sel · Ciabatta',
+    price:'9 €', priceNum:9, tags:['tag-new:Saisonal'],
+    badge:'Saisonal', tagline:'Cremig, frisch, sommerlich — ein Klassiker in seiner schönsten Form.',
+    img:'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=180&q=80&fit=crop',
+    story:'Außen Mozzarella, innen cremige Stracciatella. Mit saisonalen Heirloom-Tomaten, Basilikumöl und knusprigem Ciabatta.',
+    ingredients:[
+      {emoji:'🧀', name:'Burrata di Andria', detail:'Frisch, täglich geliefert, Apulien'},
+      {emoji:'🍅', name:'Heirloom-Tomaten', detail:'Saisonal, verschiedene Sorten'},
+      {emoji:'🌿', name:'Basilikumöl', detail:'Hausgemacht'},
+      {emoji:'🧂', name:'Fleur de Sel', detail:'Guérande, Frankreich'},
+      {emoji:'🍞', name:'Ciabatta', detail:'Täglich frisch gebacken'},
+    ],
+    drinkPairings:['w4','c1']
+  },
+  {
+    id:'b3', type:'bite', name:'Charcuterie Board', nameHtml:'<em>Charcuterie</em> Board', emoji:'🥩',
+    desc:'Jamon Ibérico · Mortadella · Comté · Feigensenf',
+    price:'16 €', priceNum:16, tags:['tag-hit:Für 2'],
+    badge:'Für 2 Personen', tagline:'Eine Reise durch Europa auf einem Brett — ideal zum Teilen.',
+    img:'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=180&q=80&fit=crop',
+    story:'Europas Beste auf einem Brett: Jamon Ibérico (36 Monate), Comté (12 Monate), Mortadella — mit Feigensenf und Crackern.',
+    ingredients:[
+      {emoji:'🥩', name:'Jamon Ibérico de Bellota', detail:'36 Monate gereift, Spanien'},
+      {emoji:'🍖', name:'Mortadella di Bologna', detail:'IGP, klassisch mit Pistazien'},
+      {emoji:'🧀', name:'Comté AOP', detail:'12 Monate gereift, Jura, Frankreich'},
+      {emoji:'🍯', name:'Feigensenf', detail:'Hausgemacht'},
+      {emoji:'🍇', name:'Frische Weintrauben', detail:'Saisonal'},
+      {emoji:'🫓', name:'Hausgemachte Cracker', detail:'Rosmarin & Meersalz'},
+    ],
+    drinkPairings:['w3','c4']
+  },
+  {
+    id:'b4', type:'bite', name:'Patatas Bravas', nameHtml:'Patatas <em>Bravas</em>', emoji:'🥔',
+    desc:'Knusprige Kartoffeln · Aioli · geräuchertes Paprikaöl',
+    price:'7 €', priceNum:7, tags:['tag-vegan:Vegan mögl.'],
+    badge:'Vegan möglich', tagline:'Spaniens beliebtester Bar-Snack — außen knusprig, innen fluffig.',
+    img:'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=180&q=80&fit=crop',
+    story:'Zweimal frittiert für maximale Knusprigkeit. Geräuchertes Paprikaöl, Knoblauch-Aioli — auf Wunsch auch vegan.',
+    ingredients:[
+      {emoji:'🥔', name:'Kartoffeln', detail:'Festkochend, täglich frisch'},
+      {emoji:'🫙', name:'Geräuchertes Paprikaöl', detail:'Pimentón de la Vera'},
+      {emoji:'🧄', name:'Knoblauch-Aioli', detail:'Hausgemacht — vegan auf Wunsch'},
+      {emoji:'🧂', name:'Meersalz & Pfeffer', detail:'Grob gemahlen'},
+    ],
+    drinkPairings:['c5','c2']
+  },
+  {
+    id:'b5', type:'bite', name:'Käse Auswahl', nameHtml:'Käse <em>Auswahl</em>', emoji:'🧀',
+    desc:'3 Sorten der Saison · Walnuss · Honig · Feige · Cracker',
+    price:'13 €', priceNum:13, tags:[],
+    badge:'Saisonale Auswahl', tagline:'Drei handverlesene Käse — von mild bis würzig, perfekt in Balance.',
+    img:'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=180&q=80&fit=crop',
+    story:'Aktuell: Brie de Meaux, Manchego (18 Monate), Gorgonzola Dolce. Mit Honig, Walnüssen und Feige.',
+    ingredients:[
+      {emoji:'🧀', name:'Brie de Meaux AOP', detail:'Weichkäse, mild & cremig, Frankreich'},
+      {emoji:'🧀', name:'Manchego DOP', detail:'18 Monate gereift, La Mancha, Spanien'},
+      {emoji:'🧀', name:'Gorgonzola Dolce DOP', detail:'Blauschimmel, cremig, Lombardei'},
+      {emoji:'🍯', name:'Akazienblütenhonig', detail:'Regional, mild'},
+      {emoji:'🌰', name:'Walnüsse', detail:'Leicht geröstet'},
+      {emoji:'🍑', name:'Frische Feige', detail:'Saisonal'},
+    ],
+    drinkPairings:['w6','w2']
+  },
+  {
+    id:'b6', type:'bite', name:'Sourdough Toast', nameHtml:'Sourdough <em>Toast</em>', emoji:'🥖',
+    desc:'Sauerteig · Avocado · Fleur de Sel · Zitrone',
+    price:'8 €', priceNum:8, tags:[],
+    badge:'Vegetarisch', tagline:'Simpel, ehrlich, gut — geröstetes Sauerteigbrot auf seine beste Art.',
+    img:'https://images.unsplash.com/photo-1541519227354-08fa5d50c820?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1541519227354-08fa5d50c820?w=180&q=80&fit=crop',
+    story:'24h fermentiertes Sauerteig aus Frankfurt, geröstet mit cremiger Avocado, Fleur de Sel und Zitrone. Mehr braucht es nicht.',
+    ingredients:[
+      {emoji:'🍞', name:'Sauerteigbrot', detail:'24h fermentiert, lokale Bäckerei Frankfurt'},
+      {emoji:'🥑', name:'Avocado', detail:'Reif, täglich frisch'},
+      {emoji:'🧂', name:'Fleur de Sel', detail:'Guérande, Frankreich'},
+      {emoji:'🍋', name:'Zitrone', detail:'Frisch gepresst'},
+      {emoji:'🌶️', name:'Chiliflocken', detail:'Optional'},
+    ],
+    drinkPairings:['k3','c3']
+  },
+  {
+    id:'b7', type:'bite', name:'Truffle Chips', nameHtml:'Truffle <em>Chips</em>', emoji:'🍟',
+    desc:'Hausgemachte Chips · schwarzes Trüffelöl · Parmesan · Rosmarin',
+    price:'7 €', priceNum:7, tags:['tag-hit:Fan-Favorit'],
+    badge:'Fan-Favorit', tagline:'Einmal probiert, immer wieder bestellt.',
+    img:'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=180&q=80&fit=crop',
+    story:'Unser meistbestelltes Item. Knusprig frittiert, echtes Trüffelöl aus der Périgord, frischer Parmigiano — unwiderstehlich.',
+    ingredients:[
+      {emoji:'🥔', name:'Kartoffeln', detail:'Festkochend, täglich frisch geschnitten'},
+      {emoji:'🍄', name:'Schwarzes Trüffelöl', detail:'Périgord, Frankreich — echtes Trüffelöl'},
+      {emoji:'🧀', name:'Parmigiano Reggiano', detail:'24 Monate gereift, frisch gerieben'},
+      {emoji:'🌿', name:'Frischer Rosmarin', detail:'Fein gehackt'},
+      {emoji:'🧂', name:'Fleur de Sel', detail:'Guérande'},
+    ],
+    drinkPairings:['c2','c4']
+  },
+  {
+    id:'b8', type:'bite', name:'Geröstete Erdnüsse', nameHtml:'Geröstete <em>Erdnüsse</em>', emoji:'🥜',
+    desc:'Honig-Chili · Meersalz · geräuchertes Paprika',
+    price:'3,50 €', priceNum:3.5, tags:['tag-vegan:Vegan'],
+    badge:'Snack', tagline:'Klein, knackig, süchtig machend — der perfekte Drink-Begleiter.',
+    img:'https://images.unsplash.com/photo-1567892737950-30c4db37cd89?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1567892737950-30c4db37cd89?w=180&q=80&fit=crop',
+    story:'Täglich frisch geröstet mit Honig, Chili und Paprika. Süß, salzig, scharf — der perfekte Drink-Begleiter.',
+    ingredients:[
+      {emoji:'🥜', name:'Erdnüsse', detail:'Premium, ungesalzen'},
+      {emoji:'🍯', name:'Akazienblütenhonig', detail:'Regional'},
+      {emoji:'🌶️', name:'Chiliflocken', detail:'Mild bis mittel'},
+      {emoji:'🫙', name:'Geräuchertes Paprikaöl', detail:'Pimentón de la Vera'},
+      {emoji:'🧂', name:'Grobes Meersalz', detail:'—'},
+    ],
+    drinkPairings:['c4','c1']
+  },
+  {
+    id:'b9', type:'bite', name:'Bruschetta al Pomodoro', nameHtml:'Bruschetta al <em>Pomodoro</em>', emoji:'🍅',
+    desc:'Sauerteig · Strauchtomaten · Basilikum · Knoblauch · Olivenöl',
+    price:'7,50 €', priceNum:7.5, tags:['tag-vegan:Vegan'],
+    badge:'Italienisch', tagline:'Ein Hauch Toskana — knuspriges Brot, reife Tomaten, bestes Olivenöl.',
+    img:'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?w=180&q=80&fit=crop',
+    story:'Echt toskanisch: Brot noch heiß mit Knoblauch eingerieben, belegt mit reifen Tomaten, Basilikum, bestem Olivenöl.',
+    ingredients:[
+      {emoji:'🍞', name:'Sauerteigbrot', detail:'Täglich frisch, lokale Bäckerei'},
+      {emoji:'🍅', name:'Strauchtomaten', detail:'Reif, täglich frisch'},
+      {emoji:'🌿', name:'Frisches Basilikum', detail:'Täglich frisch'},
+      {emoji:'🧄', name:'Frischer Knoblauch', detail:'Direkt ins Brot gerieben'},
+      {emoji:'🫙', name:'Olivenöl extra virgin', detail:'Kaltgepresst, Sizilien'},
+    ],
+    drinkPairings:['c3','w5']
+  },
+  {
+    id:'b10', type:'bite', name:'Gambas al Ajillo', nameHtml:'Gambas al <em>Ajillo</em>', emoji:'🦐',
+    desc:'Knoblauch-Garnelen · Chili · Weißwein · Ciabatta',
+    price:'14 €', priceNum:14, tags:['tag-prem:Premium'],
+    badge:'Meeresfrüchte', tagline:'Knoblauch, Chili, Butter — spanische Bar-Küche in Reinform.',
+    img:'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=180&q=80&fit=crop',
+    story:'Direkt aus Madrids Tapas-Bars. Garnelen in Knoblauch-Chili-Öl, bruzelnd serviert — das Öl mit Ciabatta auftunken ist Pflicht.',
+    ingredients:[
+      {emoji:'🦐', name:'Tigergarnelen', detail:'Frisch, Atlantik, Gr. 16/20'},
+      {emoji:'🧄', name:'Frischer Knoblauch', detail:'4 Zehen, fein geschnitten'},
+      {emoji:'🌶️', name:'Frische Chili', detail:'Mild bis mittel'},
+      {emoji:'🍷', name:'Trockener Weißwein', detail:'Zum Ablöschen'},
+      {emoji:'🫙', name:'Olivenöl', detail:'Extra virgin, großzügig'},
+      {emoji:'🍞', name:'Ciabatta', detail:'Zum Auftunken, täglich frisch'},
+    ],
+    drinkPairings:['w1','c3']
+  },
+];
+
+// ------------------------------------------
+// WISHLIST
+// ------------------------------------------
+let wishlist = [];
+
+function addToWishlist(item) {
+  const existing = wishlist.find(i=>i.id===item.id);
+  if (existing) { existing.qty++; updateWishlistUI(); return false; }
+  wishlist.push({...item, qty:1});
+  updateWishlistUI();
+  return true;
+}
+
+function removeFromWishlist(id) {
+  wishlist = wishlist.filter(i=>i.id!==id);
+  updateWishlistUI();
+  renderWishlist();
+}
+
+function changeQty(id, delta) {
+  const item = wishlist.find(i=>i.id===id);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) { removeFromWishlist(id); return; }
+  updateWishlistUI();
+  renderWishlist();
+}
+
+function updateWishlistUI() {
+  const count = wishlist.reduce((s,i)=>s+i.qty, 0);
+  const navBadge = document.getElementById('nav-badge');
+  const tabBadge = document.getElementById('tab-badge');
+  if (count > 0) {
+    navBadge.textContent = count; navBadge.classList.add('show');
+    tabBadge.textContent = count; tabBadge.classList.add('show');
+  } else {
+    navBadge.classList.remove('show');
+    tabBadge.classList.remove('show');
+  }
+}
+
+function renderWishlist() {
+  const el = document.getElementById('wishlist-content');
+  if (wishlist.length === 0) {
+    el.innerHTML = `
+      <div class="wishlist-empty">
+        <div class="wishlist-empty-icon">🔖</div>
+        <div class="wishlist-empty-title">Noch nichts gemerkt</div>
+        <div class="wishlist-empty-sub">Tippe auf ein Getränk oder eine Speise<br>und drücke „Merken" um es hier zu speichern.</div>
+      </div>`;
+    return;
+  }
+  const total = wishlist.reduce((s,i)=>s+(i.priceNum*i.qty),0);
+  el.innerHTML = wishlist.map(item=>`
+    <div class="wishlist-item">
+      <div class="wishlist-img">
+        ${item.img ? `<img src="${item.thumb||item.img}" alt="${item.name}" loading="lazy">` : `<span>${item.emoji||'🍸'}</span>`}
+      </div>
+      <div class="wishlist-info">
+        <div class="wishlist-name">${item.nameHtml||item.name}</div>
+        <div class="wishlist-cat">${item.type==='cocktail'?'Cocktail':item.type==='wine'?'Wein':item.type==='coffee'?'Kaffee & Soft':item.type==='bite'?'Bar Bite':'—'}</div>
+      </div>
+      <div class="qty-stepper">
+        <button class="qty-btn" onclick="changeQty('${item.id}',-1)">−</button>
+        <span class="qty-num">${item.qty}</span>
+        <button class="qty-btn" onclick="changeQty('${item.id}',1)">+</button>
+      </div>
+      <div class="wishlist-price">${item.qty > 1 ? (item.priceNum*item.qty).toFixed(2).replace('.',',')+' €' : item.price}</div>
+    </div>
+  `).join('') + `
+    <div class="wishlist-total">
+      ${wishlist.map(i=>`<div class="wishlist-total-row"><span>${i.name}${i.qty>1?' ×'+i.qty:''}</span><span>${(i.priceNum*i.qty).toFixed(2).replace('.',',')} €</span></div>`).join('')}
+      <div class="wishlist-total-sum">
+        <span class="wishlist-total-label">Gesamt</span>
+        <span class="wishlist-total-price">${total.toFixed(2).replace('.',',')} €</span>
+      </div>
+    </div>
+    <button class="wishlist-cta" onclick="openPresent()">
+      <span>🙋</span> Diese Liste dem Kellner zeigen
+    </button>`;
+}
+
+// ------------------------------------------
+// RENDER LISTS
+// ------------------------------------------
+function renderCocktails() {
+  document.getElementById('cocktail-list').innerHTML = cocktails.map(c=>`
+    <div class="cocktail-card ${c.featured?'featured':''}" onclick="openSheet(cocktails.find(x=>x.id==='${c.id}'))">
+      <div class="cocktail-thumb"><img src="${c.thumb}" alt="${c.name}" loading="lazy"></div>
+      <div class="cocktail-info">
+        <div class="cocktail-name">${c.nameHtml}</div>
+        <div class="cocktail-desc">${c.ingredients.map(i=>i.name).join(' · ')}</div>
+        <div class="cocktail-bottom">
+          <div class="cocktail-price">${c.price}</div>
+          <div class="tags">${c.tags.map(t=>{const[cls,lbl]=t.split(':');return`<span class="tag ${cls}">${lbl}</span>`}).join('')}</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderWineGroup(id, list) {
+  document.getElementById(id).innerHTML = list.map(w=>`
+    <div class="list-row" onclick="openSheet(wines.${id==='white-wines'?'white':id==='red-wines'?'red':'sparkling'}.find(x=>x.id==='${w.id}'))">
+      <div class="list-info">
+        <div class="list-name">${w.nameHtml} ${w.tags.map(t=>{const[cls,lbl]=t.split(':');return`<span class="tag ${cls}" style="margin-left:4px">${lbl}</span>`}).join('')}</div>
+        <div class="list-sub">${w.origin}</div>
+      </div>
+      <div class="list-right">
+        <div class="list-price">${w.price}</div>
+        <div class="list-price2">${w.price2}</div>
+      </div>
+      <div class="list-arrow">›</div>
+    </div>`).join('');
+}
+
+function renderCoffeeList() {
+  document.getElementById('coffee-list').innerHTML = coffees.map(k=>`
+    <div class="list-row" onclick="openSheet(coffees.find(x=>x.id==='${k.id}'))">
+      <div class="list-info">
+        <div class="list-name">${k.nameHtml}</div>
+        <div class="list-sub">${k.origin}</div>
+      </div>
+      <div class="list-right">
+        <div class="list-price">${k.price}</div>
+      </div>
+      <div class="list-arrow">›</div>
+    </div>`).join('');
+}
+
+function renderBites() {
+  document.getElementById('bites-grid').innerHTML = bites.map(b=>`
+    <div class="food-card" onclick="openSheet(bites.find(x=>x.id==='${b.id}'))">
+      <div class="food-emoji">${b.emoji}</div>
+      <div class="food-name">${b.nameHtml}</div>
+      <div class="food-desc">${b.desc}</div>
+      <div class="food-bottom">
+        <div class="food-price">${b.price}</div>
+        <div style="font-size:14px;color:var(--dim)">›</div>
+      </div>
+    </div>`).join('');
+}
+
+// ------------------------------------------
+// SHEET / POPUP
+// ------------------------------------------
+let currentItem = null;
+let selectedPairings = new Set();
+
+function openSheet(item) {
+  currentItem = item;
+  selectedPairings = new Set();
+  const inWishlist = !!wishlist.find(i=>i.id===item.id);
+
+  // Image area
+  const imgArea = document.getElementById('sheet-img-area');
+  if (item.img) {
+    imgArea.innerHTML = `
+      <div class="sheet-img-wrap">
+        <img src="${item.img}" alt="${item.name}" onerror="this.style.display='none'">
+        <div class="sheet-img-gradient"></div>
+        ${item.badge?`<div class="sheet-badge-float">${item.badge}</div>`:''}
+        <div class="sheet-price-float">${item.price}</div>
+      </div>`;
+  } else {
+    imgArea.innerHTML = `
+      <div class="sheet-img-wrap no-img">
+        <span>${item.emoji||'🍸'}</span>
+        ${item.badge?`<div class="sheet-badge-float">${item.badge}</div>`:''}
+        <div class="sheet-price-float">${item.price}</div>
+      </div>`;
+  }
+
+  // Pairing bites (for drinks) or pairing drinks (for bites)
+  const pairingBites = (item.pairings||[]).map(id=>bites.find(b=>b.id===id)).filter(Boolean);
+
+  // Drink pairings for bites
+  const allDrinks = [...cocktails,...Object.values(wines).flat(),...coffees];
+  const drinkPairItems = (item.drinkPairings||[]).map(id=>allDrinks.find(d=>d.id===id)).filter(Boolean);
+
+  // Flavour (cocktails only)
+  const flavourHtml = item.flavour ? `
+    <div class="s-label">✦ Geschmacksprofil</div>
+    <div class="flavour-bars" id="flavour-bars">
+      ${Object.entries(item.flavour).map(([k,v])=>`
+        <div class="flavour-row">
+          <div class="flavour-label">${k}</div>
+          <div class="flavour-track"><div class="flavour-fill" data-w="${v}" style="width:0%"></div></div>
+        </div>`).join('')}
+    </div>` : '';
+
+  // Ingredients - cocktails have amount, bites do not
+  const ingrHtml = item.ingredients ? `
+    <div class="s-label">✦ ${item.type==='bite'?'Was ist dabei':'Zutaten'}</div>
+    <div class="ingr-list">
+      ${item.ingredients.map(i=>`
+        <div class="ingr-item">
+          <div class="ingr-emoji">${i.emoji}</div>
+          <div class="ingr-info"><div class="ingr-name">${i.name}</div><div class="ingr-detail">${i.detail}</div></div>
+          
+        </div>`).join('')}
+    </div>` : '';
+
+  // Bite pairings (drinks → food)
+  const pairingHtml = pairingBites.length ? `
+    <div class="pairing-title">🍽 Dazu empfehlen wir</div>
+    <div class="pairing-list">
+      ${pairingBites.map(b=>`
+        <div class="pairing-card" id="pc-${b.id}" onclick="togglePairing('${b.id}')">
+          <div class="pairing-emoji">${b.emoji}</div>
+          <div class="pairing-name">${b.name}</div>
+          <div class="pairing-price">${b.price}</div>
+          <div class="pairing-add" id="pa-${b.id}">+</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  // Drink pairings (food → drinks)
+  const drinkPairHtml = drinkPairItems.length ? `
+    <div class="pairing-title">🍸 Passt gut dazu</div>
+    <div class="pairing-list">
+      ${drinkPairItems.map(d=>`
+        <div class="pairing-card" id="pc-${d.id}" onclick="toggleDrinkPairing('${d.id}')">
+          <div class="pairing-emoji">${d.img?`<img src="${d.thumb||d.img}" style="width:36px;height:36px;border-radius:8px;object-fit:cover">`:d.emoji||'🍸'}</div>
+          <div class="pairing-name">${d.name}</div>
+          <div class="pairing-price">${d.price}</div>
+          <div class="pairing-add" id="pa-${d.id}">+</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  document.getElementById('sheet-body').innerHTML = `
+    <div class="sheet-name">${item.nameHtml}</div>
+    <div class="sheet-tagline">${item.tagline||''}</div>
+    ${item.tags&&item.tags.length?`<div class="sheet-tags">${item.tags.map(t=>{const[cls,lbl]=t.split(':');return`<span class="tag ${cls}">${lbl}</span>`}).join('')}</div>`:''}
+    ${item.story?`<div class="story-block"><div class="story-text">${item.story}</div></div>`:''}
+    ${ingrHtml}
+    ${flavourHtml}
+    ${pairingHtml}
+    ${drinkPairHtml}
+    <button class="sheet-cta ${inWishlist?'added':''}" id="sheet-cta" onclick="handleCTA()">
+      ${inWishlist?'<span>✓</span> <span>Bereits gemerkt</span>':'<span>🔖</span> <span id="cta-text">Merken</span>'}
+    </button>`;
+
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  setTimeout(()=>{
+    document.querySelectorAll('.flavour-fill').forEach(el=>{
+      el.style.width=el.dataset.w+'%';
+    });
+  },200);
+}
+
+function togglePairing(biteId) {
+  const bite = bites.find(b=>b.id===biteId);
+  const card = document.getElementById(`pc-${biteId}`);
+  const btn  = document.getElementById(`pa-${biteId}`);
+  if (selectedPairings.has(biteId)) {
+    selectedPairings.delete(biteId);
+    card.classList.remove('selected');
+    btn.textContent = '+';
+    showToast(`${bite.emoji} ${bite.name} entfernt`);
+  } else {
+    selectedPairings.add(biteId);
+    card.classList.add('selected');
+    btn.textContent = '✓';
+    showToast(`${bite.emoji} ${bite.name} zur Merkliste!`);
+    // also add bite to wishlist
+    const biteItem = {...bite, type:'bite', priceNum: bite.priceNum};
+    addToWishlist(biteItem);
+  }
+}
+
+function toggleDrinkPairing(drinkId) {
+  const allDrinks = [...cocktails,...Object.values(wines).flat(),...coffees];
+  const drink = allDrinks.find(d=>d.id===drinkId);
+  if (!drink) return;
+  const card = document.getElementById(`pc-${drinkId}`);
+  const btn  = document.getElementById(`pa-${drinkId}`);
+  if (selectedPairings.has(drinkId)) {
+    selectedPairings.delete(drinkId);
+    card.classList.remove('selected');
+    btn.textContent = '+';
+    showToast(`${drink.emoji||'🍸'} ${drink.name} entfernt`);
+  } else {
+    selectedPairings.add(drinkId);
+    card.classList.add('selected');
+    btn.textContent = '✓';
+    addToWishlist(drink);
+    showToast(`🍸 ${drink.name} zur Merkliste!`);
+  }
+}
+
+
+function handleCTA() {
+  if (!currentItem) return;
+  const already = !!wishlist.find(i=>i.id===currentItem.id);
+  if (already) { closeSheet(); return; }
+  addToWishlist(currentItem);
+  const btn = document.getElementById('sheet-cta');
+  btn.classList.add('added');
+  btn.innerHTML = '<span>✓</span> <span>Gemerkt!</span>';
+  showToast('🔖 ' + currentItem.name + ' auf der Merkliste!');
+  setTimeout(closeSheet, 800);
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ------------------------------------------
+// NAVIGATION
+// ------------------------------------------
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  const tabEl = document.getElementById('tab-'+id);
+  if (tabEl) { tabEl.classList.add('active'); tabEl.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); }
+  const secEl = document.getElementById(id);
+  if (secEl) secEl.classList.add('active');
+  if (id==='merkliste') renderWishlist();
+}
+
+function setNav(btn, tabId) {
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  switchTab(tabId);
+}
+
+// ------------------------------------------
+// TOAST
+// ------------------------------------------
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ------------------------------------------
+// SWIPE DOWN TO CLOSE
+// ------------------------------------------
+let startY=0;
+document.getElementById('sheet').addEventListener('touchstart',e=>{startY=e.touches[0].clientY},{passive:true});
+document.getElementById('sheet').addEventListener('touchend',e=>{if(e.changedTouches[0].clientY-startY>80)closeSheet()},{passive:true});
+
+function dismissWelcome() {
+  const el = document.getElementById('welcome-overlay');
+  el.classList.add('hidden');
+}
+
+function openPresent() {
+  const overlay = document.getElementById('present-overlay');
+  const itemsEl = document.getElementById('present-items');
+  const totalEl = document.getElementById('present-total-price');
+
+  itemsEl.innerHTML = wishlist.map(item => `
+    <div class="present-item">
+      <div class="present-item-left">
+        <div class="present-item-emoji">${item.emoji || '🍸'}</div>
+        <div>
+          <div class="present-item-name">${item.name}</div>
+          <div class="present-item-cat">${item.type==='cocktail'?'Cocktail':item.type==='wine'?'Wein':item.type==='coffee'?'Kaffee':'Bar Bite'}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${item.qty > 1 ? `<span style="font-size:13px;color:#8A7060">× ${item.qty}</span>` : ''}
+        <div class="present-item-price">${(item.priceNum*item.qty).toFixed(2).replace('.',',')} €</div>
+      </div>
+    </div>`).join('');
+
+  const total = wishlist.reduce((s,i) => s + (i.priceNum*i.qty), 0);
+  totalEl.textContent = total.toFixed(2).replace('.', ',') + ' €';
+
+  overlay.classList.add('open');
+}
+
+function closePresent() {
+  document.getElementById('present-overlay').classList.remove('open');
+}
+
+// ------------------------------------------
+// INIT
+// ------------------------------------------
+renderCocktails();
+renderWineGroup('white-wines', wines.white);
+renderWineGroup('red-wines', wines.red);
+renderWineGroup('sparkling-wines', wines.sparkling);
+renderCoffeeList();
+renderBites();
+
+document.getElementById('special-bar').onclick = ()=>openSheet(cocktails[0]);
+
+function shareMenu() {
+  if(navigator.share){navigator.share({title:'Bar Soleil',text:'Schau dir die Karte an!',url:window.location.href})}
+  else{showToast('🔗 Link kopiert!')}
+}
+</script>
+<!-- PRÄSENTATIONS-MODUS -->
+<div class="present-overlay" id="present-overlay">
+  <div class="present-header">Ihre Bestellung bei</div>
+  <div class="present-bar-name">Bar <em>Soleil</em></div>
+  <div class="present-items" id="present-items"></div>
+  <div class="present-total">
+    <div class="present-total-label">Gesamt</div>
+    <div class="present-total-price" id="present-total-price"></div>
+  </div>
+  <button class="present-close" onclick="closePresent()">← Zurück zur Karte</button>
+</div>
+
+</body>
+</html>

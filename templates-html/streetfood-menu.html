@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>KIOSK No. 7</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme: light;
+  --bg:#0A0A0A;
+  --yellow:#FFD600;
+  --red:#FF3B30;
+  --green:#00C853;
+  --blue:#2979FF;
+  --pink:#FF4081;
+  --orange:#FF6D00;
+  --white:#FFFFFF;
+  --card:#161616;
+  --card2:#1E1E1E;
+  --border:rgba(255,255,255,0.08);
+  --text:#FFFFFF;
+  --muted:#888;
+  --dim:#444;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;overscroll-behavior:none}
+
+/* ─── NOISE TEXTURE OVERLAY ─── */
+body::before{content:'';position:fixed;inset:0;opacity:.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");pointer-events:none;z-index:9999}
+
+/* ─── HERO ─── */
+.hero{position:relative;min-height:260px;overflow:hidden;display:flex;flex-direction:column;padding:0}
+.hero-stripe{position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(90deg,var(--yellow) 0,var(--yellow) 40px,var(--red) 40px,var(--red) 80px,var(--green) 80px,var(--green) 120px,var(--blue) 120px,var(--blue) 160px,var(--pink) 160px,var(--pink) 200px)}
+.hero-inner{flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:24px 20px 20px;background:linear-gradient(160deg,#1a0a00 0%,#0A0A0A 60%)}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;background:var(--yellow);color:#000;font-size:9px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;padding:5px 12px;border-radius:4px;margin-bottom:14px}
+.hero-dot{width:6px;height:6px;border-radius:50%;background:#000;animation:blink 1.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(52px,16vw,88px);line-height:.92;letter-spacing:.02em;margin-bottom:6px}
+.hero-title .accent{color:var(--yellow);display:block}
+.hero-sub{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+.hero-badge{position:absolute;top:20px;right:16px;background:var(--red);color:white;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.08em;padding:6px 12px;border-radius:6px;transform:rotate(2deg)}
+
+/* ─── SPECIAL BAR ─── */
+.special-bar{margin:0 16px;transform:translateY(-18px);background:var(--yellow);border-radius:14px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:transform .15s;position:relative;overflow:hidden}
+.special-bar::after{content:'TAP';position:absolute;right:56px;top:50%;transform:translateY(-50%);font-size:8px;font-weight:900;letter-spacing:.15em;color:rgba(0,0,0,.3)}
+.special-bar:active{transform:translateY(-16px) scale(.98)}
+.special-bar-left{}
+.special-bar-eyebrow{font-size:8px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:rgba(0,0,0,.5);margin-bottom:3px}
+.special-bar-name{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#000;letter-spacing:.04em}
+.special-bar-price{font-family:'Bebas Neue',sans-serif;font-size:32px;color:#000}
+
+/* ─── TABS ─── */
+.tabs-wrap{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:0 16px}
+.tabs{display:flex;overflow-x:auto;scrollbar-width:none;gap:4px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:12px 14px 10px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:3px solid transparent;cursor:pointer;transition:color .15s,border-color .15s;white-space:nowrap;user-select:none;position:relative}
+.tab.active{color:var(--yellow);border-bottom-color:var(--yellow)}
+
+/* ─── CONTENT ─── */
+.content{padding:8px 16px 120px}
+.section{display:none}
+.section.active{display:block}
+.sec-header{padding:18px 0 10px;display:flex;align-items:center;justify-content:space-between}
+.sec-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:.04em}
+.sec-accent{color:var(--yellow)}
+.sec-count{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;background:var(--card2);padding:4px 10px;border-radius:99px}
+
+/* ─── FOOD CARD ─── */
+.food-card{background:var(--card);border-radius:16px;margin-bottom:12px;overflow:hidden;cursor:pointer;transition:transform .15s;border:1px solid var(--border);position:relative}
+.food-card:active{transform:scale(.975)}
+.food-card-img{width:100%;height:180px;object-fit:cover;display:block;background:var(--card2)}
+.food-card-img-wrap{position:relative;overflow:hidden}
+.food-card-img-wrap img{width:100%;height:180px;object-fit:cover;display:block;transition:transform .3s}
+.food-card:active .food-card-img-wrap img{transform:scale(1.04)}
+.food-card-badge{position:absolute;top:12px;left:12px;background:var(--yellow);color:#000;font-size:9px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;padding:4px 10px;border-radius:4px}
+.food-card-badge.red{background:var(--red);color:white}
+.food-card-badge.green{background:var(--green);color:#000}
+.food-card-body{padding:14px 16px 16px}
+.food-card-name{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.04em;margin-bottom:4px;line-height:1}
+.food-card-desc{font-size:11px;font-weight:600;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.food-card-footer{display:flex;align-items:center;justify-content:space-between}
+.food-card-price{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--yellow)}
+.food-card-tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:4px}
+.tag-veg{background:rgba(0,200,83,.15);color:var(--green)}
+.tag-hot{background:rgba(255,59,48,.15);color:var(--red)}
+.tag-new{background:rgba(255,214,0,.15);color:var(--yellow)}
+.tag-hit{background:rgba(41,121,255,.15);color:var(--blue)}
+
+/* ─── LIST ROW (drinks/etc) ─── */
+.list-group{background:var(--card);border-radius:14px;margin-bottom:12px;overflow:hidden;border:1px solid var(--border)}
+.list-row{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.list-row:last-child{border:none}
+.list-row:active{background:rgba(255,255,255,.04)}
+.list-row-emoji{font-size:26px;flex-shrink:0;width:36px;text-align:center}
+.list-row-info{flex:1}
+.list-row-name{font-size:15px;font-weight:800;color:var(--text);margin-bottom:2px}
+.list-row-sub{font-size:11px;font-weight:600;color:var(--muted)}
+.list-row-right{text-align:right;flex-shrink:0}
+.list-row-price{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--yellow)}
+.list-row-price2{font-size:10px;color:var(--dim);margin-top:1px}
+.list-arrow{color:var(--dim);font-size:16px;margin-left:4px;flex-shrink:0}
+
+/* ─── HAPPY HOUR BANNER ─── */
+.hh-banner{background:linear-gradient(135deg,rgba(0,200,83,.2),rgba(0,200,83,.05));border:2px solid var(--green);border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.hh-icon{font-size:28px}
+.hh-label{font-size:8px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:3px}
+.hh-text{font-size:14px;font-weight:800;color:var(--text)}
+.hh-sub{font-size:11px;color:var(--muted);font-weight:600;margin-top:1px}
+
+/* ─── WISHLIST ─── */
+.wishlist-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;gap:12px;text-align:center}
+.wishlist-empty-icon{font-size:52px;opacity:.3}
+.wishlist-empty-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.04em;color:var(--muted)}
+.wishlist-empty-sub{font-size:13px;font-weight:600;color:var(--dim);line-height:1.6}
+.wishlist-item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border)}
+.wishlist-img{width:46px;height:46px;border-radius:8px;overflow:hidden;background:var(--card2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.wishlist-img img{width:100%;height:100%;object-fit:cover}
+.wishlist-info{flex:1;min-width:0}
+.wishlist-name{font-size:14px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.wishlist-cat{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.qty-stepper{display:flex;align-items:center;gap:0;flex-shrink:0;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.qty-btn{width:30px;height:30px;border:none;background:none;color:var(--yellow);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.qty-btn:active{background:rgba(255,214,0,.15)}
+.qty-num{font-size:14px;font-weight:800;color:var(--text);min-width:22px;text-align:center}
+.wishlist-price{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--yellow);flex-shrink:0;min-width:52px;text-align:right}
+.wishlist-total{background:var(--card2);border-radius:12px;padding:16px 18px;margin-top:4px;border:1px solid var(--border)}
+.wishlist-total-row{display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px}
+.wishlist-total-sum{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border)}
+.wishlist-total-label{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.04em}
+.wishlist-total-price{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--yellow)}
+.wishlist-cta{width:100%;padding:16px;border-radius:12px;border:none;cursor:pointer;background:var(--yellow);color:#000;font-size:16px;font-weight:900;font-family:'Nunito',sans-serif;margin-top:12px;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .15s}
+.wishlist-cta:active{transform:scale(.97)}
+
+/* ─── INFO ─── */
+.info-card{background:var(--card);border-radius:14px;padding:18px;margin-bottom:10px;border:1px solid var(--border)}
+.info-label{font-size:9px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:8px}
+.info-value{font-size:16px;font-weight:800;color:var(--text);line-height:1.4}
+.info-sub{font-size:11px;font-weight:600;color:var(--muted);margin-top:4px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.hours-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;font-weight:700}
+.hours-row:last-child{border:none}
+.hours-day{color:var(--muted)}
+.hours-time.today{color:var(--green)}
+
+/* ─── OVERLAY + SHEET ─── */
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0);pointer-events:none;transition:background .3s,backdrop-filter .3s}
+.overlay.open{background:rgba(0,0,0,.85);pointer-events:all;backdrop-filter:blur(8px)}
+.sheet{position:fixed;bottom:0;left:0;right:0;z-index:600;background:#111;border-radius:24px 24px 0 0;max-height:92vh;overflow-y:auto;transform:translateY(105%);transition:transform .4s cubic-bezier(.32,.72,0,1);overscroll-behavior:contain;border-top:3px solid var(--yellow)}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:40px;height:4px;border-radius:99px;background:rgba(255,255,255,.2);margin:12px auto 0}
+.sheet-img-wrap{position:relative;height:220px;overflow:hidden;margin:14px 14px 0;border-radius:16px}
+.sheet-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.sheet-img-gradient{position:absolute;inset:0;background:linear-gradient(0deg,rgba(17,17,17,.95) 0%,transparent 55%)}
+.sheet-badge-float{position:absolute;top:12px;left:12px;background:var(--yellow);color:#000;font-size:9px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;padding:4px 10px;border-radius:4px}
+.sheet-badge-float.red{background:var(--red);color:white}
+.sheet-price-float{position:absolute;bottom:14px;right:14px;font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--yellow);text-shadow:0 2px 12px rgba(0,0,0,.8)}
+.sheet-body{padding:16px 18px 40px}
+.sheet-name{font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,8vw,40px);letter-spacing:.03em;line-height:1;margin-bottom:4px}
+.sheet-tagline{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:14px;line-height:1.6}
+.sheet-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.story-block{background:rgba(255,214,0,.06);border-left:3px solid var(--yellow);border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:18px}
+.story-text{font-size:12px;font-weight:700;color:var(--muted);line-height:1.65}
+.s-label{font-size:8px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:8px}
+.ingr-list{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.ingr-item{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
+.ingr-emoji{font-size:17px;flex-shrink:0;width:24px;text-align:center}
+.ingr-info{flex:1}
+.ingr-name{font-size:13px;font-weight:800;color:var(--text)}
+.ingr-detail{font-size:10px;font-weight:600;color:var(--muted);margin-top:1px}
+.ingr-amount{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--yellow);white-space:nowrap}
+.pairing-title{font-size:8px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow);margin-bottom:10px}
+.pairing-list{display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.pairing-list::-webkit-scrollbar{display:none}
+.pairing-card{flex-shrink:0;width:110px;background:var(--card2);border-radius:10px;padding:12px 10px;border:2px solid var(--border);cursor:pointer;transition:border-color .15s,transform .15s}
+.pairing-card:active{transform:scale(.95)}
+.pairing-card.selected{border-color:var(--yellow);background:rgba(255,214,0,.07)}
+.pairing-card.selected .pairing-add{background:var(--yellow);color:#000;border-color:var(--yellow)}
+.pairing-emoji{font-size:22px;margin-bottom:5px}
+.pairing-name{font-size:12px;font-weight:800;color:var(--text);margin-bottom:2px;line-height:1.2}
+.pairing-price{font-size:11px;font-weight:700;color:var(--yellow)}
+.pairing-add{display:inline-flex;align-items:center;justify-content:center;margin-top:6px;width:24px;height:24px;border-radius:5px;background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.3);color:var(--yellow);font-size:14px;transition:all .15s}
+.sheet-cta{width:100%;padding:16px;border-radius:12px;border:none;cursor:pointer;background:var(--yellow);color:#000;font-size:16px;font-weight:900;font-family:'Nunito',sans-serif;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .15s,background .2s}
+.sheet-cta:active{transform:scale(.97)}
+.sheet-cta.added{background:var(--green);color:#000}
+
+/* ─── WELCOME POPUP ─── */
+.welcome-overlay{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.9);display:flex;align-items:flex-end;justify-content:center;transition:opacity .3s,visibility .3s}
+.welcome-overlay.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.welcome-sheet{background:#111;border-radius:24px 24px 0 0;padding:28px 22px max(32px,env(safe-area-inset-bottom));width:100%;max-width:480px;border-top:3px solid var(--yellow);animation:sheetUp .45s cubic-bezier(.32,.72,0,1) forwards}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.welcome-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.04em;text-align:center;margin-bottom:22px}
+.welcome-title span{color:var(--yellow)}
+.welcome-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:22px}
+.welcome-tile{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:16px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:7px}
+.welcome-tile-icon{font-size:30px;line-height:1}
+.welcome-tile-label{font-size:12px;font-weight:900;color:var(--text);text-align:center}
+.welcome-tile-sub{font-size:10px;font-weight:700;color:var(--muted);text-align:center;line-height:1.3}
+.welcome-btn{width:100%;padding:15px;border-radius:12px;border:none;cursor:pointer;background:var(--yellow);color:#000;font-size:16px;font-weight:900;font-family:'Nunito',sans-serif}
+.welcome-btn:active{transform:scale(.98)}
+
+/* ─── PRÄSENTATIONS-MODUS ─── */
+.present-overlay{position:fixed;inset:0;z-index:1000;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;transform:translateY(100%);transition:transform .4s cubic-bezier(.32,.72,0,1)}
+.present-overlay.open{transform:translateY(0)}
+.present-stripe{position:absolute;top:0;left:0;right:0;height:8px;background:repeating-linear-gradient(90deg,#FFD600 0,#FFD600 40px,#FF3B30 40px,#FF3B30 80px,#00C853 80px,#00C853 120px,#2979FF 120px,#2979FF 160px)}
+.present-header{font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#888;text-align:center;margin-bottom:6px}
+.present-bar-name{font-family:'Bebas Neue',sans-serif;font-size:36px;color:#111;letter-spacing:.04em;text-align:center;margin-bottom:28px}
+.present-bar-name span{color:#FF6D00}
+.present-items{width:100%;display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+.present-item{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#F5F5F5;border-radius:12px;border-left:4px solid #FFD600}
+.present-item-left{display:flex;align-items:center;gap:12px}
+.present-item-emoji{font-size:24px}
+.present-item-name{font-size:16px;font-weight:800;color:#111}
+.present-item-cat{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.present-item-right{display:flex;align-items:center;gap:8px}
+.present-item-qty{font-size:13px;font-weight:800;color:#888}
+.present-item-price{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#FF6D00}
+.present-total{width:100%;display:flex;justify-content:space-between;align-items:center;padding:16px 18px;background:#111;border-radius:12px;margin-bottom:28px}
+.present-total-label{font-family:'Bebas Neue',sans-serif;font-size:20px;color:white;letter-spacing:.04em}
+.present-total-price{font-family:'Bebas Neue',sans-serif;font-size:32px;color:#FFD600}
+.present-close{padding:13px 36px;border-radius:10px;border:2px solid #ddd;background:none;color:#888;font-size:14px;font-weight:800;font-family:'Nunito',sans-serif;cursor:pointer}
+
+/* ─── TOAST ─── */
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--yellow);border-radius:8px;padding:10px 18px;font-size:13px;font-weight:800;color:#000;white-space:nowrap;opacity:0;transition:opacity .2s,transform .2s;z-index:999;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ─── BOTTOM NAV ─── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,10,.96);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:10px 24px max(16px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-around;gap:12px;z-index:400}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:7px;border-radius:10px;color:var(--dim);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border:none;background:none;position:relative;transition:color .15s}
+.nav-btn.active{color:var(--yellow)}
+.nav-icon{font-size:20px;line-height:1}
+.nav-wishlist-badge{position:absolute;top:1px;right:8px;min-width:16px;height:16px;border-radius:5px;background:var(--red);color:white;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 4px;transform:scale(0);transition:transform .2s}
+.nav-wishlist-badge.show{transform:scale(1)}
+
+/* ─── ANIMATIONS ─── */
+.section.active .food-card{animation:popIn .25s ease both}
+.section.active .food-card:nth-child(2){animation-delay:.05s}
+.section.active .food-card:nth-child(3){animation-delay:.1s}
+.section.active .food-card:nth-child(4){animation-delay:.15s}
+.section.active .food-card:nth-child(5){animation-delay:.2s}
+@keyframes popIn{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-stripe"></div>
+  <div class="hero-inner">
+    <div class="hero-tag"><div class="hero-dot"></div> Jetzt offen</div>
+    <div class="hero-title">KIOSK<span class="accent">No. 7</span></div>
+    <div class="hero-sub">Eats · Drinks · Vibes</div>
+  </div>
+  <div class="hero-badge">🔥 HOT SPOT</div>
+</div>
+
+<!-- SPECIAL BAR -->
+<div class="special-bar" id="special-bar">
+  <div class="special-bar-left">
+    <div class="special-bar-eyebrow">⚡ Deal des Tages</div>
+    <div class="special-bar-name">Smash Burger Deluxe</div>
+  </div>
+  <div class="special-bar-price">9€</div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-wrap">
+  <div class="tabs">
+    <div class="tab active" id="tab-food" onclick="switchTab('food')">🍔 Food</div>
+    <div class="tab" id="tab-drinks" onclick="switchTab('drinks')">🥤 Drinks</div>
+    <div class="tab" id="tab-snacks" onclick="switchTab('snacks')">🍟 Snacks</div>
+    <div class="tab" id="tab-merkliste" onclick="switchTab('merkliste')">🛒 Bestellung</div>
+    <div class="tab" id="tab-info" onclick="switchTab('info')">📍 Info</div>
+    <span id="tab-badge" style="display:none"></span>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <!-- FOOD -->
+  <div class="section active" id="food">
+    <div class="sec-header"><div class="sec-title">UNSERE <span class="sec-accent">HITS</span></div><div class="sec-count">8 Items</div></div>
+    <div id="food-list"></div>
+  </div>
+
+  <!-- DRINKS -->
+  <div class="section" id="drinks">
+    <div class="hh-banner"><div class="hh-icon">⚡</div><div><div class="hh-label">Happy Hour</div><div class="hh-text">Mo–Fr 15–18 Uhr: alle Drinks –20%</div><div class="hh-sub">Nicht kombinierbar mit anderen Aktionen</div></div></div>
+    <div class="sec-header"><div class="sec-title">SOFT <span class="sec-accent">DRINKS</span></div></div>
+    <div class="list-group" id="soft-drinks"></div>
+    <div class="sec-header" style="padding-top:8px"><div class="sec-title">BIER & <span class="sec-accent">SELTZER</span></div></div>
+    <div class="list-group" id="beer-drinks"></div>
+    <div class="sec-header" style="padding-top:8px"><div class="sec-title">SHAKE & <span class="sec-accent">SMOOTHIE</span></div></div>
+    <div class="list-group" id="shake-drinks"></div>
+  </div>
+
+  <!-- SNACKS -->
+  <div class="section" id="snacks">
+    <div class="sec-header"><div class="sec-title">SNACKS & <span class="sec-accent">SIDES</span></div></div>
+    <div id="snacks-list"></div>
+  </div>
+
+  <!-- MERKLISTE / BESTELLUNG -->
+  <div class="section" id="merkliste">
+    <div class="sec-header"><div class="sec-title">DEINE <span class="sec-accent">ORDER</span></div></div>
+    <div id="wishlist-content"></div>
+  </div>
+
+  <!-- INFO -->
+  <div class="section" id="info">
+    <div class="sec-header"><div class="sec-title">KIOSK <span class="sec-accent">No. 7</span></div></div>
+    <div class="info-grid">
+      <div class="info-card"><div class="info-label">📍 Adresse</div><div class="info-value">Berger Str. 77</div><div class="info-sub">Frankfurt-Bornheim</div></div>
+      <div class="info-card"><div class="info-label">📞 Telefon</div><div class="info-value">069 987 654</div><div class="info-sub">Takeaway & Tisch</div></div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">🕐 Öffnungszeiten</div>
+      <div class="hours-row"><span class="hours-day">Mo – Do</span><span class="hours-time">11:00 – 23:00</span></div>
+      <div class="hours-row"><span class="hours-day">Freitag</span><span class="hours-time today">11:00 – 02:00 ✓ Heute</span></div>
+      <div class="hours-row"><span class="hours-day">Samstag</span><span class="hours-time">12:00 – 02:00</span></div>
+      <div class="hours-row"><span class="hours-day">Sonntag</span><span class="hours-time">12:00 – 22:00</span></div>
+    </div>
+    <div class="info-card"><div class="info-label">ℹ️ Hinweise</div><div class="info-sub" style="font-size:12px;font-weight:600;line-height:1.7">Alle Preise inkl. MwSt. · Allergene auf Anfrage · Änderungen vorbehalten.</div></div>
+  </div>
+
+</div>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+
+<!-- BOTTOM SHEET -->
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheet-img-area"></div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<!-- WELCOME POPUP -->
+<div class="welcome-overlay" id="welcome-overlay">
+  <div class="welcome-sheet">
+    <div class="welcome-title">HEY! SO GEHT'S BEI <span>KIOSK</span></div>
+    <div class="welcome-tiles">
+      <div class="welcome-tile">
+        <div class="welcome-tile-icon">👆</div>
+        <div class="welcome-tile-label">Antippen</div>
+        <div class="welcome-tile-sub">Fotos & Details</div>
+      </div>
+      <div class="welcome-tile">
+        <div class="welcome-tile-icon">🛒</div>
+        <div class="welcome-tile-label">Merken</div>
+        <div class="welcome-tile-sub">In den Warenkorb</div>
+      </div>
+      <div class="welcome-tile">
+        <div class="welcome-tile-icon">🙋</div>
+        <div class="welcome-tile-label">Bestellen</div>
+        <div class="welcome-tile-sub">Zeig's dem Team</div>
+      </div>
+    </div>
+    <button class="welcome-btn" onclick="dismissWelcome()">LET'S EAT 🔥</button>
+  </div>
+</div>
+
+<!-- PRÄSENTATIONS-MODUS -->
+<div class="present-overlay" id="present-overlay">
+  <div class="present-stripe"></div>
+  <div class="present-header">Bestellung bei</div>
+  <div class="present-bar-name">KIOSK <span>No. 7</span></div>
+  <div class="present-items" id="present-items"></div>
+  <div class="present-total">
+    <div class="present-total-label">GESAMT</div>
+    <div class="present-total-price" id="present-total-price"></div>
+  </div>
+  <button class="present-close" onclick="closePresent()">← ZURÜCK</button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-karte" onclick="setNav(this,'food')"><span class="nav-icon">🍔</span>Karte</button>
+  <button class="nav-btn" id="nav-wish" onclick="setNav(this,'merkliste')">
+    <span class="nav-icon">🛒</span>Order
+    <span class="nav-wishlist-badge" id="nav-badge">0</span>
+  </button>
+</div>
+
+<script>
+// ------------------------------------------
+// DATA
+// ------------------------------------------
+const foods = [
+  {
+    id:'f1', type:'food', name:'SMASH BURGER DELUXE', emoji:'🍔',
+    desc:'Doppel-Smash-Patty · Cheddar · Bacon · Brioche · Spicy Mayo',
+    price:'12 €', priceNum:12, badge:'BESTSELLER', badgeClass:'',
+    tags:['tag-hit:Nr. 1'], tagline:'Zweimal gesmasht, einmal verliebt.',
+    story:'Doppelt gesmashtes Rindfleisch-Patty, zweimal Cheddar, knuspriger Bacon, karamellisierte Zwiebeln und unsere hausgemachte Spicy Mayo auf geröstetem Brioche.',
+    img:'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=180&q=80&fit=crop',
+    ingredients:[
+      {emoji:'🥩',name:'Doppel-Rindfleisch-Patty',detail:'180g, täglich frisch, Smash-Technik'},
+      {emoji:'🧀',name:'Cheddar',detail:'Zweimal geschmolzen'},
+      {emoji:'🥓',name:'Bacon',detail:'Knusprig gebraten'},
+      {emoji:'🧅',name:'Karamellisierte Zwiebeln',detail:'Langsam karamellisiert'},
+      {emoji:'🌶️',name:'Spicy Mayo',detail:'Hausgemacht'},
+      {emoji:'🍞',name:'Brioche Bun',detail:'Täglich frisch, getoastet'},
+    ],
+    pairings:['s1','s2']
+  },
+  {
+    id:'f2', type:'food', name:'CRISPY CHICKEN WRAP', emoji:'🌯',
+    desc:'Knuspriges Chicken · Sriracha-Slaw · Avocado · Tortilla',
+    price:'10 €', priceNum:10, badge:'NEU', badgeClass:'red',
+    tags:['tag-new:Neu','tag-hot:Scharf'], tagline:'Crunch trifft Cremigkeit.',
+    story:'Buttermilch-mariniertes Chicken, knusprig frittiert, in einer warmen Tortilla mit Sriracha-Krautsalat, cremiger Avocado und frischen Jalapenos.',
+    img:'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=180&q=80&fit=crop',
+    ingredients:[
+      {emoji:'🍗',name:'Chicken Thigh',detail:'Buttermilch-mariniert, 24h'},
+      {emoji:'🌶️',name:'Sriracha-Krautsalat',detail:'Hausgemacht, täglich frisch'},
+      {emoji:'🥑',name:'Avocado',detail:'Frisch'},
+      {emoji:'🫙',name:'Jalapenos',detail:'Eingelegte, scharf'},
+      {emoji:'🌮',name:'Weizentortilla',detail:'Warm gepreßt'},
+    ],
+    pairings:['s3','s1']
+  },
+  {
+    id:'f3', type:'food', name:'VEGAN BOWL', emoji:'🥗',
+    desc:'Quinoa · Geröstete Süßkartoffel · Edamame · Tahini',
+    price:'11 €', priceNum:11, badge:'VEGAN', badgeClass:'green',
+    tags:['tag-veg:Vegan','tag-new:Saisonal'], tagline:'Plant power, maximaler Geschmack.',
+    story:'Quinoa-Base mit ofengerösteter Süßkartoffel, Edamame, Avocado, Granatapfelkernen und einem cremigen Tahini-Dressing. Satt und gut.',
+    img:'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=180&q=80&fit=crop',
+    ingredients:[
+      {emoji:'🌾',name:'Quinoa',detail:'Weiß & rot gemischt'},
+      {emoji:'🍠',name:'Süßkartoffel',detail:'Ofengeröstet, Harissa-Gewürz'},
+      {emoji:'🫘',name:'Edamame',detail:'Leicht gesalzen'},
+      {emoji:'🥑',name:'Avocado',detail:'Frisch'},
+      {emoji:'🍋',name:'Tahini-Dressing',detail:'Zitrone, Knoblauch, Tahini'},
+    ],
+    pairings:['s4','d3']
+  },
+  {
+    id:'f4', type:'food', name:'FISH TACOS', emoji:'🌮',
+    desc:'Gebratener Kabeljau · Mango-Salsa · Chipotle-Creme · Koriander',
+    price:'11 €', priceNum:11, badge:'FRISCH', badgeClass:'green',
+    tags:['tag-new:Fangfrisch'], tagline:'Baja California trifft Frankfurt.',
+    story:'Drei Mini-Tacos mit gewürztem Kabeljau, hausgemachter Mango-Jalapeño-Salsa, Chipotle-Creme und frischem Koriander. Täglich frischer Fisch.',
+    img:'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=180&q=80&fit=crop',
+    ingredients:[
+      {emoji:'🐟',name:'Kabeljau',detail:'Täglich frisch, MSC-zertifiziert'},
+      {emoji:'🥭',name:'Mango-Jalapeño-Salsa',detail:'Hausgemacht, fruchtig-scharf'},
+      {emoji:'🫙',name:'Chipotle-Creme',detail:'Geräuchert, leicht scharf'},
+      {emoji:'🌿',name:'Frischer Koriander',detail:'—'},
+      {emoji:'🌮',name:'Mais-Tortillas',detail:'3 Stück, warm'},
+    ],
+    pairings:['s4','d1']
+  },
+  {
+    id:'f5', type:'food', name:'LOADED FRIES', emoji:'🍟',
+    desc:'Dicke Pommes · Chili con Carne · Cheddar-Sauce · Jalapeños · Sourcream',
+    price:'10 €', priceNum:10, badge:'FAN FAV', badgeClass:'',
+    tags:['tag-hit:Kult'], tagline:'Pommes auf dem nächsten Level.',
+    story:'Dicke, zweimal frittierte Pommes beladen mit hausgemachtem Chili con Carne, geschmolzener Cheddar-Sauce, eingelegten Jalapeños und Sourcream.',
+    img:'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=800&q=85&fit=crop',
+    thumb:'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=180&q=80&fit=crop',
+    ingredients:[
+      {emoji:'🥔',name:'Dicke Pommes',detail:'Zweimal frittiert'},
+      {emoji:'🫙',name:'Chili con Carne',detail:'Hausgemacht, 4h geschmort'},
+      {emoji:'🧀',name:'Cheddar-Sauce',detail:'Geschmolzen'},
+      {emoji:'🌶️',name:'Jalapeños',detail:'Eingelegte'},
+      {emoji:'🥣',name:'Sourcream',detail:'—'},
+    ],
+    pairings:['s1','d2']
+  },
+];
+
+const snacks = [
+  {id:'s1',type:'snack',name:'CLASSIC FRIES',emoji:'🍟',desc:'Knusprig frittiert · Meersalz · Ketchup & Mayo',price:'4 €',priceNum:4,tags:['tag-hit:Klassiker'],badge:'KLASSIKER',badgeClass:'',tagline:'So muss Pommes.',story:'Klassisch frittiert, sofort serviert. Meersalz, Ketchup und Mayo. Mehr braucht es nicht.',img:'https://images.unsplash.com/photo-1576107232684-1279f81f6de0?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1576107232684-1279f81f6de0?w=180&q=80&fit=crop',ingredients:[{emoji:'🥔',name:'Kartoffeln',detail:'Festkochend, täglich frisch'},{emoji:'🧂',name:'Meersalz',detail:'Grob'},{emoji:'🍅',name:'Ketchup',detail:'Heinz Original'},{emoji:'🫙',name:'Mayo',detail:'Hausgemacht'}],pairings:['f1','f2']},
+  {id:'s2',type:'snack',name:'ONION RINGS',emoji:'🧅',desc:'Knusprig paniert · Barbecue Dip · Ranchsauce',price:'5 €',priceNum:5,tags:[],badge:'CRISPY',badgeClass:'',tagline:'Crunch bei jedem Bissen.',story:'Dicke Zwiebelringe in knuspriger Bierpanierung, mit hausgemachtem BBQ-Dip und Ranchsauce.',img:'https://images.unsplash.com/photo-1639024471283-03518883512d?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1639024471283-03518883512d?w=180&q=80&fit=crop',ingredients:[{emoji:'🧅',name:'Zwiebeln',detail:'Groß, süß'},{emoji:'🍺',name:'Bierpanierung',detail:'Hausgemacht'},{emoji:'🫙',name:'BBQ-Dip',detail:'Hausgemacht, rauchig'},{emoji:'🥣',name:'Ranchsauce',detail:'—'}],pairings:['f1','d2']},
+  {id:'s3',type:'snack',name:'CHICKEN WINGS',emoji:'🍗',desc:'6 Stück · Buffalo-Sauce oder BBQ · Celery-Stick',price:'8 €',priceNum:8,tags:['tag-hot:Scharf mögl.'],badge:'6 STÜCK',badgeClass:'red',tagline:'Sticky, spicy, satisfying.',story:'6 Hühnerflügel, knusprig gebacken. Wahl zwischen feuriger Buffalo-Sauce oder rauchiger BBQ-Sauce. Mit Celery und Bleu-Cheese-Dip.',img:'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=180&q=80&fit=crop',ingredients:[{emoji:'🍗',name:'Chicken Wings',detail:'6 Stück, knusprig gebacken'},{emoji:'🌶️',name:'Buffalo-Sauce',detail:'Klassisch scharf — oder BBQ auf Wunsch'},{emoji:'🥬',name:'Celery-Stick',detail:'Frisch'},{emoji:'🫙',name:'Bleu Cheese Dip',detail:'Cremig'}],pairings:['d2','f1']},
+  {id:'s4',type:'snack',name:'GUAC & CHIPS',emoji:'🥑',desc:'Hausgemachtes Guacamole · Tortilla Chips · Pico de Gallo',price:'6 €',priceNum:6,tags:['tag-veg:Vegan'],badge:'VEGAN',badgeClass:'green',tagline:'Frisch gemacht, jeden Tag.',story:'Reife Avocados, täglich frisch zu Guacamole verarbeitet — mit Limette, Koriander, Zwiebeln. Dazu knusprige Tortilla Chips und Pico de Gallo.',img:'https://images.unsplash.com/photo-1600335895229-6e75511892c8?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1600335895229-6e75511892c8?w=180&q=80&fit=crop',ingredients:[{emoji:'🥑',name:'Avocado',detail:'Täglich frisch'},{emoji:'🍋',name:'Limette',detail:'Frisch gepresst'},{emoji:'🌿',name:'Koriander',detail:'Frisch'},{emoji:'🍅',name:'Pico de Gallo',detail:'Tomate, Zwiebel, Jalapeño'},{emoji:'🌮',name:'Tortilla Chips',detail:'Gesalzen'}],pairings:['f4','d3']},
+];
+
+const drinks = {
+  soft:[
+    {id:'d1',type:'drink',emoji:'🥤',name:'Club Mate',sub:'Original · 500ml · 2,5% Koffein',price:'3,50 €',priceNum:3.5,story:'Der Kult-Softdrink aus Berlins Startup-Szene. Mate-Tee, leicht bitter, belebend.'},
+    {id:'d2',name:'Fritz Kola',emoji:'🥤',type:'drink',sub:'Original Cola · 330ml · extra Koffein',price:'3 €',priceNum:3,story:'Hamburger Kult-Cola. Mehr Koffein als alles andere. Dunkel, intensiv, unforgettable.'},
+    {id:'d3',name:'Bio-Limonade',emoji:'🍋',type:'drink',sub:'Zitrone-Ingwer oder Holunder · 330ml',price:'3 €',priceNum:3,story:'Erfrischende Bio-Limo — Zitrone-Ingwer oder Holunder. Leicht und ehrlich.'},
+    {id:'d4',name:'Wasser Still/Sprudel',emoji:'💧',type:'drink',sub:'0,5l · Gerolsteiner',price:'2 €',priceNum:2,story:'Das Original. Weil manchmal weniger mehr ist.'},
+  ],
+  beer:[
+    {id:'d5',name:'Binding Römer Pils',emoji:'🍺',type:'drink',sub:'Frankfurt-Original · 0,5l · frisch gezapft',price:'4 €',priceNum:4,story:'Das Frankfurter Original seit 1870. Frisch gezapft, kalt serviert.'},
+    {id:'d6',name:'Craft Seltzer',emoji:'🫧',type:'drink',sub:'Alkoholfrei · Lime & Cucumber · 330ml',price:'3,50 €',priceNum:3.5,story:'Alkoholfrei und trotzdem interessant. Gurke, Limette, Bläschen.'},
+    {id:'d7',name:'IPA Frankfurt',emoji:'🍻',type:'drink',sub:'Local Brewery · 0,33l · 6,2%',price:'4,50 €',priceNum:4.5,story:'Hopfenintensives IPA von einer Frankfurter Craft-Brauerei. Fruchtig und bitter.'},
+  ],
+  shakes:[
+    {id:'d8',name:'Mango-Chili Smoothie',emoji:'🥭',type:'drink',sub:'Mango · Banane · Chili · Kokosmilch',price:'5 €',priceNum:5,story:'Süß, cremig und mit einem Chili-Kick am Ende. Vegan und frisch gemixt.'},
+    {id:'d9',name:'Chocolate Milkshake',emoji:'🍫',type:'drink',sub:'Valrhona Kakao · Vanille-Eis · Milch',price:'5,50 €',priceNum:5.5,story:'Dick, schokoladig, unverschämt gut. Mit echtem Valrhona-Kakao und Vanilleeis.'},
+  ],
+};
+
+const allItems = [...foods,...snacks,...Object.values(drinks).flat()];
+
+// ------------------------------------------
+// WISHLIST
+// ------------------------------------------
+let wishlist = [];
+
+function addToWishlist(item) {
+  const existing = wishlist.find(i=>i.id===item.id);
+  if (existing) { existing.qty++; updateWishlistUI(); return false; }
+  wishlist.push({...item, qty:1});
+  updateWishlistUI();
+  return true;
+}
+
+function removeFromWishlist(id) {
+  wishlist = wishlist.filter(i=>i.id!==id);
+  updateWishlistUI();
+  renderWishlist();
+}
+
+function changeQty(id, delta) {
+  const item = wishlist.find(i=>i.id===id);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) { removeFromWishlist(id); return; }
+  updateWishlistUI();
+  renderWishlist();
+}
+
+function updateWishlistUI() {
+  const count = wishlist.reduce((s,i)=>s+i.qty,0);
+  const navBadge = document.getElementById('nav-badge');
+  const tabBadge = document.getElementById('tab-badge');
+  if (count > 0) {
+    navBadge.textContent = count; navBadge.classList.add('show');
+    tabBadge.textContent = count; tabBadge.classList.add('show');
+  } else {
+    navBadge.classList.remove('show');
+    tabBadge.classList.remove('show');
+  }
+}
+
+function renderWishlist() {
+  const el = document.getElementById('wishlist-content');
+  if (wishlist.length === 0) {
+    el.innerHTML = `<div class="wishlist-empty"><div class="wishlist-empty-icon">🛒</div><div class="wishlist-empty-title">NOCH LEER</div><div class="wishlist-empty-sub">Tippe auf ein Item und drücke<br>„In die Order" um es zu merken.</div></div>`;
+    return;
+  }
+  const total = wishlist.reduce((s,i)=>s+(i.priceNum*i.qty),0);
+  el.innerHTML = wishlist.map(item=>`
+    <div class="wishlist-item">
+      <div class="wishlist-img">
+        ${item.img?`<img src="${item.thumb||item.img}" alt="${item.name}" loading="lazy">`:`<span>${item.emoji||'🍔'}</span>`}
+      </div>
+      <div class="wishlist-info">
+        <div class="wishlist-name">${item.name}</div>
+        <div class="wishlist-cat">${item.type==='food'?'Food':item.type==='snack'?'Snack':'Drink'}</div>
+      </div>
+      <div class="qty-stepper">
+        <button class="qty-btn" onclick="changeQty('${item.id}',-1)">−</button>
+        <span class="qty-num">${item.qty}</span>
+        <button class="qty-btn" onclick="changeQty('${item.id}',1)">+</button>
+      </div>
+      <div class="wishlist-price">${item.qty>1?(item.priceNum*item.qty).toFixed(2).replace('.',',')+' €':item.price}</div>
+    </div>`).join('')+`
+    <div class="wishlist-total">
+      ${wishlist.map(i=>`<div class="wishlist-total-row"><span>${i.name}${i.qty>1?' ×'+i.qty:''}</span><span>${(i.priceNum*i.qty).toFixed(2).replace('.',',')} €</span></div>`).join('')}
+      <div class="wishlist-total-sum"><span class="wishlist-total-label">GESAMT</span><span class="wishlist-total-price">${total.toFixed(2).replace('.',',')} €</span></div>
+    </div>
+    <button class="wishlist-cta" onclick="openPresent()"><span>🙋</span> Dem Team zeigen</button>`;
+}
+
+// ------------------------------------------
+// RENDER
+// ------------------------------------------
+function renderFoodCards(containerId, items) {
+  document.getElementById(containerId).innerHTML = items.map(item=>`
+    <div class="food-card" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))">
+      <div class="food-card-img-wrap">
+        <img src="${item.img}" alt="${item.name}" loading="lazy">
+        ${item.badge?`<div class="food-card-badge ${item.badgeClass||''}">${item.badge}</div>`:''}
+      </div>
+      <div class="food-card-body">
+        <div class="food-card-name">${item.name}</div>
+        <div class="food-card-desc">${item.desc}</div>
+        <div class="food-card-footer">
+          <div class="food-card-price">${item.price}</div>
+          <div class="food-card-tags">${item.tags.map(t=>{const[cls,lbl]=t.split(':');return`<span class="tag ${cls}">${lbl}</span>`}).join('')}</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderDrinkGroup(containerId, list) {
+  document.getElementById(containerId).innerHTML = list.map(d=>`
+    <div class="list-row" onclick="openSheet(allItems.find(x=>x.id==='${d.id}'))">
+      <div class="list-row-emoji">${d.emoji}</div>
+      <div class="list-row-info">
+        <div class="list-row-name">${d.name}</div>
+        <div class="list-row-sub">${d.sub}</div>
+      </div>
+      <div class="list-row-right">
+        <div class="list-row-price">${d.price}</div>
+      </div>
+      <div class="list-arrow">›</div>
+    </div>`).join('');
+}
+
+// ------------------------------------------
+// SHEET
+// ------------------------------------------
+let currentItem = null;
+let selectedPairings = new Set();
+
+function openSheet(item) {
+  currentItem = item;
+  selectedPairings = new Set();
+  const inWishlist = !!wishlist.find(i=>i.id===item.id);
+
+  const imgArea = document.getElementById('sheet-img-area');
+  if (item.img) {
+    imgArea.innerHTML = `
+      <div class="sheet-img-wrap">
+        <img src="${item.img}" alt="${item.name}">
+        <div class="sheet-img-gradient"></div>
+        ${item.badge?`<div class="sheet-badge-float ${item.badgeClass||''}">${item.badge}</div>`:''}
+        <div class="sheet-price-float">${item.price}</div>
+      </div>`;
+  } else {
+    imgArea.innerHTML = `<div style="height:100px;display:flex;align-items:center;justify-content:center;font-size:56px;padding:20px">${item.emoji||'🍔'}</div>`;
+  }
+
+  const pairingItems = (item.pairings||[]).map(id=>allItems.find(x=>x.id===id)).filter(Boolean);
+
+  const ingrHtml = item.ingredients ? `
+    <div class="s-label">ZUTATEN</div>
+    <div class="ingr-list">
+      ${item.ingredients.map(i=>`
+        <div class="ingr-item">
+          <div class="ingr-emoji">${i.emoji}</div>
+          <div class="ingr-info"><div class="ingr-name">${i.name}</div><div class="ingr-detail">${i.detail}</div></div>
+          
+        </div>`).join('')}
+    </div>` : '';
+
+  const pairingHtml = pairingItems.length ? `
+    <div class="pairing-title">PASST DAZU</div>
+    <div class="pairing-list">
+      ${pairingItems.map(p=>`
+        <div class="pairing-card" id="pc-${p.id}" onclick="togglePairing('${p.id}')">
+          <div class="pairing-emoji">${p.emoji||'🍟'}</div>
+          <div class="pairing-name">${p.name.length>14?p.name.slice(0,13)+'…':p.name}</div>
+          <div class="pairing-price">${p.price}</div>
+          <div class="pairing-add" id="pa-${p.id}">+</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  document.getElementById('sheet-body').innerHTML = `
+    <div class="sheet-name">${item.name}</div>
+    <div class="sheet-tagline">${item.tagline||item.sub||''}</div>
+    ${item.tags&&item.tags.length?`<div class="sheet-tags">${item.tags.map(t=>{const[cls,lbl]=t.split(':');return`<span class="tag ${cls}">${lbl}</span>`}).join('')}</div>`:''}
+    ${item.story?`<div class="story-block"><div class="story-text">${item.story}</div></div>`:''}
+    ${ingrHtml}
+    ${pairingHtml}
+    <button class="sheet-cta ${inWishlist?'added':''}" id="sheet-cta" onclick="handleCTA()">
+      ${inWishlist?'<span>✓</span> <span>In der Order!</span>':'<span>🛒</span> <span>In die Order</span>'}
+    </button>`;
+
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function togglePairing(id) {
+  const p = allItems.find(x=>x.id===id);
+  if (!p) return;
+  const card = document.getElementById(`pc-${id}`);
+  const btn = document.getElementById(`pa-${id}`);
+  if (selectedPairings.has(id)) {
+    selectedPairings.delete(id);
+    card.classList.remove('selected');
+    btn.textContent = '+';
+    showToast(`${p.emoji} Entfernt`);
+  } else {
+    selectedPairings.add(id);
+    card.classList.add('selected');
+    btn.textContent = '✓';
+    addToWishlist(p);
+    showToast(`${p.emoji} ${p.name} — hinzugefügt!`);
+  }
+}
+
+function handleCTA() {
+  if (!currentItem) return;
+  const already = !!wishlist.find(i=>i.id===currentItem.id);
+  if (already) { closeSheet(); return; }
+  addToWishlist(currentItem);
+  const btn = document.getElementById('sheet-cta');
+  btn.classList.add('added');
+  btn.innerHTML = '<span>✓</span> <span>In der Order!</span>';
+  showToast(`🛒 ${currentItem.name} hinzugefügt!`);
+  setTimeout(closeSheet, 700);
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ------------------------------------------
+// PRESENT MODE
+// ------------------------------------------
+function openPresent() {
+  const itemsEl = document.getElementById('present-items');
+  const totalEl = document.getElementById('present-total-price');
+  itemsEl.innerHTML = wishlist.map(item=>`
+    <div class="present-item">
+      <div class="present-item-left">
+        <div class="present-item-emoji">${item.emoji||'🍔'}</div>
+        <div>
+          <div class="present-item-name">${item.name}</div>
+          <div class="present-item-cat">${item.type==='food'?'Food':item.type==='snack'?'Snack':'Drink'}</div>
+        </div>
+      </div>
+      <div class="present-item-right">
+        ${item.qty>1?`<span class="present-item-qty">×${item.qty}</span>`:''}
+        <div class="present-item-price">${(item.priceNum*item.qty).toFixed(2).replace('.',',')} €</div>
+      </div>
+    </div>`).join('');
+  const total = wishlist.reduce((s,i)=>s+(i.priceNum*i.qty),0);
+  totalEl.textContent = total.toFixed(2).replace('.',',')+' €';
+  document.getElementById('present-overlay').classList.add('open');
+}
+
+function closePresent() {
+  document.getElementById('present-overlay').classList.remove('open');
+}
+
+// ------------------------------------------
+// NAVIGATION
+// ------------------------------------------
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  const tabEl = document.getElementById('tab-'+id);
+  if (tabEl) { tabEl.classList.add('active'); tabEl.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); }
+  const secEl = document.getElementById(id);
+  if (secEl) secEl.classList.add('active');
+  if (id==='merkliste') renderWishlist();
+}
+
+function setNav(btn, tabId) {
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  switchTab(tabId);
+}
+
+// ------------------------------------------
+// WELCOME
+// ------------------------------------------
+function dismissWelcome() {
+  document.getElementById('welcome-overlay').classList.add('hidden');
+}
+
+// ------------------------------------------
+// TOAST
+// ------------------------------------------
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// swipe down to close
+let startY=0;
+document.getElementById('sheet').addEventListener('touchstart',e=>{startY=e.touches[0].clientY},{passive:true});
+document.getElementById('sheet').addEventListener('touchend',e=>{if(e.changedTouches[0].clientY-startY>80)closeSheet()},{passive:true});
+
+// ------------------------------------------
+// INIT
+// ------------------------------------------
+renderFoodCards('food-list', foods);
+renderFoodCards('snacks-list', snacks);
+renderDrinkGroup('soft-drinks', drinks.soft);
+renderDrinkGroup('beer-drinks', drinks.beer);
+renderDrinkGroup('shake-drinks', drinks.shakes);
+
+document.getElementById('special-bar').onclick = ()=>openSheet(allItems.find(x=>x.id==='f1'));
+</script>
+</body>
+</html>

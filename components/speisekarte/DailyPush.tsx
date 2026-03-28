@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MenuItem, DailyPush } from "@/lib/supabase";
 import { emojiGradient } from "@/lib/emojiGradient";
+import { getDisplayPrice } from "./utils";
 
 const JUST_ADDED_DURATION_MS = 1500;
 
@@ -57,6 +58,7 @@ type DailyPushPopupTheme = "light" | "bar-soleil";
 
 type DailyPushPopupProps = {
   dailyPush: DailyPush;
+  menuItems: MenuItem[];
   open: boolean;
   onClose: () => void;
   onAddToCart: (item: MenuItem, qty?: number) => void;
@@ -75,6 +77,7 @@ const barSoleilPopup = {
 
 export function DailyPushPopup({
   dailyPush,
+  menuItems,
   open,
   onClose,
   onAddToCart,
@@ -83,6 +86,16 @@ export function DailyPushPopup({
   const [justAdded, setJustAdded] = useState(false);
   const [visible, setVisible] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dark = theme === "bar-soleil";
+
+  const matchedItem = useMemo(() => {
+    const name = (dailyPush.item_name ?? "").trim().toLowerCase();
+    if (!name) return null;
+    return (
+      menuItems.find((i) => (i.name ?? "").trim().toLowerCase() === name) ??
+      menuItems.find((i) => (i.name ?? "").trim().toLowerCase().includes(name))
+    ) ?? null;
+  }, [dailyPush.item_name, menuItems]);
 
   useEffect(() => {
     return () => {
@@ -112,11 +125,10 @@ export function DailyPushPopup({
   }, [justAdded]);
 
   if (!open) return null;
-  const dark = theme === "bar-soleil";
 
   const handleAddToList = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const item = dailyPushToMenuItem(dailyPush);
+    const item = matchedItem ?? dailyPushToMenuItem(dailyPush);
     onAddToCart(item, 1);
     setJustAdded(true);
   };
@@ -168,18 +180,68 @@ export function DailyPushPopup({
             Chef empfiehlt heute
           </div>
           <h3
-            className="font-serif text-[1.7rem] font-normal leading-tight mb-2"
+            className="font-serif text-[1.7rem] font-normal leading-tight mb-1"
             style={{ color: dark ? barSoleilPopup.text : "#1a1916" }}
           >
             {dailyPush.item_name}
           </h3>
+          {matchedItem && (
+            <p
+              className="font-serif text-[1rem] font-medium mb-2"
+              style={{ color: dark ? barSoleilPopup.copper : "#b8966a" }}
+            >
+              {getDisplayPrice(matchedItem)}
+            </p>
+          )}
           {dailyPush.item_desc && (
             <p
-              className="text-[0.8rem] leading-relaxed mb-5"
+              className="text-[0.8rem] leading-relaxed mb-3"
               style={{ color: dark ? barSoleilPopup.muted : "#9a948a" }}
             >
               {dailyPush.item_desc}
             </p>
+          )}
+          {matchedItem?.zutaten && matchedItem.zutaten.length > 0 && (
+            <div className="mb-4">
+              <div
+                className="text-[0.7rem] uppercase tracking-[0.16em] font-semibold mb-2"
+                style={{ color: dark ? barSoleilPopup.copper2 : "#b8966a" }}
+              >
+                Zutaten
+              </div>
+              <div className="space-y-1.5">
+                {matchedItem.zutaten.map((z, idx) => (
+                  <div
+                    key={`${z.name}-${idx}`}
+                    className="flex items-center gap-2 rounded-lg px-3 py-1.5"
+                    style={{
+                      backgroundColor: dark ? "rgba(255,255,255,0.03)" : "#f5f4f0",
+                      border: dark
+                        ? "1px solid rgba(255,255,255,0.08)"
+                        : "1px solid #e8e4dc",
+                    }}
+                  >
+                    <div className="text-[1.2rem] flex-shrink-0">{z.emoji}</div>
+                    <div className="min-w-0 flex-1">
+                      <div
+                        className="text-[0.8rem] font-semibold truncate"
+                        style={{ color: dark ? barSoleilPopup.text : "#1a1916" }}
+                      >
+                        {z.name}
+                      </div>
+                      {z.subtext && (
+                        <div
+                          className="text-[0.7rem] leading-snug"
+                          style={{ color: dark ? barSoleilPopup.muted : "#9a948a" }}
+                        >
+                          {z.subtext}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
           <button
             type="button"
@@ -192,7 +254,7 @@ export function DailyPushPopup({
               transition: "background-color 0.3s ease, color 0.3s ease",
             }}
           >
-            {justAdded ? "👍 Gemerkt" : "+ Zur Liste"}
+            {justAdded ? "👍 Gemerkt" : "👍 Zur Merkliste"}
           </button>
         </div>
       </div>

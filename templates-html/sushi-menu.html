@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>NAMI · Sushi</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Zen+Kaku+Gothic+New:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme: light dark;
+  --wood:#C4956A;
+  --wood-light:#D4AB88;
+  --wood-dark:#8B6340;
+  --red:#B5341A;
+  --red-soft:#D4553A;
+}
+
+/* ─── LIGHT MODE ─── */
+@media (prefers-color-scheme: light){
+  :root{
+    --paper:#FAF8F4;
+    --paper2:#F3F0EA;
+    --paper3:#EDE9E1;
+    --ink:#1A1612;
+    --ink-mid:#3D3028;
+    --ink-light:#4A3C32;
+    --muted:#5C4A3C;
+    --dim:#6B5648;
+    --border:rgba(26,22,18,0.12);
+    --border2:rgba(26,22,18,0.20);
+    --card:#FFFFFF;
+    --shadow:rgba(139,99,64,0.10);
+    --tabs-bg:rgba(250,248,244,0.97);
+    --nav-bg:rgba(250,248,244,0.97);
+    --sheet-gradient:rgba(250,248,244,0.95);
+    --badge-pop-bg:rgba(26,22,18,0.06);
+  }
+}
+
+/* ─── DARK MODE ─── */
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#1A1714;
+    --paper2:#242019;
+    --paper3:#2E2920;
+    --ink:#F0EBE3;
+    --ink-mid:#D4C8BC;
+    --ink-light:#B8A898;
+    --muted:#8A7A6A;
+    --dim:#5A4E44;
+    --border:rgba(240,235,227,0.08);
+    --border2:rgba(240,235,227,0.14);
+    --card:#211D18;
+    --shadow:rgba(0,0,0,0.35);
+    --tabs-bg:rgba(26,23,20,0.97);
+    --nav-bg:rgba(26,23,20,0.97);
+    --sheet-gradient:rgba(26,23,20,0.97);
+    --badge-pop-bg:rgba(240,235,227,0.08);
+  }
+}
+html,body{height:100%;background:var(--paper);color:var(--ink);font-family:'Zen Kaku Gothic New',sans-serif;overscroll-behavior:none;font-weight:300}
+
+/* ─── PAPER TEXTURE ─── */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.018;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ─── HERO ─── */
+.hero{position:relative;background:var(--ink);overflow:hidden;height:280px}
+.hero-img{width:100%;height:100%;object-fit:cover;display:block;opacity:.55;filter:saturate(.5)}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(26,22,18,.2) 0%,rgba(26,22,18,.75) 100%)}
+.hero-content{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 24px 28px;text-align:center}
+.hero-kanji{font-size:13px;letter-spacing:.35em;color:rgba(250,248,244,.4);margin-bottom:12px;font-weight:300}
+.hero-name{font-family:'Cormorant Garamond',serif;font-size:clamp(48px,14vw,68px);font-weight:300;line-height:.9;color:var(--paper);letter-spacing:.04em}
+.hero-name em{font-style:italic;font-weight:300;color:var(--wood-light)}
+.hero-rule{width:40px;height:1px;background:var(--wood-light);margin:14px auto 10px}
+.hero-sub{font-size:10px;letter-spacing:.26em;color:rgba(250,248,244,.55);font-weight:300}
+.hero-season{position:absolute;top:16px;right:16px;border:1px solid rgba(250,248,244,.3);border-radius:2px;padding:5px 12px;font-size:9px;letter-spacing:.2em;color:rgba(250,248,244,.6);font-weight:400}
+
+/* ─── TABS ─── */
+.tabs-wrap{position:sticky;top:0;z-index:100;background:var(--tabs-bg);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.tabs{display:flex;overflow-x:auto;scrollbar-width:none;padding:0 4px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:14px 16px 12px;font-size:11px;font-weight:400;letter-spacing:.14em;color:var(--dim);border-bottom:1.5px solid transparent;cursor:pointer;transition:color .2s,border-color .2s;user-select:none;white-space:nowrap}
+.tab.active{color:var(--ink);border-bottom-color:var(--wood)}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;margin-left:5px;min-width:14px;height:14px;border-radius:2px;background:var(--red);color:white;font-size:8px;font-weight:500;padding:0 3px;transform:scale(0);transition:transform .2s;vertical-align:middle}
+.tab-badge.show{transform:scale(1)}
+
+/* ─── CONTENT ─── */
+.content{padding:0 16px 120px}
+.section{display:none}
+.section.active{display:block}
+
+/* ─── SECTION HEADER ─── */
+.sec-header{padding:26px 0 6px;display:flex;align-items:flex-end;justify-content:space-between}
+.sec-jp{font-size:9px;letter-spacing:.28em;color:var(--wood);margin-bottom:5px;font-weight:400}
+.sec-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;color:var(--ink);letter-spacing:.02em;line-height:1}
+.sec-title em{font-style:italic;color:var(--wood-dark)}
+.sec-count{font-size:10px;letter-spacing:.12em;color:var(--dim)}
+.sec-rule{height:1px;background:linear-gradient(90deg,var(--border2) 0%,transparent 100%);margin-bottom:18px}
+
+/* ─── NIGIRI ROW ─── */
+.nigiri-row{display:flex;align-items:center;padding:15px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;margin:0 -4px;padding-left:4px;padding-right:4px;border-radius:4px;gap:14px}
+.nigiri-row:last-child{border:none}
+.nigiri-row:active{background:rgba(196,149,106,.06)}
+.nigiri-thumb{width:54px;height:44px;border-radius:6px;object-fit:cover;flex-shrink:0;filter:saturate(.85)}
+.nigiri-info{flex:1}
+.nigiri-name{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;color:var(--ink);line-height:1;margin-bottom:3px}
+.nigiri-sub{font-size:11px;color:var(--muted);font-weight:400;line-height:1.4}
+.nigiri-right{text-align:right;flex-shrink:0}
+.nigiri-price{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:400;color:var(--ink)}
+.nigiri-piece{font-size:9px;color:var(--dim);letter-spacing:.1em;margin-top:2px}
+.nigiri-arrow{color:var(--dim);font-size:12px;margin-left:8px;flex-shrink:0}
+.nigiri-badge{display:inline-block;font-size:8px;letter-spacing:.14em;padding:2px 7px;border-radius:1px;margin-top:4px}
+.badge-season{background:rgba(196,149,106,.12);color:var(--wood-dark);border:1px solid rgba(196,149,106,.25)}
+.badge-new{background:rgba(181,52,26,.08);color:var(--red);border:1px solid rgba(181,52,26,.18)}
+.badge-veg{background:rgba(80,130,80,.08);color:#4A7A4A;border:1px solid rgba(80,130,80,.18)}
+.badge-pop{background:var(--badge-pop-bg);color:var(--ink-light);border:1px solid var(--border2)}
+
+/* ─── ROLL CARD ─── */
+.roll-card{background:var(--card);border-radius:12px;margin-bottom:10px;overflow:hidden;cursor:pointer;border:1px solid var(--border);box-shadow:0 2px 16px var(--shadow);transition:transform .15s}
+.roll-card:active{transform:scale(.985)}
+.roll-card-img{width:100%;height:175px;object-fit:cover;display:block;filter:saturate(.85) brightness(.95)}
+.roll-card-body{padding:14px 16px 16px}
+.roll-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
+.roll-card-name{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;color:var(--ink);line-height:1.1}
+.roll-card-name em{font-style:italic;color:var(--wood-dark)}
+.roll-card-price{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;color:var(--ink);flex-shrink:0;margin-left:8px}
+.roll-card-desc{font-size:11px;color:var(--muted);line-height:1.5;font-weight:400;margin-bottom:8px}
+.roll-card-tags{display:flex;gap:5px;flex-wrap:wrap}
+
+/* ─── SMALL GRID (Suppen) ─── */
+.two-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0}
+.small-card{background:var(--card);border-radius:10px;overflow:hidden;cursor:pointer;border:1px solid var(--border);box-shadow:0 2px 10px var(--shadow);transition:transform .15s}
+.small-card:active{transform:scale(.97)}
+.small-card-img{width:100%;height:110px;object-fit:cover;filter:saturate(.8) brightness(.95)}
+.small-card-body{padding:10px 12px 12px}
+.small-card-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;color:var(--ink);line-height:1.2;margin-bottom:3px}
+.small-card-desc{font-size:10px;color:var(--muted);line-height:1.4;font-weight:400;margin-bottom:6px}
+.small-card-price{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--ink)}
+
+/* ─── DRINKS LIST ─── */
+.drink-group-title{font-size:9px;letter-spacing:.24em;color:var(--wood);margin:18px 0 10px;font-weight:400}
+.drink-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;border-radius:4px;margin:0 -4px;padding-left:4px;padding-right:4px}
+.drink-row:last-child{border:none}
+.drink-row:active{background:rgba(196,149,106,.06)}
+.drink-emoji{font-size:20px;width:28px;text-align:center;flex-shrink:0}
+.drink-info{flex:1}
+.drink-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;color:var(--ink);margin-bottom:2px}
+.drink-sub{font-size:10px;color:var(--muted);font-weight:400;line-height:1.4}
+.drink-price{font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--ink);flex-shrink:0}
+.drink-arrow{color:var(--dim);font-size:12px;margin-left:6px;flex-shrink:0}
+
+/* ─── OMAKASE BANNER ─── */
+.omakase-banner{background:var(--ink);border-radius:10px;padding:18px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:opacity .15s}
+.omakase-banner:active{opacity:.85}
+.omakase-left{}
+.omakase-jp{font-size:9px;letter-spacing:.26em;color:rgba(250,248,244,.4);margin-bottom:5px;font-weight:300}
+.omakase-name{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--paper)}
+.omakase-sub{font-size:10px;color:rgba(250,248,244,.45);margin-top:3px;font-weight:300}
+.omakase-price{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;color:var(--wood-light)}
+
+/* ─── WISHLIST ─── */
+.wishlist-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;gap:10px;text-align:center}
+.wishlist-empty-icon{font-size:40px;opacity:.2}
+.wishlist-empty-title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;color:var(--dim);letter-spacing:.04em}
+.wishlist-empty-sub{font-size:12px;color:var(--muted);line-height:1.7;font-weight:300}
+.wishlist-item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:8px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);box-shadow:0 1px 8px var(--shadow)}
+.wishlist-img{width:46px;height:46px;border-radius:6px;overflow:hidden;background:var(--paper2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.wishlist-img img{width:100%;height:100%;object-fit:cover;filter:saturate(.85)}
+.wishlist-info{flex:1;min-width:0}
+.wishlist-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.wishlist-cat{font-size:10px;color:var(--muted);font-weight:300;letter-spacing:.08em}
+.qty-stepper{display:flex;align-items:center;flex-shrink:0;border:1px solid var(--border2);border-radius:4px;overflow:hidden}
+.qty-btn{width:28px;height:28px;border:none;background:none;color:var(--wood);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.qty-btn:active{background:rgba(196,149,106,.12)}
+.qty-num{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;color:var(--ink);min-width:24px;text-align:center}
+.wishlist-price{font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--ink);flex-shrink:0;min-width:52px;text-align:right}
+.wishlist-total{background:var(--paper2);border-radius:8px;padding:16px;margin-top:6px;border:1px solid var(--border)}
+.wishlist-total-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:7px;font-weight:300}
+.wishlist-total-sum{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--border)}
+.wishlist-total-label{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;letter-spacing:.06em;color:var(--ink)}
+.wishlist-total-price{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:400;color:var(--wood-dark)}
+.wishlist-cta{width:100%;padding:15px;border-radius:6px;border:none;cursor:pointer;background:var(--ink);color:var(--paper);font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:300;letter-spacing:.16em;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px;transition:opacity .15s}
+.wishlist-cta:active{opacity:.85}
+
+/* ─── INFO ─── */
+.info-card{background:var(--card);border-radius:8px;padding:16px 18px;margin-bottom:10px;border:1px solid var(--border);box-shadow:0 1px 8px var(--shadow)}
+.info-label{font-size:9px;letter-spacing:.24em;color:var(--wood);margin-bottom:8px;font-weight:400}
+.info-value{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;color:var(--ink);line-height:1.4}
+.info-sub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6;font-weight:400}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.hours-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;font-weight:300}
+.hours-row:last-child{border:none}
+.hours-day{color:var(--muted)}
+.hours-time{font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--ink)}
+.hours-time.today{color:#4A7A4A}
+
+/* ─── OVERLAY + SHEET ─── */
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0);pointer-events:none;transition:background .35s,backdrop-filter .35s}
+.overlay.open{background:rgba(26,22,18,.6);pointer-events:all;backdrop-filter:blur(10px)}
+.sheet{position:fixed;bottom:0;left:0;right:0;z-index:600;background:var(--paper);border-radius:20px 20px 0 0;max-height:92vh;overflow-y:auto;transform:translateY(105%);transition:transform .4s cubic-bezier(.32,.72,0,1);overscroll-behavior:contain;border-top:1px solid var(--border2)}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:32px;height:3px;border-radius:99px;background:var(--dim);margin:12px auto 0;opacity:.4}
+.sheet-img-wrap{position:relative;height:210px;overflow:hidden;margin:12px 14px 0;border-radius:12px}
+.sheet-img-wrap img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.85) brightness(.96)}
+.sheet-img-gradient{position:absolute;inset:0;background:linear-gradient(0deg,var(--sheet-gradient) 0%,transparent 50%)}
+.sheet-badge-float{position:absolute;top:10px;left:10px;font-size:8px;letter-spacing:.16em;padding:3px 9px;border-radius:1px;font-weight:400}
+.sheet-price-float{position:absolute;bottom:14px;right:14px;font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:400;color:var(--ink)}
+.sheet-body{padding:14px 18px 40px}
+.sheet-name{font-family:'Cormorant Garamond',serif;font-size:clamp(26px,7vw,34px);font-weight:300;color:var(--ink);line-height:1;margin-bottom:4px;letter-spacing:.01em}
+.sheet-name em{font-style:italic;color:var(--wood-dark)}
+.sheet-tagline{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.65;font-weight:400}
+.sheet-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.story-block{background:rgba(196,149,106,.07);border-left:1.5px solid var(--wood);border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px}
+.story-text{font-size:12px;color:var(--ink-light);line-height:1.75;font-weight:300;font-style:italic}
+.s-label{font-size:9px;letter-spacing:.22em;color:var(--wood);margin-bottom:8px;font-weight:400}
+.ingr-list{display:flex;flex-direction:column;gap:5px;margin-bottom:18px}
+.ingr-item{display:flex;align-items:center;gap:10px;background:var(--paper2);border:1px solid var(--border);border-radius:7px;padding:9px 12px}
+.ingr-emoji{font-size:16px;flex-shrink:0;width:22px;text-align:center}
+.ingr-info{flex:1}
+.ingr-name{font-size:13px;font-weight:400;color:var(--ink)}
+.ingr-detail{font-size:10px;color:var(--muted);margin-top:1px;font-weight:400}
+.pairing-title{font-size:9px;letter-spacing:.22em;color:var(--wood);margin-bottom:10px;font-weight:400}
+.pairing-list{display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.pairing-list::-webkit-scrollbar{display:none}
+.pairing-card{flex-shrink:0;width:100px;background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border);cursor:pointer;box-shadow:0 1px 6px var(--shadow);transition:border-color .15s,transform .15s}
+.pairing-card:active{transform:scale(.95)}
+.pairing-card.selected{border-color:var(--wood);background:rgba(196,149,106,.07)}
+.pairing-card.selected .pairing-add{background:var(--wood);color:white;border-color:var(--wood)}
+.pairing-emoji{font-size:20px;margin-bottom:5px}
+.pairing-name{font-size:11px;font-weight:400;color:var(--ink);margin-bottom:2px;line-height:1.2}
+.pairing-price{font-size:11px;color:var(--muted);font-weight:300}
+.pairing-add{display:inline-flex;align-items:center;justify-content:center;margin-top:6px;width:22px;height:22px;border-radius:3px;background:rgba(196,149,106,.1);border:1px solid rgba(196,149,106,.3);color:var(--wood);font-size:13px;transition:all .15s}
+.sheet-cta{width:100%;padding:15px;border-radius:6px;border:1px solid var(--ink);cursor:pointer;background:var(--ink);color:var(--paper);font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:300;letter-spacing:.14em;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s}
+.sheet-cta:active{opacity:.85}
+.sheet-cta.added{background:transparent;color:#4A7A4A;border-color:#4A7A4A}
+
+/* ─── WELCOME ─── */
+.welcome-overlay{position:fixed;inset:0;z-index:900;background:rgba(26,22,18,.55);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;transition:opacity .3s,visibility .3s}
+.welcome-overlay.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.welcome-sheet{background:var(--paper);border-radius:20px 20px 0 0;padding:28px 22px max(32px,env(safe-area-inset-bottom));width:100%;max-width:480px;border-top:1px solid var(--border2);animation:sheetUp .45s cubic-bezier(.32,.72,0,1) forwards}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.welcome-jp{font-size:9px;letter-spacing:.32em;color:var(--wood);text-align:center;margin-bottom:8px;font-weight:400}
+.welcome-title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;text-align:center;margin-bottom:24px;color:var(--ink);letter-spacing:.04em}
+.welcome-title em{font-style:italic;color:var(--wood-dark)}
+.welcome-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:22px}
+.welcome-tile{background:var(--paper2);border:1px solid var(--border);border-radius:8px;padding:16px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:7px}
+.welcome-tile-icon{font-size:26px;line-height:1}
+.welcome-tile-label{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:400;color:var(--ink);text-align:center}
+.welcome-tile-sub{font-size:10px;color:var(--muted);text-align:center;line-height:1.35;font-weight:300}
+.welcome-btn{width:100%;padding:15px;border-radius:6px;border:none;cursor:pointer;background:var(--ink);color:var(--paper);font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:300;letter-spacing:.16em;transition:opacity .15s}
+.welcome-btn:active{opacity:.85}
+
+/* ─── PRESENT MODE ─── */
+.present-overlay{position:fixed;inset:0;z-index:1000;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;transform:translateY(100%);transition:transform .4s cubic-bezier(.32,.72,0,1)}
+.present-overlay.open{transform:translateY(0)}
+.present-rule{width:32px;height:1px;background:var(--wood);margin-bottom:20px}
+.present-jp{font-size:9px;letter-spacing:.3em;color:var(--muted);text-align:center;margin-bottom:6px;font-weight:300}
+.present-bar-name{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;color:var(--ink);letter-spacing:.06em;text-align:center;margin-bottom:28px}
+.present-bar-name em{font-style:italic;color:var(--wood-dark)}
+.present-items{width:100%;display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.present-item{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--paper2);border-radius:8px;border-left:2px solid var(--wood)}
+.present-item-left{display:flex;align-items:center;gap:12px}
+.present-item-emoji{font-size:20px}
+.present-item-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;color:var(--ink)}
+.present-item-cat{font-size:10px;color:var(--muted);margin-top:2px;font-weight:300;letter-spacing:.08em}
+.present-item-right{display:flex;align-items:center;gap:8px}
+.present-item-qty{font-size:12px;color:var(--muted);font-weight:300}
+.present-item-price{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:var(--wood-dark)}
+.present-total{width:100%;display:flex;justify-content:space-between;align-items:baseline;padding:14px 18px;background:var(--ink);border-radius:8px;margin-bottom:28px}
+.present-total-label{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;letter-spacing:.1em;color:var(--paper)}
+.present-total-price{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:400;color:var(--wood-light)}
+.present-close{padding:12px 36px;border-radius:4px;border:1px solid var(--border2);background:none;color:var(--muted);font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:300;letter-spacing:.14em;cursor:pointer}
+
+/* ─── TOAST ─── */
+.toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--ink);border-radius:4px;padding:9px 16px;font-size:12px;font-weight:300;color:var(--paper);white-space:nowrap;opacity:0;transition:opacity .2s,transform .2s;z-index:999;pointer-events:none;letter-spacing:.06em}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ─── BOTTOM NAV ─── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:10px 32px max(14px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-around;z-index:400}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px;color:var(--dim);border:none;background:none;position:relative;transition:color .15s}
+.nav-btn.active{color:var(--ink)}
+.nav-icon{font-size:17px;line-height:1}
+.nav-label{font-size:9px;letter-spacing:.14em;color:inherit;font-weight:300}
+.nav-badge{position:absolute;top:0;right:8px;min-width:14px;height:14px;border-radius:2px;background:var(--red);color:white;font-size:8px;font-weight:500;display:flex;align-items:center;justify-content:center;padding:0 3px;transform:scale(0);transition:transform .2s}
+.nav-badge.show{transform:scale(1)}
+
+/* ─── ENTER ANIMATIONS ─── */
+.section.active .nigiri-row,.section.active .roll-card,.section.active .small-card,.section.active .drink-row{animation:zenFade .3s ease both}
+.section.active .nigiri-row:nth-child(2),.section.active .roll-card:nth-child(2),.section.active .small-card:nth-child(2),.section.active .drink-row:nth-child(2){animation-delay:.05s}
+.section.active .nigiri-row:nth-child(3),.section.active .roll-card:nth-child(3),.section.active .small-card:nth-child(3),.section.active .drink-row:nth-child(3){animation-delay:.1s}
+.section.active .nigiri-row:nth-child(4),.section.active .roll-card:nth-child(4),.section.active .drink-row:nth-child(4){animation-delay:.15s}
+.section.active .nigiri-row:nth-child(5),.section.active .drink-row:nth-child(5){animation-delay:.2s}
+.section.active .nigiri-row:nth-child(6){animation-delay:.25s}
+@keyframes zenFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <img class="hero-img" src="https://images.unsplash.com/photo-1553621042-f6e147245754?w=800&q=80&fit=crop" alt="Sushi">
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-kanji">な み · 波 · FRANKFURT</div>
+    <div class="hero-name">NAMI<em>Sushi</em></div>
+    <div class="hero-rule"></div>
+    <div class="hero-sub">Omakase · Sashimi · Rolls</div>
+  </div>
+  <div class="hero-season">Saisonkarte Frühling</div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-wrap">
+  <div class="tabs">
+    <div class="tab active" id="tab-nigiri" onclick="switchTab('nigiri')">Nigiri & Sashimi</div>
+    <div class="tab" id="tab-maki" onclick="switchTab('maki')">Maki & Temaki</div>
+    <div class="tab" id="tab-rolls" onclick="switchTab('rolls')">Signature Rolls</div>
+    <div class="tab" id="tab-vorspeisen" onclick="switchTab('vorspeisen')">Vorspeisen</div>
+    <div class="tab" id="tab-drinks" onclick="switchTab('drinks')">Getränke</div>
+    <div class="tab" id="tab-merkliste" onclick="switchTab('merkliste')">Merkliste <span class="tab-badge" id="tab-badge">0</span></div>
+    <div class="tab" id="tab-info" onclick="switchTab('info')">Info</div>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <!-- NIGIRI & SASHIMI -->
+  <div class="section active" id="nigiri">
+    <div class="sec-header"><div><div class="sec-jp">NIGIRI · にぎり</div><div class="sec-title">Nigiri & <em>Sashimi</em></div></div><div class="sec-count">2 Stück</div></div>
+    <div class="sec-rule"></div>
+    <div id="nigiri-list"></div>
+    <div class="sec-header" style="padding-top:8px"><div><div class="sec-jp">SASHIMI · さしみ</div><div class="sec-title"><em>Sashimi</em> Auswahl</div></div><div class="sec-count">5 Stück</div></div>
+    <div class="sec-rule"></div>
+    <div id="sashimi-list"></div>
+  </div>
+
+  <!-- MAKI & TEMAKI -->
+  <div class="section" id="maki">
+    <div class="sec-header"><div><div class="sec-jp">MAKI · まき</div><div class="sec-title">Maki & <em>Temaki</em></div></div></div>
+    <div class="sec-rule"></div>
+    <div id="maki-list"></div>
+  </div>
+
+  <!-- SIGNATURE ROLLS -->
+  <div class="section" id="rolls">
+    <div class="omakase-banner" id="omakase-banner">
+      <div class="omakase-left">
+        <div class="omakase-jp">おまかせ</div>
+        <div class="omakase-name">Omakase Set</div>
+        <div class="omakase-sub">Chef's Choice · 12 Stück · täglich wechselnd</div>
+      </div>
+      <div class="omakase-price">38 €</div>
+    </div>
+    <div class="sec-header"><div><div class="sec-jp">SIGNATURE · 特製</div><div class="sec-title">Unsere <em>Rollen</em></div></div></div>
+    <div class="sec-rule"></div>
+    <div id="rolls-list"></div>
+  </div>
+
+  <!-- VORSPEISEN -->
+  <div class="section" id="vorspeisen">
+    <div class="sec-header"><div><div class="sec-jp">STARTERS · 前菜</div><div class="sec-title">Suppen & <em>Vorspeisen</em></div></div></div>
+    <div class="sec-rule"></div>
+    <div class="two-grid" id="vorspeisen-grid"></div>
+    <div style="margin-bottom:10px"></div>
+    <div id="vorspeisen-list"></div>
+  </div>
+
+  <!-- DRINKS -->
+  <div class="section" id="drinks">
+    <div class="drink-group-title">SAKE · 日本酒</div>
+    <div id="sake-list"></div>
+    <div class="drink-group-title">BIER & SODA · ビール</div>
+    <div id="beer-list"></div>
+    <div class="drink-group-title">TEE & SOFTDRINKS · お茶</div>
+    <div id="tea-list"></div>
+  </div>
+
+  <!-- MERKLISTE -->
+  <div class="section" id="merkliste">
+    <div class="sec-header"><div><div class="sec-jp">AUSWAHL · 選択</div><div class="sec-title">Deine <em>Merkliste</em></div></div></div>
+    <div class="sec-rule"></div>
+    <div id="wishlist-content"></div>
+  </div>
+
+  <!-- INFO -->
+  <div class="section" id="info">
+    <div class="sec-header"><div><div class="sec-jp">NAMI · な み</div><div class="sec-title">Restaurant & <em>Info</em></div></div></div>
+    <div class="sec-rule"></div>
+    <div class="info-grid">
+      <div class="info-card"><div class="info-label">ADRESSE</div><div class="info-value">Berger Str. 42</div><div class="info-sub">Frankfurt-Bornheim</div></div>
+      <div class="info-card"><div class="info-label">KONTAKT</div><div class="info-value">069 345 678</div><div class="info-sub">Reservierung empfohlen</div></div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">ÖFFNUNGSZEITEN</div>
+      <div class="hours-row"><span class="hours-day">Montag</span><span class="hours-time">Geschlossen</span></div>
+      <div class="hours-row"><span class="hours-day">Di – Do</span><span class="hours-time">12:00 – 14:30 · 18:00 – 22:00</span></div>
+      <div class="hours-row"><span class="hours-day">Freitag</span><span class="hours-time today">12:00 – 14:30 · 18:00 – 23:00 ✓</span></div>
+      <div class="hours-row"><span class="hours-day">Samstag</span><span class="hours-time">13:00 – 23:00</span></div>
+      <div class="hours-row"><span class="hours-day">Sonntag</span><span class="hours-time">13:00 – 21:00</span></div>
+    </div>
+    <div class="info-card"><div class="info-label">FISCH & QUALITÄT</div><div class="info-sub" style="font-size:13px;line-height:1.75">Unser Fisch wird täglich frisch angeliefert — ausschließlich von zertifizierten Lieferanten aus nachhaltigem Fang. Alle Allergene auf Anfrage beim Personal.</div></div>
+    <div class="info-card"><div class="info-label">HINWEISE</div><div class="info-sub" style="font-size:12px;line-height:1.7">Alle Preise inkl. MwSt. · Änderungen vorbehalten · Reservierung per Telefon oder direkt am Tisch.</div></div>
+  </div>
+
+</div>
+
+<!-- OVERLAY + SHEET -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheet-img-area"></div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<!-- WELCOME -->
+<div class="welcome-overlay" id="welcome-overlay">
+  <div class="welcome-sheet">
+    <div class="welcome-jp">いらっしゃいませ</div>
+    <div class="welcome-title">Willkommen bei <em>Nami</em></div>
+    <div class="welcome-tiles">
+      <div class="welcome-tile"><div class="welcome-tile-icon">👆</div><div class="welcome-tile-label">Antippen</div><div class="welcome-tile-sub">Details & Fotos</div></div>
+      <div class="welcome-tile"><div class="welcome-tile-icon">🔖</div><div class="welcome-tile-label">Merken</div><div class="welcome-tile-sub">Favoriten speichern</div></div>
+      <div class="welcome-tile"><div class="welcome-tile-icon">🙋</div><div class="welcome-tile-label">Zeigen</div><div class="welcome-tile-sub">Personal bestellt</div></div>
+    </div>
+    <button class="welcome-btn" onclick="dismissWelcome()">Karte entdecken</button>
+  </div>
+</div>
+
+<!-- PRESENT MODE -->
+<div class="present-overlay" id="present-overlay">
+  <div class="present-rule"></div>
+  <div class="present-jp">ご注文</div>
+  <div class="present-bar-name">Nami <em>Sushi</em></div>
+  <div class="present-items" id="present-items"></div>
+  <div class="present-total">
+    <div class="present-total-label">Gesamt</div>
+    <div class="present-total-price" id="present-total-price"></div>
+  </div>
+  <button class="present-close" onclick="closePresent()">← Zurück zur Karte</button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-karte" onclick="setNav(this,'nigiri')"><span class="nav-icon">🍣</span><span class="nav-label">Karte</span></button>
+  <button class="nav-btn" id="nav-wish" onclick="setNav(this,'merkliste')"><span class="nav-icon">🔖</span><span class="nav-label">Merkliste</span><span class="nav-badge" id="nav-badge">0</span></button>
+</div>
+
+<script>
+// ------------------------------------------
+// DATA
+// ------------------------------------------
+const nigiriItems = [
+  {id:'n1',type:'nigiri',emoji:'🐟',name:'Lachs · Sake',sub:'Atlantik-Lachs · Premium · 2 Stück',price:'5,80 €',priceNum:5.8,badge:'BELIEBT',badgeClass:'badge-pop',tags:['badge-pop:Bestseller'],tagline:'Klassiker. Immer frisch.',story:'Fein aufgeschnittener Atlantik-Lachs auf handgeformtem Sushireis. Täglich frisch angeliefert, sorgfältig auf Raumtemperatur gebracht.',img:'https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=180&q=80&fit=crop',ingredients:[{emoji:'🐟',name:'Atlantik-Lachs',detail:'Täglich frisch, sashimi-Qualität'},{emoji:'🍚',name:'Sushireis',detail:'Koshihikari, Reisessig, Salz'},{emoji:'🟢',name:'Wasabi',detail:'Auf Wunsch'}],pairings:['d1','d4']},
+  {id:'n2',type:'nigiri',emoji:'🐟',name:'Thunfisch · Maguro',sub:'Roter Thunfisch · 2 Stück',price:'6,50 €',priceNum:6.5,badge:'PREMIUM',badgeClass:'badge-new',tags:['badge-new:Premium'],tagline:'Tiefes Rot. Butterweich.',story:'Echter Roter Thunfisch, sorgfältig pariert. Das intensive Aroma kommt ohne Marinade zur Geltung — nur Wasabi und Soja.',img:'https://images.unsplash.com/photo-1559410545-0bdcd187e0a6?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1559410545-0bdcd187e0a6?w=180&q=80&fit=crop',ingredients:[{emoji:'🐟',name:'Roter Thunfisch Maguro',detail:'MSC-zertifiziert'},{emoji:'🍚',name:'Sushireis',detail:'Koshihikari'},{emoji:'🟢',name:'Wasabi',detail:'Auf Wunsch'}],pairings:['d2','d4']},
+  {id:'n3',type:'nigiri',emoji:'🦐',name:'Garnele · Ebi',sub:'Tigergarnele · gekocht · 2 Stück',price:'5,50 €',priceNum:5.5,tags:[],tagline:'Süßlich, fest, klassisch.',story:'Sorgfältig zubereitete Tigergarnele, leicht geköchelt und auf Sushireis drapiert. Mild und naturbelassen.',img:'https://images.unsplash.com/photo-1615361200141-f45040f367be?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1615361200141-f45040f367be?w=180&q=80&fit=crop',ingredients:[{emoji:'🦐',name:'Tigergarnele',detail:'Atlantik, gekocht'},{emoji:'🍚',name:'Sushireis',detail:'Koshihikari'}],pairings:['d1','d5']},
+  {id:'n4',type:'nigiri',emoji:'🥑',name:'Avocado · Vegan',sub:'Reife Hass-Avocado · Sesam · 2 Stück',price:'4,80 €',priceNum:4.8,badge:'VEGAN',badgeClass:'badge-veg',tags:['badge-veg:Vegan'],tagline:'Cremig, samtig, vollständig.',story:'Reife Hass-Avocado, dünn aufgeschnitten, mit geröstetem Sesam auf Sushireis. Komplex trotz Einfachheit.',img:'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=180&q=80&fit=crop',ingredients:[{emoji:'🥑',name:'Hass-Avocado',detail:'Reif, täglich frisch'},{emoji:'🍚',name:'Sushireis',detail:'Koshihikari'},{emoji:'🌱',name:'Gerösteter Sesam',detail:'Weiß & schwarz'}],pairings:['d5','d6']},
+  {id:'n5',type:'nigiri',emoji:'🐟',name:'Makrele · Saba',sub:'Marinierte Makrele · 2 Stück',price:'5,20 €',priceNum:5.2,badge:'SAISONAL',badgeClass:'badge-season',tags:['badge-season:Saisonal'],tagline:'Charaktervoll. Intensiv. Ehrlich.',story:'Frische Makrele, leicht in Reisessig mariniert nach traditioneller Methode. Ein Geschmack der die Makrele in ihrer besten Form zeigt.',img:'https://images.unsplash.com/photo-1611143669185-af224c5e3252?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1611143669185-af224c5e3252?w=180&q=80&fit=crop',ingredients:[{emoji:'🐟',name:'Atlantik-Makrele',detail:'Täglich frisch'},{emoji:'🍶',name:'Reisessig-Marinade',detail:'Traditionell'},{emoji:'🍚',name:'Sushireis',detail:'Koshihikari'}],pairings:['d2','d4']},
+];
+const sashimiItems = [
+  {id:'s1',type:'sashimi',emoji:'🐟',name:'Lachs · Sake',sub:'5 Scheiben · Sashimi-Qualität',price:'13 €',priceNum:13,badge:'',badgeClass:'',tags:['badge-pop:Bestseller'],tagline:'Pur und makellos.',story:'Fünf präzise geschnittene Scheiben Atlantik-Lachs — serviert auf geriebenen Daikon-Radieschen mit Ingwer und Wasabi.',img:'https://images.unsplash.com/photo-1562802378-063ec186a863?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1562802378-063ec186a863?w=180&q=80&fit=crop',ingredients:[{emoji:'🐟',name:'Atlantik-Lachs',detail:'Sashimi-Qualität, täglich frisch'},{emoji:'🌿',name:'Daikon-Radieschen',detail:'Gerieben'},{emoji:'🟢',name:'Wasabi & Ingwer',detail:'Beilage'}],pairings:['d2','d1']},
+  {id:'s2',type:'sashimi',emoji:'🐟',name:'Thunfisch · Maguro',sub:'5 Scheiben · Roter Thunfisch',price:'16 €',priceNum:16,badge:'PREMIUM',badgeClass:'badge-new',tags:['badge-new:Premium'],tagline:'Das Beste des Meeres. Unverfälscht.',story:'Fünf Scheiben tief-roter Thunfisch. Geschnitten gegen die Faser für maximale Textur. Mit Wasabi und Ingwer serviert.',img:'https://images.unsplash.com/photo-1534482421-64566f976cfa?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1534482421-64566f976cfa?w=180&q=80&fit=crop',ingredients:[{emoji:'🐟',name:'Roter Thunfisch Maguro',detail:'MSC-zertifiziert'},{emoji:'🌿',name:'Daikon-Radieschen',detail:'Gerieben'},{emoji:'🟢',name:'Wasabi & Ingwer',detail:'Beilage'}],pairings:['d2','d4']},
+];
+const makiItems = [
+  {id:'m1',type:'maki',emoji:'🌿',name:'Kappa Maki',sub:'Gurke · 8 Stück · Vegan',price:'5,50 €',priceNum:5.5,tags:['badge-veg:Vegan'],tagline:'Frisch. Knackig. Unkompliziert.',story:'Der reinste Maki — nur knackige Gurke, Sushireis und Nori. Erfrischend leicht.',img:'https://images.unsplash.com/photo-1617196034776-6a7bb28d8b62?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1617196034776-6a7bb28d8b62?w=180&q=80&fit=crop',ingredients:[{emoji:'🥒',name:'Japanische Gurke',detail:'Frisch'},{emoji:'🍚',name:'Sushireis',detail:'Koshihikari'},{emoji:'🌿',name:'Nori',detail:'Gerösteter Seetang'}],pairings:['d5','d6']},
+  {id:'m2',type:'maki',emoji:'🐟',name:'Tekka Maki',sub:'Roter Thunfisch · 8 Stück',price:'7,50 €',priceNum:7.5,tags:['badge-new:Premium'],tagline:'Einfachheit als höchste Kunst.',story:'Roter Thunfisch, Sushireis, Nori. Mehr braucht dieser Klassiker nicht. Der Test jedes guten Sushimeisters.',img:'https://images.unsplash.com/photo-1611143669185-af224c5e3252?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1611143669185-af224c5e3252?w=180&q=80&fit=crop',ingredients:[{emoji:'🐟',name:'Roter Thunfisch',detail:'Sashimi-Qualität'},{emoji:'🍚',name:'Sushireis',detail:'Koshihikari'},{emoji:'🌿',name:'Nori',detail:'Gerösteter Seetang'}],pairings:['d2','d4']},
+  {id:'m3',type:'maki',emoji:'🌿',name:'Lachs Temaki',sub:'Handrolle · Lachs · Avocado · Sesam',price:'6,50 €',priceNum:6.5,tags:['badge-pop:Handroll'],tagline:'Die Handrolle. Essen wie in Tokyo.',story:'Frisch gerollt und sofort serviert — Lachs, Avocado und Sesam in einer knusprigen Nori-Tüte. Muss sofort gegessen werden.',img:'https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=180&q=80&fit=crop',ingredients:[{emoji:'🐟',name:'Atlantik-Lachs',detail:'Täglich frisch'},{emoji:'🥑',name:'Avocado',detail:'Reif'},{emoji:'🌱',name:'Sesam',detail:'Geröstet'},{emoji:'🌿',name:'Nori',detail:'Knusprig gerösteter Seetang'}],pairings:['d1','d5']},
+  {id:'m4',type:'maki',emoji:'🌿',name:'Oshinko Maki',sub:'Eingelegter Rettich · 8 Stück · Vegan',price:'5 €',priceNum:5,tags:['badge-veg:Vegan'],tagline:'Knackig. Sauer. Traditionell.',story:'Gelber eingelegter Daikon-Rettich — eine japanische Tradition. Knackig, leicht säuerlich, der klassische Gaumenreiniger.',img:'https://images.unsplash.com/photo-1559410545-0bdcd187e0a6?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1559410545-0bdcd187e0a6?w=180&q=80&fit=crop',ingredients:[{emoji:'🌿',name:'Eingelegter Daikon-Rettich',detail:'Oshinko, traditionell'},{emoji:'🍚',name:'Sushireis',detail:'Koshihikari'},{emoji:'🌿',name:'Nori',detail:'Gerösteter Seetang'}],pairings:['d5','d6']},
+];
+const rolls = [
+  {id:'r1',type:'roll',name:'Nami Roll',emoji:'🌊',desc:'Lachs · Avocado · Frischkäse · Sesam · Spicy Mayo',price:'14 €',priceNum:14,badge:'SIGNATURE',badgeClass:'badge-season',tags:['badge-pop:Unser Klassiker'],tagline:'Die Rolle, die unseren Namen trägt.',story:'Innen: Lachs, Avocado, Frischkäse. Außen: Sesamkruste und Spicy Mayo in feinen Linien. Unsere meistbestellte Rolle seit Tag eins.',img:'https://images.unsplash.com/photo-1553621042-f6e147245754?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1553621042-f6e147245754?w=180&q=80&fit=crop',ingredients:[{emoji:'🐟',name:'Lachs',detail:'Sashimi-Qualität'},{emoji:'🥑',name:'Avocado',detail:'Reif, cremig'},{emoji:'🧀',name:'Frischkäse',detail:'Cremig'},{emoji:'🌱',name:'Sesam',detail:'Außen, geröstet'},{emoji:'🌶️',name:'Spicy Mayo',detail:'Hausgemacht'}],pairings:['d1','d2']},
+  {id:'r2',type:'roll',name:'Dragon Roll',emoji:'🐉',desc:'Garnele Tempura · Gurke · Avocado-Fächer · Unagi-Sauce',price:'16 €',priceNum:16,badge:'CHEF\u2019S CHOICE',badgeClass:'badge-new',tags:['badge-new:Aufwändig'],tagline:'Kunstvoll. Spektakulär. Unwiderstehlich.',story:'Knusprige Garnele Tempura innen, Gurke — außen ein Avocado-Fächer der die gesamte Rolle bedeckt. Mit süßer Unagi-Sauce und Sesam beträufelt.',img:'https://images.unsplash.com/photo-1617196034776-6a7bb28d8b62?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1617196034776-6a7bb28d8b62?w=180&q=80&fit=crop',ingredients:[{emoji:'🦐',name:'Garnele Tempura',detail:'Knusprig frittiert'},{emoji:'🥒',name:'Gurke',detail:'Frisch'},{emoji:'🥑',name:'Avocado-Fächer',detail:'Außen aufgelegt'},{emoji:'🫙',name:'Unagi-Sauce',detail:'Süß-salzige Glasur'}],pairings:['d2','d3']},
+  {id:'r3',type:'roll',name:'Veggie Zen Roll',emoji:'🌿',desc:'Süßkartoffel Tempura · Avocado · Gurke · Sesam · Ponzu',price:'12 €',priceNum:12,badge:'VEGAN',badgeClass:'badge-veg',tags:['badge-veg:Vegan'],tagline:'Pflanzlich. Vollständig. Makellos.',story:'Knusprige Süßkartoffel-Tempura mit frischer Avocado und Gurke, verfeinert mit Ponzu-Dressing und Sesam. Vegan und restlos befriedigend.',img:'https://images.unsplash.com/photo-1562802378-063ec186a863?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1562802378-063ec186a863?w=180&q=80&fit=crop',ingredients:[{emoji:'🍠',name:'Süßkartoffel Tempura',detail:'Knusprig'},{emoji:'🥑',name:'Avocado',detail:'Reif'},{emoji:'🥒',name:'Gurke',detail:'Frisch'},{emoji:'🍋',name:'Ponzu-Dressing',detail:'Zitrus-Soja'}],pairings:['d5','d6']},
+];
+const vorspeisen = [
+  {id:'v1',type:'vorspeise',name:'Miso Suppe',emoji:'🍜',desc:'Weiße Miso-Paste · Tofu · Wakame · Frühlingszwiebeln',price:'4,50 €',priceNum:4.5,badge:'TÄGLICH',badgeClass:'badge-pop',tags:[],tagline:'Der wärmende Einstieg.',story:'Hausgemachte Misosuppe mit weißer Shiro-Miso-Paste, weichem Seidentofu, Wakame-Algen und frischen Frühlingszwiebeln. Täglich frisch zubereitet.',img:'https://images.unsplash.com/photo-1547592180-85f173990554?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1547592180-85f173990554?w=180&q=80&fit=crop',ingredients:[{emoji:'🫙',name:'Shiro-Miso-Paste',detail:'Weiß, mild'},{emoji:'🧊',name:'Seidentofu',detail:'Sanft'},{emoji:'🌿',name:'Wakame-Algen',detail:'Getrocknet, eingeweicht'},{emoji:'🌱',name:'Frühlingszwiebeln',detail:'Frisch'}],pairings:['n1','r1']},
+  {id:'v2',type:'vorspeise',name:'Edamame',emoji:'🫘',desc:'Gedämpfte Sojabohnen · Meersalz',price:'4 €',priceNum:4,badge:'VEGAN',badgeClass:'badge-veg',tags:['badge-veg:Vegan'],tagline:'Simpel. Unwiderstehlich.',story:'Frisch gedämpfte Edamame, großzügig mit grobem Meersalz bestreut. Der perfekte Einstieg.',img:'https://images.unsplash.com/photo-1584278860047-22db9ff82bed?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1584278860047-22db9ff82bed?w=180&q=80&fit=crop',ingredients:[{emoji:'🫘',name:'Edamame',detail:'Gedämpft'},{emoji:'🧂',name:'Grobes Meersalz',detail:'—'}],pairings:['d3','d1']},
+];
+const vorspeisenExtra = [
+  {id:'v3',type:'vorspeise',emoji:'🥗',name:'Wakame Salat',sub:'Meeresalgen · Sesam · Ponzu · Ingwer',price:'6,50 €',priceNum:6.5,tags:['badge-veg:Vegan'],tagline:'Ozean im Teller.',story:'Zarte Wakame-Algen mit geröstetem Sesam, frischem Ingwer und einem leichten Ponzu-Dressing.',img:'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=180&q=80&fit=crop',ingredients:[{emoji:'🌿',name:'Wakame-Algen',detail:'Zart'},{emoji:'🌱',name:'Sesam',detail:'Geröstet'},{emoji:'🍋',name:'Ponzu-Dressing',detail:'Zitrus-Soja'},{emoji:'🫚',name:'Frischer Ingwer',detail:'Gerieben'}],pairings:['d5','v1']},
+  {id:'v4',type:'vorspeise',emoji:'🦑',name:'Takoyaki',sub:'Oktopus-Bällchen · Dashi · Bonito · Mayo · 6 Stück',price:'8,50 €',priceNum:8.5,tags:['badge-pop:Streetfood'],tagline:'Osaka-Streetfood, hier serviert.',story:'Sechs knusprige Teigbällchen mit zartem Oktopus, Dashi-Brühe, Bonito-Flocken und Takoyaki-Sauce. Heiß serviert.',img:'https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=180&q=80&fit=crop',ingredients:[{emoji:'🦑',name:'Oktopus',detail:'Zart gegart'},{emoji:'🫙',name:'Dashi-Brühe',detail:'Im Teig'},{emoji:'🌊',name:'Bonito-Flocken',detail:'Getrocknet'},{emoji:'🫙',name:'Takoyaki-Sauce & Mayo',detail:'Klassisch'}],pairings:['d3','d2']},
+];
+const sake = [
+  {id:'d1',type:'drink',emoji:'🍶',name:'Junmai Sake',sub:'Trocken · leicht fruchtig · 180ml',price:'7 €',priceNum:7,story:'Reiner Junmai-Sake ohne zugefügten Alkohol. Trocken, leicht fruchtig, hervorragend zu Sashimi.',img:'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=180&q=80&fit=crop',ingredients:[{emoji:'🌾',name:'Polierter Reis',detail:'Japanischer Sake-Reis'},{emoji:'💧',name:'Weichwasser',detail:'Traditionell'}]},
+  {id:'d2',type:'drink',emoji:'🍶',name:'Nigori Sake',sub:'Ungefiltert · milchig · süßlich · 180ml',price:'8 €',priceNum:8,story:'Ungefiltert und milchig-weiß. Süßlicher und cremiger als klarer Sake — ideal zu kräftigem Thunfisch.',img:'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=180&q=80&fit=crop',ingredients:[{emoji:'🌾',name:'Sake-Reis',detail:'Ungefiltert'},{emoji:'💧',name:'Quellwasser',detail:'—'}]},
+  {id:'d3',type:'drink',emoji:'🍺',name:'Sapporo Bier',sub:'Japanisches Lager · 0,33l · 4,7%',price:'4,50 €',priceNum:4.5,story:'Das klassische japanische Lagerbier. Mild, leicht und erfrischend — der ideale Begleiter zum Sushi.',img:'https://images.unsplash.com/photo-1566633806827-45857f0a2c97?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1566633806827-45857f0a2c97?w=180&q=80&fit=crop',ingredients:[{emoji:'🌾',name:'Gerstenmalz',detail:'Japanisch'},{emoji:'🍺',name:'Hopfen',detail:'Mild'}]},
+];
+const tea = [
+  {id:'d4',type:'drink',emoji:'🍵',name:'Sencha',sub:'Grüner Tee · lose Blätter · 75°C · 300ml',price:'3,80 €',priceNum:3.8,story:'Japanischer Sencha, lose Blätter bei 75°C aufgebrüht. Grasig, rein, der klassische Sushi-Begleiter.',img:'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=180&q=80&fit=crop',ingredients:[{emoji:'🍵',name:'Sencha Loose Leaf',detail:'Japan, 75°C'}]},
+  {id:'d5',type:'drink',emoji:'🍵',name:'Genmaicha',sub:'Grüntee mit Reispopcorn · 300ml',price:'4 €',priceNum:4,story:'Grüntee mit geröstetem Reispopcorn — nussig, mild, wärmend. Ein japanisches Volksgetränk.',img:'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=180&q=80&fit=crop',ingredients:[{emoji:'🍵',name:'Grüntee',detail:'Japan'},{emoji:'🌾',name:'Geröstetes Reispopcorn',detail:'Nussig'}]},
+  {id:'d6',type:'drink',emoji:'🍵',name:'Iced Matcha Latte',sub:'Ceremonial Grade · Hafermilch · Eis',price:'5,50 €',priceNum:5.5,story:'Ceremonial Grade Matcha aus Uji, Japan — kalt aufgeschlagen mit Hafermilch und Eis.',img:'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=180&q=80&fit=crop',ingredients:[{emoji:'🍵',name:'Matcha Ceremonial Grade',detail:'Uji, Japan'},{emoji:'🌾',name:'Oatly Barista kalt',detail:'Vegan'}]},
+  {id:'d7',type:'drink',emoji:'💧',name:'Wasser Still / Sprudel',sub:'0,5l · Gerolsteiner',price:'2,50 €',priceNum:2.5,story:'Klassisch. Still oder Sprudel.',img:'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=180&q=80&fit=crop',ingredients:[{emoji:'💧',name:'Natürliches Mineralwasser',detail:'Gerolsteiner'}]},
+];
+
+const allItems = [...nigiriItems,...sashimiItems,...makiItems,...rolls,...vorspeisen,...vorspeisenExtra,...sake,...tea];
+
+// ------------------------------------------
+// WISHLIST
+// ------------------------------------------
+let wishlist = [];
+
+function addToWishlist(item) {
+  const ex = wishlist.find(i=>i.id===item.id);
+  if (ex) { ex.qty++; updateWishlistUI(); return false; }
+  wishlist.push({...item, qty:1});
+  updateWishlistUI();
+  return true;
+}
+function removeFromWishlist(id) {
+  wishlist = wishlist.filter(i=>i.id!==id);
+  updateWishlistUI(); renderWishlist();
+}
+function changeQty(id, delta) {
+  const item = wishlist.find(i=>i.id===id);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) { removeFromWishlist(id); return; }
+  updateWishlistUI(); renderWishlist();
+}
+function updateWishlistUI() {
+  const count = wishlist.reduce((s,i)=>s+i.qty,0);
+  const nb=document.getElementById('nav-badge'), tb=document.getElementById('tab-badge');
+  if (count>0) { nb.textContent=count; nb.classList.add('show'); tb.textContent=count; tb.classList.add('show'); }
+  else { nb.classList.remove('show'); tb.classList.remove('show'); }
+}
+function renderWishlist() {
+  const el = document.getElementById('wishlist-content');
+  if (!wishlist.length) {
+    el.innerHTML=`<div class="wishlist-empty"><div class="wishlist-empty-icon">🔖</div><div class="wishlist-empty-title">Noch nichts gemerkt</div><div class="wishlist-empty-sub">Tippe auf ein Item und drücke „Merken"<br>um es hier zu speichern.</div></div>`;
+    return;
+  }
+  const total = wishlist.reduce((s,i)=>s+(i.priceNum*i.qty),0);
+  el.innerHTML = wishlist.map(item=>`
+    <div class="wishlist-item">
+      <div class="wishlist-img">${item.img?`<img src="${item.thumb||item.img}" alt="${item.name}" loading="lazy">`:`<span>${item.emoji}</span>`}</div>
+      <div class="wishlist-info"><div class="wishlist-name">${item.name}</div><div class="wishlist-cat">${item.type==='nigiri'?'Nigiri':item.type==='sashimi'?'Sashimi':item.type==='maki'?'Maki':item.type==='roll'?'Signature Roll':item.type==='vorspeise'?'Vorspeise':item.type==='drink'?'Getränk':'—'}</div></div>
+      <div class="qty-stepper"><button class="qty-btn" onclick="changeQty('${item.id}',-1)">−</button><span class="qty-num">${item.qty}</span><button class="qty-btn" onclick="changeQty('${item.id}',1)">+</button></div>
+      <div class="wishlist-price">${item.qty>1?(item.priceNum*item.qty).toFixed(2).replace('.',',')+' €':item.price}</div>
+    </div>`).join('')+`
+    <div class="wishlist-total">
+      ${wishlist.map(i=>`<div class="wishlist-total-row"><span>${i.name}${i.qty>1?' ×'+i.qty:''}</span><span>${(i.priceNum*i.qty).toFixed(2).replace('.',',')} €</span></div>`).join('')}
+      <div class="wishlist-total-sum"><span class="wishlist-total-label">Gesamt</span><span class="wishlist-total-price">${total.toFixed(2).replace('.',',')} €</span></div>
+    </div>
+    <button class="wishlist-cta" onclick="openPresent()"><span>🙋</span> Diese Liste dem Personal zeigen</button>`;
+}
+
+// ------------------------------------------
+// RENDER
+// ------------------------------------------
+function renderNigiriList(id, list) {
+  document.getElementById(id).innerHTML = list.map(item=>`
+    <div class="nigiri-row" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))">
+      ${item.img?`<img class="nigiri-thumb" src="${item.thumb||item.img}" alt="${item.name}" loading="lazy">`:''}
+      <div class="nigiri-info">
+        <div class="nigiri-name">${item.name}</div>
+        <div class="nigiri-sub">${item.sub}</div>
+        ${item.badge?`<div class="nigiri-badge ${item.badgeClass||''}">${item.badge}</div>`:''}
+      </div>
+      <div class="nigiri-right"><div class="nigiri-price">${item.price}</div></div>
+      <div class="nigiri-arrow">›</div>
+    </div>`).join('');
+}
+
+function renderRollCards(id, list) {
+  document.getElementById(id).innerHTML = list.map(item=>`
+    <div class="roll-card" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))">
+      <img class="roll-card-img" src="${item.img}" alt="${item.name}" loading="lazy">
+      <div class="roll-card-body">
+        <div class="roll-card-header">
+          <div class="roll-card-name">${item.name}</div>
+          <div class="roll-card-price">${item.price}</div>
+        </div>
+        <div class="roll-card-desc">${item.desc}</div>
+        <div class="roll-card-tags">
+          ${item.badge?`<span class="nigiri-badge ${item.badgeClass||''}">${item.badge}</span>`:''}
+          ${(item.tags||[]).map(t=>{const[cls,lbl]=t.split(':');return`<span class="nigiri-badge ${cls}">${lbl}</span>`}).join('')}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderSmallCards(id, list) {
+  document.getElementById(id).innerHTML = list.map(item=>`
+    <div class="small-card" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))">
+      <img class="small-card-img" src="${item.img}" alt="${item.name}" loading="lazy">
+      <div class="small-card-body">
+        <div class="small-card-name">${item.name}</div>
+        <div class="small-card-desc">${item.desc}</div>
+        <div class="small-card-price">${item.price}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderDrinkList(id, list) {
+  document.getElementById(id).innerHTML = list.map(item=>`
+    <div class="drink-row" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))">
+      <div class="drink-emoji">${item.emoji}</div>
+      <div class="drink-info"><div class="drink-name">${item.name}</div><div class="drink-sub">${item.sub}</div></div>
+      <div class="drink-price">${item.price}</div>
+      <div class="drink-arrow">›</div>
+    </div>`).join('');
+}
+
+function renderVorspeisenList(id, list) {
+  document.getElementById(id).innerHTML = list.map(item=>`
+    <div class="nigiri-row" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))">
+      ${item.img?`<img class="nigiri-thumb" src="${item.thumb||item.img}" alt="${item.name}" loading="lazy">`:''}
+      <div class="nigiri-info">
+        <div class="nigiri-name">${item.name}</div>
+        <div class="nigiri-sub">${item.sub}</div>
+      </div>
+      <div class="nigiri-right"><div class="nigiri-price">${item.price}</div></div>
+      <div class="nigiri-arrow">›</div>
+    </div>`).join('');
+}
+
+// ------------------------------------------
+// SHEET
+// ------------------------------------------
+let currentItem = null;
+let selectedPairings = new Set();
+
+function openSheet(item) {
+  currentItem = item;
+  selectedPairings = new Set();
+  const inWishlist = !!wishlist.find(i=>i.id===item.id);
+  const imgArea = document.getElementById('sheet-img-area');
+
+  if (item.img) {
+    imgArea.innerHTML = `
+      <div class="sheet-img-wrap">
+        <img src="${item.img}" alt="${item.name}">
+        <div class="sheet-img-gradient"></div>
+        ${item.badge?`<div class="sheet-badge-float ${item.badgeClass||''}">${item.badge}</div>`:''}
+        <div class="sheet-price-float">${item.price}</div>
+      </div>`;
+  } else {
+    imgArea.innerHTML = `<div style="height:80px;display:flex;align-items:center;justify-content:center;font-size:48px;padding-top:20px">${item.emoji}</div>`;
+  }
+
+  const pairingItems = (item.pairings||[]).map(id=>allItems.find(x=>x.id===id)).filter(Boolean);
+  const ingrHtml = item.ingredients ? `
+    <div class="s-label">Zutaten</div>
+    <div class="ingr-list">
+      ${item.ingredients.map(i=>`
+        <div class="ingr-item">
+          <div class="ingr-emoji">${i.emoji}</div>
+          <div class="ingr-info"><div class="ingr-name">${i.name}</div><div class="ingr-detail">${i.detail}</div></div>
+        </div>`).join('')}
+    </div>` : '';
+
+  const pairingHtml = pairingItems.length ? `
+    <div class="pairing-title">Passt dazu</div>
+    <div class="pairing-list">
+      ${pairingItems.map(p=>`
+        <div class="pairing-card" id="pc-${p.id}" onclick="togglePairing('${p.id}')">
+          <div class="pairing-emoji">${p.emoji||'🍵'}</div>
+          <div class="pairing-name">${p.name.length>14?p.name.slice(0,13)+'…':p.name}</div>
+          <div class="pairing-price">${p.price}</div>
+          <div class="pairing-add" id="pa-${p.id}">+</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  document.getElementById('sheet-body').innerHTML = `
+    <div class="sheet-name">${item.name}</div>
+    <div class="sheet-tagline">${item.tagline||item.sub||''}</div>
+    ${item.tags&&item.tags.length?`<div class="sheet-tags">${item.tags.map(t=>{const[cls,lbl]=t.split(':');return`<span class="nigiri-badge ${cls}">${lbl}</span>`}).join('')}</div>`:''}
+    ${item.story?`<div class="story-block"><div class="story-text">${item.story}</div></div>`:''}
+    ${ingrHtml}
+    ${pairingHtml}
+    <button class="sheet-cta ${inWishlist?'added':''}" id="sheet-cta" onclick="handleCTA()">
+      ${inWishlist?'<span>✓</span> <span>Gemerkt</span>':'<span>🔖</span> <span>Merken</span>'}
+    </button>`;
+
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function togglePairing(id) {
+  const p = allItems.find(x=>x.id===id);
+  if (!p) return;
+  const card=document.getElementById(`pc-${id}`), btn=document.getElementById(`pa-${id}`);
+  if (selectedPairings.has(id)) {
+    selectedPairings.delete(id); card.classList.remove('selected'); btn.textContent='+';
+    showToast('Entfernt');
+  } else {
+    selectedPairings.add(id); card.classList.add('selected'); btn.textContent='✓';
+    addToWishlist(p); showToast(`${p.emoji} ${p.name} gemerkt`);
+  }
+}
+function handleCTA() {
+  if (!currentItem) return;
+  if (wishlist.find(i=>i.id===currentItem.id)) { closeSheet(); return; }
+  addToWishlist(currentItem);
+  const btn=document.getElementById('sheet-cta');
+  btn.classList.add('added');
+  btn.innerHTML='<span>✓</span> <span>Gemerkt</span>';
+  showToast(`${currentItem.emoji} ${currentItem.name} gemerkt`);
+  setTimeout(closeSheet, 650);
+}
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// ------------------------------------------
+// PRESENT
+// ------------------------------------------
+function openPresent() {
+  const itemsEl=document.getElementById('present-items'), totalEl=document.getElementById('present-total-price');
+  itemsEl.innerHTML = wishlist.map(item=>`
+    <div class="present-item">
+      <div class="present-item-left">
+        <div class="present-item-emoji">${item.emoji||'🍣'}</div>
+        <div><div class="present-item-name">${item.name}</div><div class="present-item-cat">${item.type==='nigiri'?'Nigiri':item.type==='sashimi'?'Sashimi':item.type==='maki'?'Maki':item.type==='roll'?'Roll':item.type==='vorspeise'?'Vorspeise':'Getränk'}</div></div>
+      </div>
+      <div class="present-item-right">
+        ${item.qty>1?`<span class="present-item-qty">×${item.qty}</span>`:''}
+        <div class="present-item-price">${(item.priceNum*item.qty).toFixed(2).replace('.',',')} €</div>
+      </div>
+    </div>`).join('');
+  const total=wishlist.reduce((s,i)=>s+(i.priceNum*i.qty),0);
+  totalEl.textContent=total.toFixed(2).replace('.',',')+' €';
+  document.getElementById('present-overlay').classList.add('open');
+}
+function closePresent() { document.getElementById('present-overlay').classList.remove('open'); }
+
+// ------------------------------------------
+// NAV
+// ------------------------------------------
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  const tabEl=document.getElementById('tab-'+id);
+  if (tabEl){tabEl.classList.add('active');tabEl.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}
+  const secEl=document.getElementById(id);
+  if (secEl) secEl.classList.add('active');
+  if (id==='merkliste') renderWishlist();
+}
+function setNav(btn, tabId) {
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  switchTab(tabId);
+}
+function dismissWelcome() { document.getElementById('welcome-overlay').classList.add('hidden'); }
+let toastTimer;
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+let startY=0;
+document.getElementById('sheet').addEventListener('touchstart',e=>{startY=e.touches[0].clientY},{passive:true});
+document.getElementById('sheet').addEventListener('touchend',e=>{if(e.changedTouches[0].clientY-startY>80)closeSheet()},{passive:true});
+
+// ------------------------------------------
+// INIT
+// ------------------------------------------
+renderNigiriList('nigiri-list', nigiriItems);
+renderNigiriList('sashimi-list', sashimiItems);
+renderNigiriList('maki-list', makiItems);
+renderRollCards('rolls-list', rolls);
+renderSmallCards('vorspeisen-grid', vorspeisen);
+renderVorspeisenList('vorspeisen-list', vorspeisenExtra);
+renderDrinkList('sake-list', sake);
+renderDrinkList('tea-list', tea);
+document.getElementById('omakase-banner').onclick = ()=>openSheet(allItems.find(x=>x.id==='r1'));
+</script>
+</body>
+</html>

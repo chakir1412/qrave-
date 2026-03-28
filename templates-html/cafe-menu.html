@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>COMPOUND CAFÉ</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,300;0,400;0,600;0,700;0,800;0,900;1,300;1,700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme: light;
+  --concrete:#2A2A2A;
+  --concrete-light:#353535;
+  --concrete-mid:#1E1E1E;
+  --steel:#3D4A5C;
+  --rust:#B5451B;
+  --rust-light:#D4582A;
+  --cream:#E8E0D0;
+  --cream-dim:#A89880;
+  --white:#F4F0E8;
+  --text:#F4F0E8;
+  --muted:#7A7068;
+  --dim:#4A4540;
+  --border:rgba(244,240,232,0.08);
+  --border2:rgba(244,240,232,0.14);
+  --card:#282420;
+  --card2:#201C18;
+}
+html,body{height:100%;background:var(--concrete-mid);color:var(--text);font-family:'Barlow',sans-serif;overscroll-behavior:none}
+
+/* ─── CONCRETE TEXTURE ─── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:1;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,.01) 2px,rgba(255,255,255,.01) 3px);
+}
+
+/* ─── HERO ─── */
+.hero{position:relative;overflow:hidden;background:var(--concrete);padding:0}
+.hero-img{width:100%;height:260px;object-fit:cover;display:block;filter:brightness(.45) saturate(.6);mix-blend-mode:multiply}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(30,26,22,.4) 0%,rgba(20,18,14,.92) 100%)}
+.hero-content{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:24px 20px}
+.hero-eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.hero-line{height:1px;width:32px;background:var(--rust)}
+.hero-eyebrow-text{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;letter-spacing:.28em;text-transform:uppercase;color:var(--rust-light)}
+.hero-name{font-family:'Barlow Condensed',sans-serif;font-size:clamp(46px,14vw,72px);font-weight:900;line-height:.88;letter-spacing:-.01em;text-transform:uppercase;color:var(--white)}
+.hero-name em{font-style:italic;font-weight:300;color:var(--cream-dim);display:block;font-size:.62em;letter-spacing:.04em}
+.hero-meta{margin-top:10px;display:flex;align-items:center;gap:16px}
+.hero-meta-item{font-size:10px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.hero-meta-dot{width:3px;height:3px;border-radius:50%;background:var(--rust);flex-shrink:0}
+.hero-badge{position:absolute;top:16px;right:16px;background:var(--rust);color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;padding:6px 12px;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 50%,calc(100% - 6px) 100%,0 100%)}
+
+/* ─── TABS ─── */
+.tabs-wrap{position:sticky;top:0;z-index:100;background:rgba(28,24,20,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.tabs{display:flex;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:14px 16px 12px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);border-bottom:2px solid transparent;cursor:pointer;transition:color .2s,border-color .2s;user-select:none;white-space:nowrap;position:relative}
+.tab.active{color:var(--cream);border-bottom-color:var(--rust)}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;margin-left:5px;min-width:15px;height:15px;border-radius:3px;background:var(--rust);color:white;font-size:8px;font-weight:800;padding:0 3px;transform:scale(0);transition:transform .2s;vertical-align:middle}
+.tab-badge.show{transform:scale(1)}
+
+/* ─── CONTENT ─── */
+.content{position:relative;z-index:1;padding:0 16px 120px}
+.section{display:none}
+.section.active{display:block}
+
+/* ─── SECTION HEADER ─── */
+.sec-header{padding:22px 0 14px;display:flex;align-items:flex-end;justify-content:space-between}
+.sec-title-wrap{}
+.sec-overline{font-size:9px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;color:var(--rust);margin-bottom:4px}
+.sec-title{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;line-height:1;color:var(--cream)}
+.sec-rule{height:1px;background:linear-gradient(90deg,var(--rust) 0%,transparent 100%);margin-bottom:18px}
+
+/* ─── COFFEE ITEM ─── */
+.coffee-item{display:flex;align-items:center;padding:16px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;margin:0 -4px;padding-left:4px;padding-right:4px;border-radius:4px;gap:14px}
+.coffee-item:last-child{border-bottom:none}
+.coffee-item:active{background:rgba(255,255,255,.04)}
+.coffee-item-left{flex:1}
+.coffee-item-name{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--cream);line-height:1;margin-bottom:4px}
+.coffee-item-sub{font-size:12px;font-weight:400;color:var(--muted);line-height:1.5}
+.coffee-item-tags{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.coffee-item-right{text-align:right;flex-shrink:0}
+.coffee-price{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--cream)}
+.coffee-price-alt{font-size:10px;color:var(--dim);margin-top:2px}
+.coffee-arrow{color:var(--dim);font-size:12px;margin-left:6px;flex-shrink:0}
+
+/* ─── FOOD CARD (Full image) ─── */
+.food-card{position:relative;border-radius:10px;overflow:hidden;margin-bottom:10px;cursor:pointer;border:1px solid var(--border);background:var(--card);transition:transform .15s}
+.food-card:active{transform:scale(.985)}
+.food-card-img{width:100%;height:190px;object-fit:cover;display:block;filter:brightness(.85) saturate(.8)}
+.food-card-grad{position:absolute;inset:0;background:linear-gradient(0deg,rgba(20,16,12,.95) 0%,rgba(20,16,12,.1) 55%,transparent 100%)}
+.food-card-content{position:absolute;bottom:0;left:0;right:0;padding:14px 16px}
+.food-card-name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--white);line-height:1;margin-bottom:3px}
+.food-card-desc{font-size:11px;font-weight:400;color:rgba(244,240,232,.65);line-height:1.4}
+.food-card-bottom{display:flex;align-items:flex-end;justify-content:space-between;margin-top:8px}
+.food-card-price{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;color:var(--white)}
+.food-card-badge{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;padding:3px 8px;border-radius:2px}
+.badge-rust{background:var(--rust);color:white}
+.badge-steel{background:var(--steel);color:var(--cream)}
+.badge-outline{background:transparent;border:1px solid var(--border2);color:var(--cream-dim)}
+
+/* ─── SMALL CARD GRID ─── */
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0}
+.small-card{background:var(--card);border-radius:10px;overflow:hidden;cursor:pointer;border:1px solid var(--border);transition:transform .15s}
+.small-card:active{transform:scale(.97)}
+.small-card-img{width:100%;height:120px;object-fit:cover;display:block;filter:brightness(.8) saturate(.7)}
+.small-card-body{padding:10px 12px 12px}
+.small-card-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--cream);margin-bottom:2px;line-height:1.1}
+.small-card-desc{font-size:10px;color:var(--muted);line-height:1.4;margin-bottom:6px}
+.small-card-price{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--cream)}
+
+/* ─── TAGS ─── */
+.ctag{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:2px}
+.ctag-veg{background:rgba(80,160,80,.15);color:#6EC87A;border:1px solid rgba(80,160,80,.2)}
+.ctag-hot{background:rgba(181,69,27,.15);color:#D4582A;border:1px solid rgba(181,69,27,.2)}
+.ctag-new{background:rgba(61,74,92,.3);color:#8FA0B8;border:1px solid rgba(61,74,92,.4)}
+.ctag-sig{background:rgba(181,69,27,.2);color:var(--rust-light);border:1px solid rgba(181,69,27,.3)}
+
+/* ─── SPECIALS BANNER ─── */
+.specials-banner{background:var(--rust);border-radius:8px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:opacity .15s}
+.specials-banner:active{opacity:.85}
+.specials-left{}
+.specials-eyebrow{font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:rgba(244,240,232,.7);margin-bottom:4px}
+.specials-name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;color:var(--white)}
+.specials-price{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:900;color:var(--white)}
+
+/* ─── WISHLIST ─── */
+.wishlist-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:10px;text-align:center}
+.wishlist-empty-icon{font-size:44px;opacity:.2;filter:grayscale(1)}
+.wishlist-empty-title{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.wishlist-empty-sub{font-size:13px;color:var(--muted);line-height:1.6;font-weight:400}
+.wishlist-item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:8px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border)}
+.wishlist-img{width:46px;height:46px;border-radius:6px;overflow:hidden;background:var(--card2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;filter:brightness(.8) saturate(.6)}
+.wishlist-img img{width:100%;height:100%;object-fit:cover}
+.wishlist-info{flex:1;min-width:0}
+.wishlist-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.wishlist-cat{font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.qty-stepper{display:flex;align-items:center;flex-shrink:0;border:1px solid var(--border2);border-radius:4px;overflow:hidden}
+.qty-btn{width:28px;height:28px;border:none;background:none;color:var(--cream-dim);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.qty-btn:active{background:rgba(181,69,27,.2);color:var(--rust-light)}
+.qty-num{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:var(--cream);min-width:24px;text-align:center}
+.wishlist-price{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--cream);flex-shrink:0;min-width:54px;text-align:right}
+.wishlist-total{background:var(--card2);border-radius:8px;padding:16px;margin-top:6px;border:1px solid var(--border)}
+.wishlist-total-row{display:flex;justify-content:space-between;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:7px}
+.wishlist-total-sum{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--border)}
+.wishlist-total-label{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.wishlist-total-price{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;color:var(--rust-light)}
+.wishlist-cta{width:100%;padding:15px;border-radius:6px;border:none;cursor:pointer;background:var(--rust);color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .15s,opacity .15s}
+.wishlist-cta:active{transform:scale(.97);opacity:.9}
+
+/* ─── INFO ─── */
+.info-card{background:var(--card);border-radius:8px;padding:16px 18px;margin-bottom:10px;border:1px solid var(--border)}
+.info-label{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--rust);margin-bottom:8px}
+.info-value{font-size:16px;font-weight:600;color:var(--cream);line-height:1.4}
+.info-sub{font-size:12px;font-weight:400;color:var(--muted);margin-top:4px;line-height:1.5}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.hours-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;font-weight:500}
+.hours-row:last-child{border:none}
+.hours-day{color:var(--muted);font-weight:400}
+.hours-time{color:var(--cream)}
+.hours-time.today{color:#6EC87A}
+
+/* ─── SHEET ─── */
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0);pointer-events:none;transition:background .3s,backdrop-filter .3s}
+.overlay.open{background:rgba(0,0,0,.88);pointer-events:all;backdrop-filter:blur(12px)}
+.sheet{position:fixed;bottom:0;left:0;right:0;z-index:600;background:#1A1612;border-radius:16px 16px 0 0;max-height:92vh;overflow-y:auto;transform:translateY(105%);transition:transform .4s cubic-bezier(.32,.72,0,1);overscroll-behavior:contain;border-top:2px solid var(--rust)}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:36px;height:3px;border-radius:99px;background:rgba(244,240,232,.15);margin:12px auto 0}
+.sheet-img-wrap{position:relative;height:210px;overflow:hidden;margin:12px 14px 0;border-radius:10px}
+.sheet-img-wrap img{width:100%;height:100%;object-fit:cover;display:block;filter:brightness(.8) saturate(.7)}
+.sheet-img-gradient{position:absolute;inset:0;background:linear-gradient(0deg,rgba(26,22,18,.96) 0%,transparent 55%)}
+.sheet-badge-float{position:absolute;top:10px;left:10px;font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;padding:4px 10px;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 50%,calc(100% - 5px) 100%,0 100%)}
+.sheet-price-float{position:absolute;bottom:12px;right:12px;font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:900;color:var(--white);text-shadow:0 2px 12px rgba(0,0,0,.8)}
+.sheet-body{padding:14px 18px 40px}
+.sheet-name{font-family:'Barlow Condensed',sans-serif;font-size:clamp(26px,7vw,36px);font-weight:900;letter-spacing:.03em;text-transform:uppercase;line-height:1;margin-bottom:4px;color:var(--cream)}
+.sheet-tagline{font-size:12px;font-weight:400;color:var(--muted);margin-bottom:12px;line-height:1.65}
+.sheet-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.story-block{background:rgba(181,69,27,.07);border-left:2px solid var(--rust);border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px}
+.story-text{font-size:12px;font-weight:400;color:var(--muted);line-height:1.7;font-style:italic}
+.s-label{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--rust);margin-bottom:8px}
+.ingr-list{display:flex;flex-direction:column;gap:5px;margin-bottom:18px}
+.ingr-item{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:7px;padding:8px 12px}
+.ingr-emoji{font-size:16px;flex-shrink:0;width:22px;text-align:center}
+.ingr-info{flex:1}
+.ingr-name{font-size:13px;font-weight:500;color:var(--cream)}
+.ingr-detail{font-size:10px;font-weight:400;color:var(--muted);margin-top:1px}
+.ingr-amount{font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--rust-light);white-space:nowrap;font-weight:600}
+.pairing-title{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--rust);margin-bottom:10px}
+.pairing-list{display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.pairing-list::-webkit-scrollbar{display:none}
+.pairing-card{flex-shrink:0;width:100px;background:var(--card2);border-radius:8px;padding:10px 10px 10px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s,transform .15s}
+.pairing-card:active{transform:scale(.95)}
+.pairing-card.selected{border-color:var(--rust);background:rgba(181,69,27,.08)}
+.pairing-card.selected .pairing-add{background:var(--rust);color:white;border-color:var(--rust)}
+.pairing-emoji{font-size:20px;margin-bottom:5px}
+.pairing-name{font-size:11px;font-weight:600;color:var(--cream);margin-bottom:2px;line-height:1.2}
+.pairing-price{font-size:11px;font-weight:500;color:var(--rust-light)}
+.pairing-add{display:inline-flex;align-items:center;justify-content:center;margin-top:6px;width:22px;height:22px;border-radius:4px;background:rgba(181,69,27,.1);border:1px solid rgba(181,69,27,.3);color:var(--rust-light);font-size:13px;transition:all .15s}
+.sheet-cta{width:100%;padding:15px;border-radius:6px;border:none;cursor:pointer;background:var(--rust);color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .15s,background .2s}
+.sheet-cta:active{transform:scale(.97)}
+.sheet-cta.added{background:#3A5C3A}
+
+/* ─── WELCOME ─── */
+.welcome-overlay{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.88);display:flex;align-items:flex-end;justify-content:center;transition:opacity .3s,visibility .3s}
+.welcome-overlay.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.welcome-sheet{background:#1C1814;border-radius:16px 16px 0 0;padding:28px 22px max(32px,env(safe-area-inset-bottom));width:100%;max-width:480px;border-top:2px solid var(--rust);animation:sheetUp .45s cubic-bezier(.32,.72,0,1) forwards}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.welcome-title{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;text-align:center;margin-bottom:22px;color:var(--cream)}
+.welcome-title span{color:var(--rust-light)}
+.welcome-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:22px}
+.welcome-tile{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:16px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:7px}
+.welcome-tile-icon{font-size:28px;line-height:1;filter:grayscale(.3)}
+.welcome-tile-label{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cream);text-align:center}
+.welcome-tile-sub{font-size:10px;font-weight:400;color:var(--muted);text-align:center;line-height:1.35}
+.welcome-btn{width:100%;padding:15px;border-radius:6px;border:none;cursor:pointer;background:var(--rust);color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;transition:opacity .15s}
+.welcome-btn:active{opacity:.85}
+
+/* ─── PRESENT ─── */
+.present-overlay{position:fixed;inset:0;z-index:1000;background:#F0EBE3;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;transform:translateY(100%);transition:transform .4s cubic-bezier(.32,.72,0,1)}
+.present-overlay.open{transform:translateY(0)}
+.present-top-rule{width:40px;height:3px;background:var(--rust);border-radius:1px;margin-bottom:20px}
+.present-header{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.28em;text-transform:uppercase;color:#8A7A6A;text-align:center;margin-bottom:6px}
+.present-bar-name{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:#1C1814;text-align:center;margin-bottom:28px}
+.present-bar-name span{color:var(--rust)}
+.present-items{width:100%;display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.present-item{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:white;border-radius:8px;border-left:3px solid var(--rust)}
+.present-item-left{display:flex;align-items:center;gap:12px}
+.present-item-emoji{font-size:22px;filter:grayscale(.3)}
+.present-item-name{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1C1814}
+.present-item-cat{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:#8A7A6A;margin-top:2px}
+.present-item-right{display:flex;align-items:center;gap:8px}
+.present-item-qty{font-size:12px;font-weight:600;color:#8A7A6A}
+.present-item-price{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--rust)}
+.present-total{width:100%;display:flex;justify-content:space-between;align-items:baseline;padding:14px 18px;background:#1C1814;border-radius:8px;margin-bottom:28px}
+.present-total-label{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cream)}
+.present-total-price{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;color:var(--rust-light)}
+.present-close{padding:13px 36px;border-radius:6px;border:2px solid #D4C8B8;background:none;color:#8A7A6A;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+
+/* ─── TOAST ─── */
+.toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--concrete-light);border:1px solid var(--border2);border-radius:4px;padding:9px 16px;font-size:12px;font-weight:500;color:var(--cream);white-space:nowrap;opacity:0;transition:opacity .2s,transform .2s;z-index:999;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ─── BOTTOM NAV ─── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(18,14,10,.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:10px 32px max(14px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-around;z-index:400}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px;border-radius:4px;color:var(--dim);border:none;background:none;position:relative;transition:color .15s}
+.nav-btn.active{color:var(--cream)}
+.nav-icon{font-size:18px;line-height:1}
+.nav-label{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.nav-badge{position:absolute;top:0;right:10px;min-width:14px;height:14px;border-radius:3px;background:var(--rust);color:white;font-size:8px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 3px;transform:scale(0);transition:transform .2s}
+.nav-badge.show{transform:scale(1)}
+
+/* ─── ENTER ANIMATION ─── */
+.section.active .food-card,.section.active .coffee-item,.section.active .small-card{animation:fadeUp .3s ease both}
+.section.active .food-card:nth-child(2),.section.active .coffee-item:nth-child(2),.section.active .small-card:nth-child(2){animation-delay:.04s}
+.section.active .food-card:nth-child(3),.section.active .coffee-item:nth-child(3),.section.active .small-card:nth-child(3){animation-delay:.08s}
+.section.active .food-card:nth-child(4),.section.active .coffee-item:nth-child(4),.section.active .small-card:nth-child(4){animation-delay:.12s}
+.section.active .food-card:nth-child(5),.section.active .coffee-item:nth-child(5){animation-delay:.16s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <img class="hero-img" src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80&fit=crop" alt="Café">
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-eyebrow"><div class="hero-line"></div><div class="hero-eyebrow-text">Frankfurt · Sachsenhausen</div></div>
+    <div class="hero-name">COMPOUND<em>Café</em></div>
+    <div class="hero-meta">
+      <div class="hero-meta-item">Mo–Fr 07:30</div>
+      <div class="hero-meta-dot"></div>
+      <div class="hero-meta-item">Sa–So 09:00</div>
+      <div class="hero-meta-dot"></div>
+      <div class="hero-meta-item">Specialty Coffee</div>
+    </div>
+  </div>
+  <div class="hero-badge">Jetzt offen</div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-wrap">
+  <div class="tabs">
+    <div class="tab active" id="tab-kaffee" onclick="switchTab('kaffee')">Kaffee</div>
+    <div class="tab" id="tab-brunch" onclick="switchTab('brunch')">Brunch</div>
+    <div class="tab" id="tab-bowls" onclick="switchTab('bowls')">Sandwiches & Bowls</div>
+    <div class="tab" id="tab-bakery" onclick="switchTab('bakery')">Kuchen & Süßes</div>
+    <div class="tab" id="tab-merkliste" onclick="switchTab('merkliste')">Merkliste <span class="tab-badge" id="tab-badge">0</span></div>
+    <div class="tab" id="tab-info" onclick="switchTab('info')">Info</div>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <!-- KAFFEE -->
+  <div class="section active" id="kaffee">
+    <div class="sec-header"><div class="sec-title-wrap"><div class="sec-overline">Specialty · Single Origin</div><div class="sec-title">Espresso &amp; Kaffee</div></div></div>
+    <div class="sec-rule"></div>
+    <div id="espresso-list"></div>
+    <div class="sec-header" style="padding-top:6px"><div class="sec-title-wrap"><div class="sec-overline">Kalt &amp; Saisonal</div><div class="sec-title">Cold &amp; Brew</div></div></div>
+    <div class="sec-rule"></div>
+    <div id="cold-list"></div>
+    <div class="sec-header" style="padding-top:6px"><div class="sec-title-wrap"><div class="sec-overline">Ohne Koffein</div><div class="sec-title">Tee &amp; Alternatives</div></div></div>
+    <div class="sec-rule"></div>
+    <div id="alt-list"></div>
+  </div>
+
+  <!-- BRUNCH -->
+  <div class="section" id="brunch">
+    <div class="specials-banner" id="brunch-special-banner">
+      <div class="specials-left">
+        <div class="specials-eyebrow">⚡ Tagesempfehlung</div>
+        <div class="specials-name">Avocado Toast + Espresso</div>
+      </div>
+      <div class="specials-price">12€</div>
+    </div>
+    <div class="sec-header"><div class="sec-title-wrap"><div class="sec-overline">Täglich bis 15 Uhr</div><div class="sec-title">Frühstück &amp; Brunch</div></div></div>
+    <div class="sec-rule"></div>
+    <div id="brunch-list"></div>
+  </div>
+
+  <!-- BOWLS -->
+  <div class="section" id="bowls">
+    <div class="sec-header"><div class="sec-title-wrap"><div class="sec-overline">Hausgemacht · Täglich frisch</div><div class="sec-title">Sandwiches &amp; Bowls</div></div></div>
+    <div class="sec-rule"></div>
+    <div id="bowls-list"></div>
+  </div>
+
+  <!-- BAKERY -->
+  <div class="section" id="bakery">
+    <div class="sec-header"><div class="sec-title-wrap"><div class="sec-overline">Täglich frisch gebacken</div><div class="sec-title">Kuchen &amp; Süßes</div></div></div>
+    <div class="sec-rule"></div>
+    <div class="card-grid" id="bakery-grid"></div>
+  </div>
+
+  <!-- MERKLISTE -->
+  <div class="section" id="merkliste">
+    <div class="sec-header"><div class="sec-title-wrap"><div class="sec-overline">Deine Auswahl</div><div class="sec-title">Merkliste</div></div></div>
+    <div class="sec-rule"></div>
+    <div id="wishlist-content"></div>
+  </div>
+
+  <!-- INFO -->
+  <div class="section" id="info">
+    <div class="sec-header"><div class="sec-title-wrap"><div class="sec-overline">Compound</div><div class="sec-title">Café &amp; Location</div></div></div>
+    <div class="sec-rule"></div>
+    <div class="info-grid">
+      <div class="info-card"><div class="info-label">📍 Adresse</div><div class="info-value">Wallstr. 19</div><div class="info-sub">Frankfurt-Sachsenhausen</div></div>
+      <div class="info-card"><div class="info-label">📞 Kontakt</div><div class="info-value">069 234 567</div><div class="info-sub">Reservierungen & Events</div></div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">🕐 Öffnungszeiten</div>
+      <div class="hours-row"><span class="hours-day">Mo – Fr</span><span class="hours-time">07:30 – 18:00</span></div>
+      <div class="hours-row"><span class="hours-day">Samstag</span><span class="hours-time today">09:00 – 19:00</span></div>
+      <div class="hours-row"><span class="hours-day">Sonntag</span><span class="hours-time">09:00 – 17:00</span></div>
+      <div class="hours-row"><span class="hours-day">Küche</span><span class="hours-time">bis 15:00 Uhr</span></div>
+    </div>
+    <div class="info-card"><div class="info-label">☕ Unser Kaffee</div><div class="info-sub" style="font-size:13px;line-height:1.7">Single Origin Beans von <strong style="color:var(--cream)">Five Elephant Berlin</strong>. Wechselnde Herkunftsländer, immer frisch geröstet. Alle Milchalternativen auf Anfrage verfügbar.</div></div>
+    <div class="info-card"><div class="info-label">ℹ️ Hinweise</div><div class="info-sub" style="font-size:12px;line-height:1.7">Alle Preise inkl. MwSt. · Allergene auf Anfrage · Änderungen vorbehalten.</div></div>
+  </div>
+
+</div>
+
+<!-- OVERLAY + SHEET -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheet-img-area"></div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<!-- WELCOME -->
+<div class="welcome-overlay" id="welcome-overlay">
+  <div class="welcome-sheet">
+    <div class="welcome-title">Willkommen im <span>Compound</span></div>
+    <div class="welcome-tiles">
+      <div class="welcome-tile"><div class="welcome-tile-icon">👆</div><div class="welcome-tile-label">Antippen</div><div class="welcome-tile-sub">Details & Fotos</div></div>
+      <div class="welcome-tile"><div class="welcome-tile-icon">🔖</div><div class="welcome-tile-label">Merken</div><div class="welcome-tile-sub">Favoriten speichern</div></div>
+      <div class="welcome-tile"><div class="welcome-tile-icon">🙋</div><div class="welcome-tile-label">Zeigen</div><div class="welcome-tile-sub">Personal bestellt</div></div>
+    </div>
+    <button class="welcome-btn" onclick="dismissWelcome()">Karte entdecken →</button>
+  </div>
+</div>
+
+<!-- PRESENT MODE -->
+<div class="present-overlay" id="present-overlay">
+  <div class="present-top-rule"></div>
+  <div class="present-header">Bestellung bei</div>
+  <div class="present-bar-name">COMPOUND <span>Café</span></div>
+  <div class="present-items" id="present-items"></div>
+  <div class="present-total">
+    <div class="present-total-label">Gesamt</div>
+    <div class="present-total-price" id="present-total-price"></div>
+  </div>
+  <button class="present-close" onclick="closePresent()">← Zurück zur Karte</button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-karte" onclick="setNav(this,'kaffee')"><span class="nav-icon">☕</span><span class="nav-label">Karte</span></button>
+  <button class="nav-btn" id="nav-wish" onclick="setNav(this,'merkliste')"><span class="nav-icon">🔖</span><span class="nav-label">Merkliste</span><span class="nav-badge" id="nav-badge">0</span></button>
+</div>
+
+<script>
+// ------------------------------------------
+// DATA
+// ------------------------------------------
+const espresso = [
+  {id:'k1',type:'kaffee',emoji:'☕',name:'Espresso',sub:'Single Origin · Ristretto oder Lungo',price:'2,80 €',priceNum:2.8,tags:['ctag-sig:Signature'],tagline:'Die Basis von allem.',story:'Five Elephant Single Origin, wechselnd nach Saison. Aktuell: Äthiopien Yirgacheffe — Blaubeer-Noten, helle Säure, langer Abgang.',img:'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=180&q=80&fit=crop',ingredients:[{emoji:'☕',name:'Espresso Shot',detail:'Single Origin, aktuell Äthiopien'},{emoji:'💧',name:'Gefiltertes Wasser',detail:'67ml, 93°C'}],pairings:['b1','b3']},
+  {id:'k2',type:'kaffee',emoji:'☕',name:'Flat White',sub:'Doppio Ristretto · Micro-Foam · 160ml',price:'4,20 €',priceNum:4.2,tags:['ctag-sig:Bestseller'],tagline:'Stärker als Cappuccino. Seidiger als Latte.',story:'Doppelter Ristretto mit präzise aufgeschäumter Vollmilch zu einer samtig-dichten Textur. Der Flat White ist das Arbeitstier unter den Milchkaffees.',img:'https://images.unsplash.com/photo-1534778101976-62847782c213?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1534778101976-62847782c213?w=180&q=80&fit=crop',ingredients:[{emoji:'☕',name:'Doppio Ristretto',detail:'2×18g Single Origin'},{emoji:'🥛',name:'Vollmilch',detail:'Micro-Foam, 67°C'}],pairings:['b2','b4']},
+  {id:'k3',type:'kaffee',emoji:'☕',name:'Oat Latte',sub:'Espresso · Hafermilch · 240ml',price:'4,80 €',priceNum:4.8,tags:['ctag-new:Vegan'],tagline:'Cremig, nussig, kein Kompromiss.',story:'Barista-Hafermilch aus Schweden, perfekt aufgeschäumt. Gibt dem Espresso eine natürliche Süße und nussige Tiefe ohne Milch.',img:'https://images.unsplash.com/photo-1593443320739-77f74939d0da?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1593443320739-77f74939d0da?w=180&q=80&fit=crop',ingredients:[{emoji:'☕',name:'Espresso',detail:'Single Origin'},{emoji:'🌾',name:'Oatly Barista',detail:'Vegan, aufgeschäumt'}],pairings:['b5','b1']},
+  {id:'k4',type:'kaffee',emoji:'☕',name:'Cappuccino',sub:'Espresso · Schaumkrone · 180ml',price:'4 €',priceNum:4,tags:[],tagline:'Klassisch. Immer.',story:'Ein Drittel Espresso, ein Drittel heiße Milch, ein Drittel Schaum. Mehr nicht. Dafür perfekt.',img:'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=180&q=80&fit=crop',ingredients:[{emoji:'☕',name:'Espresso',detail:'Single Origin'},{emoji:'🥛',name:'Vollmilch',detail:'1/3 heiß, 1/3 Schaum'}],pairings:['b3','b5']},
+  {id:'k5',type:'kaffee',emoji:'☕',name:'Filter Kaffee',sub:'V60 Pour Over · 300ml · ca. 4 min',price:'3,50 €',priceNum:3.5,tags:['ctag-new:Slow'],tagline:'Geduld zahlt sich aus.',story:'Handgebrühter Pour Over über den Hario V60. Sauber, komplex, transparent. Man schmeckt die Herkunft der Bohne.',img:'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=180&q=80&fit=crop',ingredients:[{emoji:'☕',name:'Single Origin, grob gemahlen',detail:'22g'},{emoji:'💧',name:'Gefiltertes Wasser',detail:'93°C'}],pairings:['b2','b5']},
+];
+const coldDrinks = [
+  {id:'k6',type:'kaffee',emoji:'🧊',name:'Cold Brew',sub:'18h kalt extrahiert · 250ml',price:'4,50 €',priceNum:4.5,tags:['ctag-sig:Signature'],tagline:'18 Stunden. Kein Kompromiss.',story:'Grob gemahlener Kaffee, 18h in gefiltertem Kaltwasser extrahiert. Das Ergebnis: seidig-glatt, wenig Säure, natürliche Süße.',img:'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=180&q=80&fit=crop',ingredients:[{emoji:'☕',name:'Kaffee, grob gemahlen',detail:'80g auf 1L'},{emoji:'💧',name:'Kaltes gefiltertes Wasser',detail:'18h extrahiert'}],pairings:['b1','b4']},
+  {id:'k7',type:'kaffee',emoji:'🧊',name:'Iced Matcha Latte',sub:'Ceremonial Grade · Hafermilch · Eis',price:'5,20 €',priceNum:5.2,tags:['ctag-new:Vegan'],tagline:'Grün. Kalt. Gut.',story:'Ceremonial Grade Matcha aus Uji, Japan — aufgeschlagen mit kalter Hafermilch, über Eis. Grasig, süßlich, belebend.',img:'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=180&q=80&fit=crop',ingredients:[{emoji:'🍵',name:'Matcha Ceremonial Grade',detail:'Uji, Japan'},{emoji:'🌾',name:'Oatly Barista kalt',detail:'Aufgeschlagen'}],pairings:['b5','b3']},
+];
+const altDrinks = [
+  {id:'k8',type:'kaffee',emoji:'🍵',name:'Sencha Green Tea',sub:'Loose Leaf · 300ml · 75°C',price:'3,80 €',priceNum:3.8,tags:[],tagline:'Klar und rein.',story:'Japanischer Sencha, lose Blätter, bei 75°C aufgebrüht. Grasig, leicht süßlich, kein Bitterkeit.',img:'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=180&q=80&fit=crop',ingredients:[{emoji:'🍵',name:'Sencha Loose Leaf',detail:'Japan'},{emoji:'💧',name:'Wasser',detail:'75°C'}],pairings:['b5']},
+  {id:'k9',type:'kaffee',emoji:'🍫',name:'Heiße Schokolade',sub:'Valrhona 70% · Vollmilch oder Hafer',price:'4,50 €',priceNum:4.5,tags:[],tagline:'Dunkel und ehrlich.',story:'Echte geschmolzene Valrhona-Kuvertüre, 70% Kakao, in heißer Milch aufgelöst. Keine Pulvermischung. Kein Kompromiss.',img:'https://images.unsplash.com/photo-1542990253-a781e04e9b4b?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1542990253-a781e04e9b4b?w=180&q=80&fit=crop',ingredients:[{emoji:'🍫',name:'Valrhona Kuvertüre',detail:'70% Kakao'},{emoji:'🥛',name:'Vollmilch oder Hafer',detail:'Heiß aufgeschäumt'}],pairings:['b3','b5']},
+];
+const brunchItems = [
+  {id:'b1',type:'brunch',name:'Avocado Toast',emoji:'🥑',desc:'Sauerteig · Avocado-Creme · Pochiertes Ei · Chili-Flocken · Microgreens',price:'11 €',priceNum:11,badge:'DAILY FAV',badgeClass:'badge-rust',tags:['ctag-sig:Top Seller'],tagline:'Unaufgeregt. Ausgezeichnet.',story:'Geröstetes Sauerteigbrot aus lokaler Bäckerei, üppige Avocado-Creme mit Limette und Meersalz, pochiertes Freilandei, Chiliflocken, Microgreens.',img:'https://images.unsplash.com/photo-1603046891744-1f11c7c6e6ce?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1603046891744-1f11c7c6e6ce?w=180&q=80&fit=crop',ingredients:[{emoji:'🍞',name:'Sauerteigbrot',detail:'Lokale Bäckerei, täglich frisch'},{emoji:'🥑',name:'Avocado',detail:'Reif, täglich frisch'},{emoji:'🥚',name:'Freilandei',detail:'Pochiert'},{emoji:'🌶️',name:'Chili-Flocken',detail:'Urfa Biber'},{emoji:'🌱',name:'Microgreens',detail:'Täglich frisch'}],pairings:['k2','k5']},
+  {id:'b2',type:'brunch',name:'Eggs Benedict',emoji:'🍳',desc:'English Muffin · Kochschinken · Hollandaise · 2 Eier',price:'13 €',priceNum:13,badge:'KLASSIKER',badgeClass:'badge-steel',tags:[],tagline:'Brunchklassiker. Ohne Abstriche.',story:'Zwei pochierte Freilandeier auf geröstetem English Muffin mit Kochschinken und seidiger Hollandaise. Täglich frisch, täglich von Hand.',img:'https://images.unsplash.com/photo-1608877907149-a206d75ba011?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1608877907149-a206d75ba011?w=180&q=80&fit=crop',ingredients:[{emoji:'🥚',name:'2 Freilandeier',detail:'Pochiert'},{emoji:'🍞',name:'English Muffin',detail:'Getoastet'},{emoji:'🥩',name:'Kochschinken',detail:'Regional'},{emoji:'🫙',name:'Hollandaise',detail:'Täglich frisch zubereitet'}],pairings:['k2','k4']},
+  {id:'b3',type:'brunch',name:'Granola Bowl',emoji:'🫙',desc:'Hausgemachtes Granola · Skyr · Saisonale Früchte · Honig',price:'9 €',priceNum:9,badge:'VEGAN mögl.',badgeClass:'badge-outline',tags:['ctag-new:Vegan mögl.'],tagline:'Knusprig, cremig, leicht.',story:'Selbst geröstetes Granola mit Kokosöl und Ahornsirup. Dazu isländischer Skyr, täglich wechselnde Früchte und Wildblütenhonig.',img:'https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?w=180&q=80&fit=crop',ingredients:[{emoji:'🌾',name:'Hausgemachtes Granola',detail:'Kokosöl, Ahornsirup, Haferflocken'},{emoji:'🫙',name:'Isländischer Skyr',detail:'Vegan: Kokosnuss-Joghurt'},{emoji:'🍓',name:'Saisonale Früchte',detail:'Täglich wechselnd'},{emoji:'🍯',name:'Wildblütenhonig',detail:'Regional'}],pairings:['k3','k5']},
+  {id:'b4',type:'brunch',name:'Compound Breakfast',emoji:'🍳',desc:'Rührei · Bacon · Sauerteig · Tomaten · Pilze · Bohnen',price:'14 €',priceNum:14,badge:'BIG PLATE',badgeClass:'badge-rust',tags:[],tagline:'Alles auf einem Brett.',story:'Das volle Programm: cremiges Rührei, knusprig gebratener Bacon, geröstetes Sauerteigbrot, gegrillte Tomaten, Pilze und Baked Beans. Satt für den ganzen Tag.',img:'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=180&q=80&fit=crop',ingredients:[{emoji:'🥚',name:'Cremiges Rührei',detail:'3 Freilandeier'},{emoji:'🥓',name:'Bacon',detail:'Knusprig'},{emoji:'🍞',name:'Sauerteigbrot',detail:'Getoastet'},{emoji:'🍅',name:'Gegrillte Tomaten',detail:'—'},{emoji:'🍄',name:'Champignons',detail:'Knoblauch-Butter'},{emoji:'🫘',name:'Baked Beans',detail:'Hausgemacht'}],pairings:['k1','k4']},
+];
+const bowlItems = [
+  {id:'w1',type:'bowl',name:'Roast Beef Sandwich',emoji:'🥩',desc:'Ciabatta · Roastbeef · Senf-Mayo · Rucola · Parmesan',price:'12 €',priceNum:12,badge:'LUNCH HIT',badgeClass:'badge-rust',tags:[],tagline:'Ehrlich, satt machend, gut.',story:'Ofenwarmes Ciabatta mit dünn aufgeschnittenem Roastbeef, hausgemachter Senf-Mayo, frischem Rucola und Parmesan-Spänen.',img:'https://images.unsplash.com/photo-1555072956-7758afb20e8f?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1555072956-7758afb20e8f?w=180&q=80&fit=crop',ingredients:[{emoji:'🍞',name:'Ciabatta',detail:'Täglich frisch'},{emoji:'🥩',name:'Roastbeef',detail:'Dünn aufgeschnitten'},{emoji:'🫙',name:'Senf-Mayo',detail:'Hausgemacht'},{emoji:'🌿',name:'Rucola',detail:'Frisch'},{emoji:'🧀',name:'Parmesan',detail:'Späne'}],pairings:['k1','k6']},
+  {id:'w2',type:'bowl',name:'Buddha Bowl',emoji:'🥗',desc:'Quinoa · Ofengemüse · Hummus · Tahini · Granatapfel',price:'13 €',priceNum:13,badge:'VEGAN',badgeClass:'badge-outline',tags:['ctag-new:Vegan'],tagline:'Plant-based und restlos befriedigend.',story:'Warme Quinoa-Base mit saisonalem Ofengemüse, cremigem Hummus, Tahini-Dressing und Granatapfelkernen. Täglich neu zusammengestellt.',img:'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=180&q=80&fit=crop',ingredients:[{emoji:'🌾',name:'Quinoa',detail:'Weiß & rot'},{emoji:'🥦',name:'Saisonales Ofengemüse',detail:'Täglich wechselnd'},{emoji:'🫘',name:'Hummus',detail:'Hausgemacht'},{emoji:'🍋',name:'Tahini-Dressing',detail:'Zitrone, Knoblauch'},{emoji:'❤️',name:'Granatapfelkerne',detail:'Frisch'}],pairings:['k3','k7']},
+  {id:'w3',type:'bowl',name:'Halloumi Wrap',emoji:'🌯',desc:'Vollkorn-Tortilla · Gegrillter Halloumi · Spinat · Tomaten · Pesto',price:'11 €',priceNum:11,badge:'VEG',badgeClass:'badge-outline',tags:['ctag-new:Vegetarisch'],tagline:'Gegrillter Käse macht alles besser.',story:'Gegrillter Halloumi, frischer Babyspinat, Cherrytomaten und Basilikum-Pesto in einem gerösteten Vollkorn-Wrap. Warm serviert.',img:'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=180&q=80&fit=crop',ingredients:[{emoji:'🌮',name:'Vollkorn-Tortilla',detail:'Geröstat'},{emoji:'🧀',name:'Halloumi',detail:'Gegrillt'},{emoji:'🌿',name:'Babyspinat',detail:'Frisch'},{emoji:'🍅',name:'Cherrytomaten',detail:'Halbiert'},{emoji:'🫙',name:'Basilikum-Pesto',detail:'Hausgemacht'}],pairings:['k4','k8']},
+];
+const bakeryItems = [
+  {id:'c1',type:'bakery',name:'Banana Bread',emoji:'🍌',desc:'Walnüsse · Tahini-Creme · Meersalz',price:'4,50 €',priceNum:4.5,badge:'TÄGLICH',badgeClass:'badge-outline',tags:[],tagline:'Feucht, nussig, suchtgefährdend.',story:'Reife Bananen, Walnüsse, ein Hauch Zimt — mit hausgemachter Tahini-Creme und Fleur de Sel.',img:'https://images.unsplash.com/photo-1584278860047-22db9ff82bed?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1584278860047-22db9ff82bed?w=180&q=80&fit=crop',ingredients:[{emoji:'🍌',name:'Reife Bananen',detail:'3 Stück'},{emoji:'🌰',name:'Walnüsse',detail:'Gehackt'},{emoji:'🫙',name:'Tahini-Creme',detail:'Hausgemacht'},{emoji:'🧂',name:'Fleur de Sel',detail:'—'}],pairings:['k2','k5']},
+  {id:'c2',type:'bakery',name:'Chocolate Brownie',emoji:'🍫',desc:'Valrhona 70% · Fleur de Sel · Warm oder kalt',price:'4 €',priceNum:4,badge:'',badgeClass:'',tags:['ctag-hot:Warm mögl.'],tagline:'Dunkel, feucht, intensiv.',story:'Reiner Valrhona-Kakao, kein Backaroma. Auf Wunsch warm mit einer Kugel Vanilleeis.',img:'https://images.unsplash.com/photo-1564355808539-22fda35bed7e?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1564355808539-22fda35bed7e?w=180&q=80&fit=crop',ingredients:[{emoji:'🍫',name:'Valrhona Kuvertüre',detail:'70%'},{emoji:'🧈',name:'Butter',detail:'Europäische Qualität'},{emoji:'🥚',name:'Freilandeier',detail:'3 Stück'}],pairings:['k9','k1']},
+  {id:'c3',type:'bakery',name:'Zitronen-Tarte',emoji:'🍋',desc:'Mürbeteig · Lemon Curd · Baiser',price:'5 €',priceNum:5,badge:'HAUSMACHER',badgeClass:'badge-rust',tags:[],tagline:'Sauer macht glücklich.',story:'Knuspriger Mürbeteig, intensives Lemon Curd aus frischen Zitronen, luftiges Baiser. Täglich frisch.',img:'https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=180&q=80&fit=crop',ingredients:[{emoji:'🍋',name:'Frische Zitronen',detail:'Bio'},{emoji:'🥚',name:'Freilandeier',detail:'Für Curd und Baiser'},{emoji:'🧈',name:'Butter',detail:'Mürbeteig'}],pairings:['k3','k8']},
+  {id:'c4',type:'bakery',name:'Cardamom Roll',emoji:'🌀',desc:'Hefeteig · Kardamom-Butter · Zimtzucker',price:'4 €',priceNum:4,badge:'SCANDI',badgeClass:'badge-steel',tags:[],tagline:'Stockholm trifft Frankfurt.',story:'Weicher Hefeteig, großzügig mit Kardamom-Butter bestrichen, gedreht und gebacken bis goldbraun. Warm am besten.',img:'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=180&q=80&fit=crop',ingredients:[{emoji:'🌀',name:'Hefeteig',detail:'Selbst gemacht'},{emoji:'🫙',name:'Kardamom-Butter',detail:'Frisch gemahlen'},{emoji:'🍬',name:'Zimtzucker',detail:'Karamellisiert beim Backen'}],pairings:['k2','k4']},
+];
+
+const allItems = [...espresso,...coldDrinks,...altDrinks,...brunchItems,...bowlItems,...bakeryItems];
+
+// ------------------------------------------
+// WISHLIST
+// ------------------------------------------
+let wishlist = [];
+
+function addToWishlist(item) {
+  const ex = wishlist.find(i=>i.id===item.id);
+  if (ex) { ex.qty++; updateWishlistUI(); return false; }
+  wishlist.push({...item, qty:1});
+  updateWishlistUI();
+  return true;
+}
+function removeFromWishlist(id) {
+  wishlist = wishlist.filter(i=>i.id!==id);
+  updateWishlistUI(); renderWishlist();
+}
+function changeQty(id, delta) {
+  const item = wishlist.find(i=>i.id===id);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) { removeFromWishlist(id); return; }
+  updateWishlistUI(); renderWishlist();
+}
+function updateWishlistUI() {
+  const count = wishlist.reduce((s,i)=>s+i.qty,0);
+  const nb = document.getElementById('nav-badge'), tb = document.getElementById('tab-badge');
+  if (count > 0) { nb.textContent=count; nb.classList.add('show'); tb.textContent=count; tb.classList.add('show'); }
+  else { nb.classList.remove('show'); tb.classList.remove('show'); }
+}
+function renderWishlist() {
+  const el = document.getElementById('wishlist-content');
+  if (!wishlist.length) {
+    el.innerHTML = `<div class="wishlist-empty"><div class="wishlist-empty-icon">🔖</div><div class="wishlist-empty-title">Noch nichts gemerkt</div><div class="wishlist-empty-sub">Tippe auf ein Item und drücke „Merken"<br>um es hier zu speichern.</div></div>`;
+    return;
+  }
+  const total = wishlist.reduce((s,i)=>s+(i.priceNum*i.qty),0);
+  el.innerHTML = wishlist.map(item=>`
+    <div class="wishlist-item">
+      <div class="wishlist-img">${item.img?`<img src="${item.thumb||item.img}" alt="${item.name}" loading="lazy">`:`<span>${item.emoji}</span>`}</div>
+      <div class="wishlist-info"><div class="wishlist-name">${item.name}</div><div class="wishlist-cat">${item.type==='kaffee'?'Kaffee':item.type==='brunch'?'Brunch':item.type==='bowl'?'Lunch':'Bakery'}</div></div>
+      <div class="qty-stepper"><button class="qty-btn" onclick="changeQty('${item.id}',-1)">−</button><span class="qty-num">${item.qty}</span><button class="qty-btn" onclick="changeQty('${item.id}',1)">+</button></div>
+      <div class="wishlist-price">${item.qty>1?(item.priceNum*item.qty).toFixed(2).replace('.',',')+' €':item.price}</div>
+    </div>`).join('')+`
+    <div class="wishlist-total">
+      ${wishlist.map(i=>`<div class="wishlist-total-row"><span>${i.name}${i.qty>1?' ×'+i.qty:''}</span><span>${(i.priceNum*i.qty).toFixed(2).replace('.',',')} €</span></div>`).join('')}
+      <div class="wishlist-total-sum"><span class="wishlist-total-label">Gesamt</span><span class="wishlist-total-price">${total.toFixed(2).replace('.',',')} €</span></div>
+    </div>
+    <button class="wishlist-cta" onclick="openPresent()"><span>🙋</span> Diese Liste dem Personal zeigen</button>`;
+}
+
+// ------------------------------------------
+// RENDER
+// ------------------------------------------
+function renderCoffeeList(containerId, list) {
+  document.getElementById(containerId).innerHTML = list.map(d=>`
+    <div class="coffee-item" onclick="openSheet(allItems.find(x=>x.id==='${d.id}'))">
+      <div class="coffee-item-left">
+        <div class="coffee-item-name">${d.name}</div>
+        <div class="coffee-item-sub">${d.sub}</div>
+        <div class="coffee-item-tags">${(d.tags||[]).map(t=>{const[cls,lbl]=t.split(':');return`<span class="ctag ${cls}">${lbl}</span>`}).join('')}</div>
+      </div>
+      <div class="coffee-item-right"><div class="coffee-price">${d.price}</div></div>
+      <div class="coffee-arrow">›</div>
+    </div>`).join('');
+}
+
+function renderFoodCards(containerId, list) {
+  document.getElementById(containerId).innerHTML = list.map(item=>`
+    <div class="food-card" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))">
+      <img class="food-card-img" src="${item.img}" alt="${item.name}" loading="lazy">
+      <div class="food-card-grad"></div>
+      ${item.badge?`<div class="food-card-badge ${item.badgeClass||''}" style="position:absolute;top:10px;left:10px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;padding:4px 10px">${item.badge}</div>`:''}
+      <div class="food-card-content">
+        <div class="food-card-name">${item.name}</div>
+        <div class="food-card-desc">${item.desc}</div>
+        <div class="food-card-bottom">
+          <div class="food-card-price">${item.price}</div>
+          <div>${(item.tags||[]).map(t=>{const[cls,lbl]=t.split(':');return`<span class="ctag ${cls}">${lbl}</span>`}).join('')}</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderSmallCards(containerId, list) {
+  document.getElementById(containerId).innerHTML = list.map(item=>`
+    <div class="small-card" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))">
+      <img class="small-card-img" src="${item.img}" alt="${item.name}" loading="lazy">
+      <div class="small-card-body">
+        <div class="small-card-name">${item.name}</div>
+        <div class="small-card-desc">${item.desc}</div>
+        <div class="small-card-price">${item.price}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ------------------------------------------
+// SHEET
+// ------------------------------------------
+let currentItem = null;
+let selectedPairings = new Set();
+
+function openSheet(item) {
+  currentItem = item;
+  selectedPairings = new Set();
+  const inWishlist = !!wishlist.find(i=>i.id===item.id);
+
+  const imgArea = document.getElementById('sheet-img-area');
+  if (item.img) {
+    imgArea.innerHTML = `
+      <div class="sheet-img-wrap">
+        <img src="${item.img}" alt="${item.name}">
+        <div class="sheet-img-gradient"></div>
+        ${item.badge?`<div class="sheet-badge-float ${item.badgeClass||''}">${item.badge}</div>`:''}
+        <div class="sheet-price-float">${item.price}</div>
+      </div>`;
+  } else {
+    imgArea.innerHTML = `<div style="height:80px;display:flex;align-items:center;justify-content:center;font-size:48px;padding-top:20px">${item.emoji}</div>`;
+  }
+
+  const pairingItems = (item.pairings||[]).map(id=>allItems.find(x=>x.id===id)).filter(Boolean);
+
+  const ingrHtml = item.ingredients ? `
+    <div class="s-label">Zutaten</div>
+    <div class="ingr-list">
+      ${item.ingredients.map(i=>`
+        <div class="ingr-item">
+          <div class="ingr-emoji">${i.emoji}</div>
+          <div class="ingr-info"><div class="ingr-name">${i.name}</div><div class="ingr-detail">${i.detail}</div></div>
+          
+        </div>`).join('')}
+    </div>` : '';
+
+  const pairingHtml = pairingItems.length ? `
+    <div class="pairing-title">Passt dazu</div>
+    <div class="pairing-list">
+      ${pairingItems.map(p=>`
+        <div class="pairing-card" id="pc-${p.id}" onclick="togglePairing('${p.id}')">
+          <div class="pairing-emoji">${p.emoji||'☕'}</div>
+          <div class="pairing-name">${p.name.length>14?p.name.slice(0,13)+'…':p.name}</div>
+          <div class="pairing-price">${p.price}</div>
+          <div class="pairing-add" id="pa-${p.id}">+</div>
+        </div>`).join('')}
+    </div>` : '';
+
+  document.getElementById('sheet-body').innerHTML = `
+    <div class="sheet-name">${item.name}</div>
+    <div class="sheet-tagline">${item.tagline||item.sub||''}</div>
+    ${item.tags&&item.tags.length?`<div class="sheet-tags">${item.tags.map(t=>{const[cls,lbl]=t.split(':');return`<span class="ctag ${cls}">${lbl}</span>`}).join('')}</div>`:''}
+    ${item.story?`<div class="story-block"><div class="story-text">${item.story}</div></div>`:''}
+    ${ingrHtml}
+    ${pairingHtml}
+    <button class="sheet-cta ${inWishlist?'added':''}" id="sheet-cta" onclick="handleCTA()">
+      ${inWishlist?'<span>✓</span> <span>Gemerkt!</span>':'<span>🔖</span> <span>Merken</span>'}
+    </button>`;
+
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('sheet').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function togglePairing(id) {
+  const p = allItems.find(x=>x.id===id);
+  if (!p) return;
+  const card = document.getElementById(`pc-${id}`);
+  const btn = document.getElementById(`pa-${id}`);
+  if (selectedPairings.has(id)) {
+    selectedPairings.delete(id); card.classList.remove('selected'); btn.textContent='+';
+    showToast(`Entfernt`);
+  } else {
+    selectedPairings.add(id); card.classList.add('selected'); btn.textContent='✓';
+    addToWishlist(p); showToast(`${p.emoji} ${p.name} hinzugefügt`);
+  }
+}
+
+function handleCTA() {
+  if (!currentItem) return;
+  if (wishlist.find(i=>i.id===currentItem.id)) { closeSheet(); return; }
+  addToWishlist(currentItem);
+  const btn = document.getElementById('sheet-cta');
+  btn.classList.add('added');
+  btn.innerHTML = '<span>✓</span> <span>Gemerkt!</span>';
+  showToast(`${currentItem.emoji} ${currentItem.name} gemerkt`);
+  setTimeout(closeSheet, 650);
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('sheet').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ------------------------------------------
+// PRESENT MODE
+// ------------------------------------------
+function openPresent() {
+  const itemsEl = document.getElementById('present-items');
+  const totalEl = document.getElementById('present-total-price');
+  itemsEl.innerHTML = wishlist.map(item=>`
+    <div class="present-item">
+      <div class="present-item-left">
+        <div class="present-item-emoji">${item.emoji||'☕'}</div>
+        <div><div class="present-item-name">${item.name}</div><div class="present-item-cat">${item.type==='kaffee'?'Kaffee':item.type==='brunch'?'Brunch':item.type==='bowl'?'Lunch':'Bakery'}</div></div>
+      </div>
+      <div class="present-item-right">
+        ${item.qty>1?`<span class="present-item-qty">×${item.qty}</span>`:''}
+        <div class="present-item-price">${(item.priceNum*item.qty).toFixed(2).replace('.',',')} €</div>
+      </div>
+    </div>`).join('');
+  const total = wishlist.reduce((s,i)=>s+(i.priceNum*i.qty),0);
+  totalEl.textContent = total.toFixed(2).replace('.',',') + ' €';
+  document.getElementById('present-overlay').classList.add('open');
+}
+function closePresent() {
+  document.getElementById('present-overlay').classList.remove('open');
+}
+
+// ------------------------------------------
+// NAV
+// ------------------------------------------
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  const tabEl = document.getElementById('tab-'+id);
+  if (tabEl) { tabEl.classList.add('active'); tabEl.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); }
+  const secEl = document.getElementById(id);
+  if (secEl) secEl.classList.add('active');
+  if (id==='merkliste') renderWishlist();
+}
+function setNav(btn, tabId) {
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  switchTab(tabId);
+}
+
+// ------------------------------------------
+// WELCOME + TOAST
+// ------------------------------------------
+function dismissWelcome() {
+  document.getElementById('welcome-overlay').classList.add('hidden');
+}
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// Swipe down to close
+let startY=0;
+document.getElementById('sheet').addEventListener('touchstart',e=>{startY=e.touches[0].clientY},{passive:true});
+document.getElementById('sheet').addEventListener('touchend',e=>{if(e.changedTouches[0].clientY-startY>80)closeSheet()},{passive:true});
+
+// ------------------------------------------
+// INIT
+// ------------------------------------------
+renderCoffeeList('espresso-list', espresso);
+renderCoffeeList('cold-list', coldDrinks);
+renderCoffeeList('alt-list', altDrinks);
+renderFoodCards('brunch-list', brunchItems);
+renderFoodCards('bowls-list', bowlItems);
+renderSmallCards('bakery-grid', bakeryItems);
+document.getElementById('brunch-special-banner').onclick = ()=>openSheet(allItems.find(x=>x.id==='b1'));
+</script>
+</body>
+</html>

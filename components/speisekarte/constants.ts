@@ -5,6 +5,7 @@ export const MAIN_TAB_LABELS: Record<string, string> = {
   getraenke: "Getränke",
   snacks: "Snacks",
   karte: "Karte",
+  speisekarte: "Speisekarte",
 };
 
 export const FILTER_KEYS = ["all", "vegan", "veg", "gf", "spicy"] as const;

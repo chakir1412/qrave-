@@ -55,3 +55,31 @@ body {
   to { transform: translateY(0); }
 }
 
+/* Dashboard: Tab-Wechsel (Prototyp) */
+@keyframes dashboard-slR {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes dashboard-slL {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.dashboard-slR {
+  animation: dashboard-slR 0.28s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.dashboard-slL {
+  animation: dashboard-slL 0.28s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+

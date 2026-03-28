@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+---
+
+Immer Tailwind v4 verwenden. Keine tailwind.config.js.
+Next.js 16 mit App Router. TypeScript strict — niemals any Types verwenden.
+React 19. Supabase JS 2.98.0.
+Auth: nur `import { supabase } from "@/lib/supabase"` und `await supabase.auth.getSession()`; ohne Session `redirect("/login")` (Server) bzw. `router.replace("/login")` (Client). Kein `@supabase/auth-helpers-nextjs`, kein `createServerComponentClient`, kein `createClient` aus `@/lib/supabase`.

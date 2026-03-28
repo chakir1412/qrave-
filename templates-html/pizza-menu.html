@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>DA MARIO · Trattoria</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Lora:ital,wght@0,400;0,500;1,400&family=Oswald:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme: light;
+  --red:#C0392B;
+  --red2:#E74C3C;
+  --red-soft:#F1948A;
+  --cream:#FDF8EF;
+  --cream2:#F5EDD8;
+  --cream3:#EDE0C4;
+  --olive:#5D6B2E;
+  --olive2:#7A8C3A;
+  --brown:#6B3A2A;
+  --brown2:#8B4513;
+  --ink:#2C1810;
+  --muted:#7A5C4A;
+  --dim:#B8967A;
+  --border:rgba(44,24,16,0.1);
+  --border2:rgba(44,24,16,0.18);
+  --card:#FFFDF7;
+  --shadow:rgba(107,58,42,0.12);
+  --check-red:rgba(192,57,43,0.08);
+}
+html,body{height:100%;background:var(--cream);color:var(--ink);font-family:'Lora',serif;overscroll-behavior:none}
+
+/* ─── CHECKERED PATTERN ─── */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(45deg,var(--check-red) 25%,transparent 25%),
+    linear-gradient(-45deg,var(--check-red) 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,var(--check-red) 75%),
+    linear-gradient(-45deg,transparent 75%,var(--check-red) 75%);
+  background-size:24px 24px;
+  background-position:0 0,0 12px,12px -12px,-12px 0;
+  opacity:.35}
+
+/* ─── HERO ─── */
+.hero{position:relative;z-index:1;background:var(--red);overflow:hidden;padding:0}
+.hero-img{width:100%;height:250px;object-fit:cover;display:block;opacity:.35;mix-blend-mode:multiply;filter:saturate(.6)}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(192,57,43,.5) 0%,rgba(192,57,43,.92) 100%)}
+.hero-content{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 20px 24px;text-align:center}
+.hero-flag{display:flex;gap:6px;margin-bottom:14px;align-items:center}
+.hero-flag-stripe{width:28px;height:5px;border-radius:1px}
+.hero-stars{font-size:11px;letter-spacing:.1em;color:rgba(253,248,239,.5);margin-bottom:8px}
+.hero-name{font-family:'Playfair Display',serif;font-size:clamp(48px,14vw,72px);font-weight:900;line-height:.88;color:var(--cream);letter-spacing:.02em;text-shadow:0 3px 16px rgba(0,0,0,.3)}
+.hero-name em{font-style:italic;font-weight:400;color:rgba(253,248,239,.75);display:block;font-size:.45em;letter-spacing:.12em;margin-bottom:4px}
+.hero-sub{font-family:'Oswald',sans-serif;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:rgba(253,248,239,.6);margin-top:10px}
+.hero-badge{position:absolute;top:14px;right:14px;background:var(--cream);color:var(--red);font-family:'Oswald',sans-serif;font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;padding:5px 12px;border-radius:2px;transform:rotate(2.5deg);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+
+/* ─── RIBBON ─── */
+.ribbon{position:relative;z-index:1;background:var(--red);height:6px}
+.ribbon-inner{height:100%;background:repeating-linear-gradient(90deg,var(--cream) 0,var(--cream) 8px,var(--red) 8px,var(--red) 16px)}
+
+/* ─── TABS ─── */
+.tabs-wrap{position:sticky;top:0;z-index:100;background:rgba(253,248,239,.97);backdrop-filter:blur(16px);border-bottom:2px solid var(--red)}
+.tabs{display:flex;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:13px 16px 11px;font-family:'Oswald',sans-serif;font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer;transition:color .2s,border-color .2s;user-select:none;white-space:nowrap}
+.tab.active{color:var(--red);border-bottom-color:var(--red)}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;margin-left:5px;min-width:14px;height:14px;border-radius:2px;background:var(--red);color:white;font-size:8px;font-weight:600;padding:0 3px;transform:scale(0);transition:transform .2s;vertical-align:middle}
+.tab-badge.show{transform:scale(1)}
+
+/* ─── CONTENT ─── */
+.content{position:relative;z-index:1;padding:0 14px 120px}
+.section{display:none}.section.active{display:block}
+
+/* ─── SECTION HEADER ─── */
+.sec-header{padding:22px 0 8px}
+.sec-it{font-family:'Playfair Display',serif;font-size:11px;font-style:italic;color:var(--dim);letter-spacing:.06em;margin-bottom:4px}
+.sec-title{font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:var(--ink);line-height:1}
+.sec-title em{color:var(--red);font-style:italic}
+.sec-rule{display:flex;align-items:center;gap:10px;margin-bottom:16px;margin-top:6px}
+.sec-rule-line{flex:1;height:1px;background:var(--border2)}
+.sec-rule-icon{font-size:14px;color:var(--red);flex-shrink:0}
+
+/* ─── PIZZA CARD ─── */
+.pizza-card{background:var(--card);border-radius:12px;margin-bottom:12px;overflow:hidden;cursor:pointer;border:1px solid var(--border);box-shadow:2px 4px 16px var(--shadow);transition:transform .15s;position:relative}
+.pizza-card:active{transform:scale(.985)}
+.pizza-card-img{width:100%;height:185px;object-fit:cover;display:block}
+.pizza-card-ribbon{position:absolute;top:14px;left:-4px;background:var(--red);color:white;font-family:'Oswald',sans-serif;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;padding:5px 14px 5px 10px;clip-path:polygon(0 0,100% 0,calc(100% - 6px) 50%,100% 100%,0 100%);box-shadow:2px 2px 6px rgba(0,0,0,.2)}
+.pizza-card-ribbon.green{background:var(--olive)}
+.pizza-card-ribbon-inline{display:inline-block;background:var(--red);color:white;font-family:'Oswald',sans-serif;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;padding:3px 10px;border-radius:2px;margin-bottom:8px}
+.pizza-card-ribbon-inline.green{background:var(--olive)}
+.pizza-card-body{padding:14px 16px 16px}
+.pizza-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px}
+.pizza-card-name{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink);line-height:1.1}
+.pizza-card-name em{font-style:italic;color:var(--red)}
+.pizza-card-price{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--red);flex-shrink:0;margin-left:8px}
+.pizza-card-desc{font-size:12px;color:var(--muted);line-height:1.55;font-style:italic;margin-bottom:8px}
+.pizza-card-tags{display:flex;gap:5px;flex-wrap:wrap}
+
+/* ─── PASTA ROW ─── */
+.pasta-row{display:flex;align-items:center;padding:14px 0;border-bottom:1px dashed var(--border2);cursor:pointer;transition:background .15s;margin:0 -4px;padding-left:4px;padding-right:4px;border-radius:4px;gap:12px}
+.pasta-row:last-child{border:none}
+.pasta-row:active{background:rgba(192,57,43,.04)}
+.pasta-thumb{width:54px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0}
+.pasta-info{flex:1}
+.pasta-name{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--ink);line-height:1;margin-bottom:3px}
+.pasta-desc{font-size:11px;color:var(--muted);font-style:italic;line-height:1.4}
+.pasta-price{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:var(--red);flex-shrink:0}
+.pasta-arrow{color:var(--dim);font-size:12px;margin-left:6px;flex-shrink:0}
+
+/* ─── ANTIPASTI GRID ─── */
+.anti-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0}
+.anti-card{background:var(--card);border-radius:10px;overflow:hidden;cursor:pointer;border:1px solid var(--border);box-shadow:1px 3px 10px var(--shadow);transition:transform .15s}
+.anti-card:active{transform:scale(.97)}
+.anti-img{width:100%;height:110px;object-fit:cover}
+.anti-body{padding:10px 12px 12px}
+.anti-name{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--ink);margin-bottom:2px;line-height:1.2}
+.anti-desc{font-size:10px;color:var(--muted);font-style:italic;line-height:1.4;margin-bottom:5px}
+.anti-price{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--red)}
+
+/* ─── TAGS ─── */
+.itag{font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:2px}
+.itag-veg{background:rgba(93,107,46,.1);color:var(--olive);border:1px solid rgba(93,107,46,.2)}
+.itag-pop{background:rgba(192,57,43,.08);color:var(--red);border:1px solid rgba(192,57,43,.15)}
+.itag-new{background:rgba(107,58,42,.08);color:var(--brown2);border:1px solid rgba(107,58,42,.15)}
+.itag-hot{background:rgba(231,76,60,.1);color:var(--red2);border:1px solid rgba(231,76,60,.18)}
+
+/* ─── VINO LIST ─── */
+.vino-group{font-family:'Oswald',sans-serif;font-size:9px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--red);margin:16px 0 8px}
+.vino-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px dashed var(--border);cursor:pointer;transition:background .15s}
+.vino-row:last-child{border:none}
+.vino-row:active{background:rgba(192,57,43,.04)}
+.vino-emoji{font-size:20px;width:26px;text-align:center;flex-shrink:0}
+.vino-info{flex:1}
+.vino-name{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.vino-sub{font-size:11px;color:var(--muted);font-style:italic}
+.vino-price{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--red);flex-shrink:0}
+.vino-arrow{color:var(--dim);font-size:12px;margin-left:6px;flex-shrink:0}
+
+/* ─── SPECIALS BANNER ─── */
+.special-banner{background:var(--red);border-radius:10px;padding:16px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border:2px solid rgba(253,248,239,.2);transition:opacity .15s;position:relative;overflow:hidden}
+.special-banner::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.03) 0,rgba(255,255,255,.03) 2px,transparent 2px,transparent 8px)}
+.special-banner:active{opacity:.88}
+.special-it{font-size:9px;font-style:italic;color:rgba(253,248,239,.55);letter-spacing:.06em;margin-bottom:4px;font-family:'Lora',serif}
+.special-name{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--cream)}
+.special-sub{font-size:10px;color:rgba(253,248,239,.5);margin-top:2px;font-style:italic}
+.special-price{font-family:'Playfair Display',serif;font-size:32px;font-weight:900;color:var(--cream)}
+
+/* ─── INFO ─── */
+.info-card{background:var(--card);border-radius:10px;padding:16px 18px;margin-bottom:10px;border:1px solid var(--border);box-shadow:1px 3px 10px var(--shadow)}
+.info-label{font-family:'Oswald',sans-serif;font-size:9px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--red);margin-bottom:8px}
+.info-value{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--ink);line-height:1.3}
+.info-sub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6;font-style:italic}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.hours-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--border);font-size:12px}
+.hours-row:last-child{border:none}
+.hours-day{color:var(--muted);font-style:italic}
+.hours-time{font-family:'Playfair Display',serif;font-size:14px;color:var(--ink)}
+.hours-time.today{color:var(--olive)}
+
+/* ─── WISHLIST ─── */
+.wishlist-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:10px;text-align:center}
+.wishlist-empty-icon{font-size:44px;opacity:.25}
+.wishlist-empty-title{font-family:'Playfair Display',serif;font-size:24px;font-style:italic;color:var(--dim)}
+.wishlist-empty-sub{font-size:13px;color:var(--muted);line-height:1.7;font-style:italic}
+.wishlist-item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:8px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);box-shadow:1px 2px 8px var(--shadow)}
+.wishlist-img{width:46px;height:46px;border-radius:6px;overflow:hidden;background:var(--cream2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.wishlist-img img{width:100%;height:100%;object-fit:cover}
+.wishlist-info{flex:1;min-width:0}
+.wishlist-name{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.wishlist-cat{font-size:10px;color:var(--muted);font-style:italic}
+.qty-stepper{display:flex;align-items:center;flex-shrink:0;border:1px solid var(--border2);border-radius:4px;overflow:hidden}
+.qty-btn{width:28px;height:28px;border:none;background:none;color:var(--red);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.qty-btn:active{background:rgba(192,57,43,.1)}
+.qty-num{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--ink);min-width:24px;text-align:center}
+.wishlist-price{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--red);flex-shrink:0;min-width:52px;text-align:right}
+.wishlist-total{background:var(--cream2);border-radius:8px;padding:16px;margin-top:6px;border:1px solid var(--border)}
+.wishlist-total-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:7px;font-style:italic}
+.wishlist-total-sum{display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px dashed var(--border2)}
+.wishlist-total-label{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink)}
+.wishlist-total-price{font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:var(--red)}
+.wishlist-cta{width:100%;padding:15px;border-radius:8px;border:none;cursor:pointer;background:var(--red);color:var(--cream);font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .15s,opacity .15s;box-shadow:0 4px 16px rgba(192,57,43,.3)}
+.wishlist-cta:active{transform:scale(.97)}
+
+/* ─── SHEET ─── */
+.overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0);pointer-events:none;transition:background .3s}
+.overlay.open{background:rgba(44,24,16,.65);pointer-events:all;backdrop-filter:blur(8px)}
+.sheet{position:fixed;bottom:0;left:0;right:0;z-index:600;background:var(--cream);border-radius:18px 18px 0 0;max-height:92vh;overflow-y:auto;transform:translateY(105%);transition:transform .4s cubic-bezier(.32,.72,0,1);overscroll-behavior:contain;border-top:3px solid var(--red)}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:36px;height:4px;border-radius:99px;background:var(--dim);margin:12px auto 0;opacity:.4}
+.sheet-img-wrap{position:relative;height:210px;overflow:hidden;margin:12px 14px 0;border-radius:12px}
+.sheet-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.sheet-img-gradient{position:absolute;inset:0;background:linear-gradient(0deg,rgba(253,248,239,.97) 0%,transparent 55%)}
+.sheet-badge-float{position:absolute;top:10px;left:-2px;font-family:'Oswald',sans-serif;font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:4px 14px 4px 10px;clip-path:polygon(0 0,100% 0,calc(100% - 6px) 50%,100% 100%,0 100%)}
+.sheet-price-float{position:absolute;bottom:12px;right:12px;font-family:'Playfair Display',serif;font-size:32px;font-weight:900;color:var(--ink);text-shadow:0 2px 8px rgba(253,248,239,.9)}
+.sheet-body{padding:14px 18px 40px}
+.sheet-name{font-family:'Playfair Display',serif;font-size:clamp(24px,7vw,32px);font-weight:900;color:var(--ink);line-height:1;margin-bottom:4px}
+.sheet-name em{font-style:italic;color:var(--red)}
+.sheet-tagline{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.65;font-style:italic}
+.sheet-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.story-block{background:rgba(192,57,43,.05);border-left:2px solid var(--red);border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px}
+.story-text{font-size:12px;color:var(--muted);line-height:1.75;font-style:italic}
+.s-label{font-family:'Oswald',sans-serif;font-size:9px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--red);margin-bottom:8px}
+.ingr-list{display:flex;flex-direction:column;gap:5px;margin-bottom:18px}
+.ingr-item{display:flex;align-items:center;gap:10px;background:var(--cream2);border:1px solid var(--border);border-radius:7px;padding:8px 12px}
+.ingr-emoji{font-size:16px;flex-shrink:0;width:22px;text-align:center}
+.ingr-info{flex:1}
+.ingr-name{font-size:13px;font-weight:500;color:var(--ink)}
+.ingr-detail{font-size:10px;color:var(--muted);margin-top:1px;font-style:italic}
+.pairing-title{font-family:'Oswald',sans-serif;font-size:9px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--red);margin-bottom:10px}
+.pairing-list{display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.pairing-list::-webkit-scrollbar{display:none}
+.pairing-card{flex-shrink:0;width:100px;background:var(--card);border-radius:8px;padding:10px;border:1px solid var(--border);cursor:pointer;box-shadow:1px 2px 6px var(--shadow);transition:border-color .15s,transform .15s}
+.pairing-card:active{transform:scale(.95)}
+.pairing-card.selected{border-color:var(--red);background:rgba(192,57,43,.05)}
+.pairing-card.selected .pairing-add{background:var(--red);color:white;border-color:var(--red)}
+.pairing-emoji{font-size:20px;margin-bottom:4px}
+.pairing-name{font-size:11px;font-weight:500;color:var(--ink);margin-bottom:2px;line-height:1.2}
+.pairing-price{font-size:11px;color:var(--muted);font-style:italic}
+.pairing-add{display:inline-flex;align-items:center;justify-content:center;margin-top:6px;width:22px;height:22px;border-radius:3px;background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.25);color:var(--red);font-size:13px;transition:all .15s}
+.sheet-cta{width:100%;padding:15px;border-radius:8px;border:none;cursor:pointer;background:var(--red);color:var(--cream);font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s;box-shadow:0 4px 16px rgba(192,57,43,.3)}
+.sheet-cta:active{opacity:.85}
+.sheet-cta.added{background:var(--olive);box-shadow:0 4px 16px rgba(93,107,46,.25)}
+
+/* ─── WELCOME ─── */
+.welcome-overlay{position:fixed;inset:0;z-index:900;background:rgba(44,24,16,.6);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;transition:opacity .3s,visibility .3s}
+.welcome-overlay.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.welcome-sheet{background:var(--cream);border-radius:18px 18px 0 0;padding:28px 22px max(32px,env(safe-area-inset-bottom));width:100%;max-width:480px;border-top:3px solid var(--red);animation:sheetUp .45s cubic-bezier(.32,.72,0,1) forwards}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.welcome-it{font-family:'Playfair Display',serif;font-size:11px;font-style:italic;color:var(--dim);text-align:center;margin-bottom:6px}
+.welcome-title{font-family:'Playfair Display',serif;font-size:26px;font-weight:900;text-align:center;margin-bottom:22px;color:var(--ink)}
+.welcome-title em{font-style:italic;color:var(--red)}
+.welcome-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:22px}
+.welcome-tile{background:var(--cream2);border:1px solid var(--border);border-radius:8px;padding:16px 8px 14px;display:flex;flex-direction:column;align-items:center;gap:7px}
+.welcome-tile-icon{font-size:28px;line-height:1}
+.welcome-tile-label{font-family:'Playfair Display',serif;font-size:14px;font-weight:700;color:var(--ink);text-align:center}
+.welcome-tile-sub{font-size:10px;color:var(--muted);text-align:center;line-height:1.35;font-style:italic}
+.welcome-btn{width:100%;padding:15px;border-radius:8px;border:none;cursor:pointer;background:var(--red);color:var(--cream);font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;box-shadow:0 4px 16px rgba(192,57,43,.3)}
+.welcome-btn:active{opacity:.88}
+
+/* ─── PRESENT ─── */
+.present-overlay{position:fixed;inset:0;z-index:1000;background:var(--cream);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;transform:translateY(100%);transition:transform .4s cubic-bezier(.32,.72,0,1)}
+.present-overlay.open{transform:translateY(0)}
+.present-top{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px}
+.present-top-stripe{width:24px;height:3px;border-radius:1px}
+.present-header{font-family:'Playfair Display',serif;font-size:11px;font-style:italic;color:var(--muted);text-align:center;margin-bottom:6px}
+.present-bar-name{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;color:var(--ink);letter-spacing:.02em;text-align:center;margin-bottom:26px}
+.present-bar-name em{font-style:italic;color:var(--red)}
+.present-items{width:100%;display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.present-item{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--cream2);border-radius:8px;border-left:3px solid var(--red)}
+.present-item-left{display:flex;align-items:center;gap:12px}
+.present-item-emoji{font-size:22px}
+.present-item-name{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--ink)}
+.present-item-cat{font-size:10px;color:var(--muted);font-style:italic;margin-top:2px}
+.present-item-right{display:flex;align-items:center;gap:8px}
+.present-item-qty{font-size:12px;color:var(--muted)}
+.present-item-price{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--red)}
+.present-total{width:100%;display:flex;justify-content:space-between;align-items:baseline;padding:14px 18px;background:var(--ink);border-radius:8px;margin-bottom:28px}
+.present-total-label{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--cream)}
+.present-total-price{font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:var(--red-soft)}
+.present-close{padding:12px 36px;border-radius:6px;border:1px solid var(--border2);background:none;color:var(--muted);font-family:'Oswald',sans-serif;font-size:12px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;cursor:pointer}
+
+/* ─── TOAST ─── */
+.toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--ink);border-radius:4px;padding:9px 16px;font-size:12px;color:var(--cream);white-space:nowrap;opacity:0;transition:opacity .2s,transform .2s;z-index:999;pointer-events:none;font-style:italic}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ─── BOTTOM NAV ─── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(253,248,239,.97);backdrop-filter:blur(20px);border-top:2px solid var(--red);padding:10px 32px max(14px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-around;z-index:400}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px;color:var(--dim);border:none;background:none;position:relative;transition:color .15s}
+.nav-btn.active{color:var(--red)}
+.nav-icon{font-size:18px;line-height:1}
+.nav-label{font-family:'Oswald',sans-serif;font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+.nav-badge{position:absolute;top:0;right:8px;min-width:14px;height:14px;border-radius:2px;background:var(--red);color:white;font-size:8px;font-weight:600;display:flex;align-items:center;justify-content:center;padding:0 3px;transform:scale(0);transition:transform .2s}
+.nav-badge.show{transform:scale(1)}
+
+/* ─── ANIMATIONS ─── */
+.section.active .pizza-card,.section.active .pasta-row,.section.active .anti-card,.section.active .vino-row{animation:italyFade .28s ease both}
+.section.active .pizza-card:nth-child(2),.section.active .pasta-row:nth-child(2),.section.active .anti-card:nth-child(2),.section.active .vino-row:nth-child(2){animation-delay:.05s}
+.section.active .pizza-card:nth-child(3),.section.active .pasta-row:nth-child(3),.section.active .anti-card:nth-child(3),.section.active .vino-row:nth-child(3){animation-delay:.1s}
+.section.active .pizza-card:nth-child(4),.section.active .pasta-row:nth-child(4),.section.active .vino-row:nth-child(4){animation-delay:.14s}
+.section.active .pasta-row:nth-child(5){animation-delay:.18s}
+@keyframes italyFade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <img class="hero-img" src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80&fit=crop" alt="Trattoria">
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-flag">
+      <div class="hero-flag-stripe" style="background:#009246"></div>
+      <div class="hero-flag-stripe" style="background:#fff"></div>
+      <div class="hero-flag-stripe" style="background:#ce2b37"></div>
+    </div>
+    <div class="hero-stars">★ ★ ★ ★ ★</div>
+    <div class="hero-name"><em>Trattoria</em>DA MARIO</div>
+    <div class="hero-sub">Pizza · Pasta · Vino · Frankfurt</div>
+  </div>
+  <div class="hero-badge">Dal 1974</div>
+</div>
+<div class="ribbon"><div class="ribbon-inner"></div></div>
+
+<div class="tabs-wrap">
+  <div class="tabs">
+    <div class="tab active" id="tab-pizza" onclick="switchTab('pizza')">🍕 Pizza</div>
+    <div class="tab" id="tab-pasta" onclick="switchTab('pasta')">🍝 Pasta</div>
+    <div class="tab" id="tab-antipasti" onclick="switchTab('antipasti')">🫒 Antipasti</div>
+    <div class="tab" id="tab-vino" onclick="switchTab('vino')">🍷 Vino & Drinks</div>
+    <div class="tab" id="tab-merkliste" onclick="switchTab('merkliste')">Merkliste <span class="tab-badge" id="tab-badge">0</span></div>
+    <div class="tab" id="tab-info" onclick="switchTab('info')">Info</div>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="section active" id="pizza">
+    <div class="special-banner" id="pizza-special">
+      <div><div class="special-it">Speciale della settimana</div><div class="special-name">Pizza del Giorno</div><div class="special-sub">Täglich wechselnd · Frag das Personal</div></div>
+      <div class="special-price">11€</div>
+    </div>
+    <div class="sec-header"><div class="sec-it">Dal forno a legna</div><div class="sec-title">Unsere <em>Pizzen</em></div></div>
+    <div class="sec-rule"><div class="sec-rule-line"></div><div class="sec-rule-icon">🍕</div><div class="sec-rule-line"></div></div>
+    <div id="pizza-list"></div>
+  </div>
+
+  <div class="section" id="pasta">
+    <div class="sec-header"><div class="sec-it">Fatta in casa</div><div class="sec-title">Pasta <em>Fresca</em></div></div>
+    <div class="sec-rule"><div class="sec-rule-line"></div><div class="sec-rule-icon">🍝</div><div class="sec-rule-line"></div></div>
+    <div id="pasta-list"></div>
+  </div>
+
+  <div class="section" id="antipasti">
+    <div class="sec-header"><div class="sec-it">Per iniziare</div><div class="sec-title">Antipasti & <em>Insalate</em></div></div>
+    <div class="sec-rule"><div class="sec-rule-line"></div><div class="sec-rule-icon">🫒</div><div class="sec-rule-line"></div></div>
+    <div class="anti-grid" id="antipasti-grid"></div>
+    <div style="margin-bottom:10px"></div>
+    <div id="antipasti-list"></div>
+  </div>
+
+  <div class="section" id="vino">
+    <div class="sec-header"><div class="sec-it">Dalla cantina</div><div class="sec-title"><em>Vino</em> & Drinks</div></div>
+    <div class="sec-rule"><div class="sec-rule-line"></div><div class="sec-rule-icon">🍷</div><div class="sec-rule-line"></div></div>
+    <div class="vino-group">VINO ROSSO · Rotwein</div>
+    <div id="vino-rosso"></div>
+    <div class="vino-group">VINO BIANCO · Weißwein</div>
+    <div id="vino-bianco"></div>
+    <div class="vino-group">BIRRA & ANALCOLICI</div>
+    <div id="birra-list"></div>
+  </div>
+
+  <div class="section" id="merkliste">
+    <div class="sec-header"><div class="sec-it">La tua scelta</div><div class="sec-title">Deine <em>Merkliste</em></div></div>
+    <div class="sec-rule"><div class="sec-rule-line"></div><div class="sec-rule-icon">🍷</div><div class="sec-rule-line"></div></div>
+    <div id="wishlist-content"></div>
+  </div>
+
+  <div class="section" id="info">
+    <div class="sec-header"><div class="sec-it">Da Mario</div><div class="sec-title">Restaurant & <em>Info</em></div></div>
+    <div class="sec-rule"><div class="sec-rule-line"></div><div class="sec-rule-icon">📍</div><div class="sec-rule-line"></div></div>
+    <div class="info-grid">
+      <div class="info-card"><div class="info-label">Adresse</div><div class="info-value">Schweizer Str. 54</div><div class="info-sub">Frankfurt-Sachsenhausen</div></div>
+      <div class="info-card"><div class="info-label">Telefono</div><div class="info-value">069 456 789</div><div class="info-sub">Reservierung</div></div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Orari</div>
+      <div class="hours-row"><span class="hours-day">Lunedì · Montag</span><span class="hours-time">Chiuso · Ruhetag</span></div>
+      <div class="hours-row"><span class="hours-day">Mar – Gio</span><span class="hours-time">12:00 – 14:30 · 18:00 – 22:30</span></div>
+      <div class="hours-row"><span class="hours-day">Venerdì</span><span class="hours-time today">12:00 – 14:30 · 18:00 – 23:30 ✓</span></div>
+      <div class="hours-row"><span class="hours-day">Sabato</span><span class="hours-time">13:00 – 23:30</span></div>
+      <div class="hours-row"><span class="hours-day">Domenica</span><span class="hours-time">13:00 – 22:00</span></div>
+    </div>
+    <div class="info-card"><div class="info-label">La nostra cucina</div><div class="info-sub" style="font-size:13px;line-height:1.75">Unser Teig ruht <strong style="color:var(--ink)">48 Stunden</strong> bevor er im echten Holzofen bei 450°C gebacken wird. Alle Zutaten kommen direkt aus Kampanien — San-Marzano-Tomaten, Fior di Latte, kaltgepresstes Olivenöl.</div></div>
+    <div class="info-card"><div class="info-label">Note</div><div class="info-sub" style="font-size:12px;line-height:1.7;font-style:italic">Alle Preise inkl. MwSt. · Allergene auf Anfrage · Änderungen vorbehalten · Grazie mille!</div></div>
+  </div>
+
+</div>
+
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheet-img-area"></div>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
+<div class="welcome-overlay" id="welcome-overlay">
+  <div class="welcome-sheet">
+    <div class="welcome-it">Benvenuti da Mario!</div>
+    <div class="welcome-title">Willkommen in der <em>Trattoria</em></div>
+    <div class="welcome-tiles">
+      <div class="welcome-tile"><div class="welcome-tile-icon">👆</div><div class="welcome-tile-label">Antippen</div><div class="welcome-tile-sub">Details & Fotos</div></div>
+      <div class="welcome-tile"><div class="welcome-tile-icon">🔖</div><div class="welcome-tile-label">Merken</div><div class="welcome-tile-sub">Favoriten merken</div></div>
+      <div class="welcome-tile"><div class="welcome-tile-icon">🙋</div><div class="welcome-tile-label">Bestellen</div><div class="welcome-tile-sub">Kellner zeigen</div></div>
+    </div>
+    <button class="welcome-btn" onclick="dismissWelcome()">Andiamo! 🍕</button>
+  </div>
+</div>
+
+<div class="present-overlay" id="present-overlay">
+  <div class="present-top">
+    <div class="present-top-stripe" style="background:#009246"></div>
+    <div class="present-top-stripe" style="background:#ccc"></div>
+    <div class="present-top-stripe" style="background:#ce2b37"></div>
+  </div>
+  <div class="present-header">Il tuo ordine da</div>
+  <div class="present-bar-name">Da <em>Mario</em></div>
+  <div class="present-items" id="present-items"></div>
+  <div class="present-total"><div class="present-total-label">Totale</div><div class="present-total-price" id="present-total-price"></div></div>
+  <button class="present-close" onclick="closePresent()">← Zurück zur Karte</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-karte" onclick="setNav(this,'pizza')"><span class="nav-icon">🍕</span><span class="nav-label">Karte</span></button>
+  <button class="nav-btn" id="nav-wish" onclick="setNav(this,'merkliste')"><span class="nav-icon">🔖</span><span class="nav-label">Merkliste</span><span class="nav-badge" id="nav-badge">0</span></button>
+</div>
+
+<script>
+const pizzas = [
+  {id:'p1',type:'pizza',emoji:'🍕',name:'Margherita',desc:'San-Marzano-Tomaten · Fior di Latte · Basilikum · Olivenöl',price:'11 €',priceNum:11,ribbon:'CLASSICA',ribbonClass:'',tags:['itag-veg:Vegetarisch'],tagline:'Die Mutter aller Pizzen.',story:'Neapolitanischer Teig, 48h gereift. San-Marzano-Tomaten, Fior di Latte aus Kampanien, frisches Basilikum, kaltgepresstes Olivenöl. Mehr braucht es nicht.',img:'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=180&q=80&fit=crop',ingredients:[{emoji:'🍅',name:'San-Marzano-Tomaten',detail:'Kampanien, D.O.P.'},{emoji:'🧀',name:'Fior di Latte',detail:'Frischer Mozzarella'},{emoji:'🌿',name:'Frisches Basilikum',detail:'Täglich frisch'},{emoji:'🫙',name:'Olivenöl Extra Vergine',detail:'Kaltgepresst'}],pairings:['v2','v4']},
+  {id:'p2',type:'pizza',emoji:'🍕',name:'Diavola',desc:'Tomatensauce · Fior di Latte · Salsiccia Piccante · Chili',price:'13 €',priceNum:13,ribbon:'PICCANTE',ribbonClass:'',tags:['itag-hot:Scharf'],tagline:'Für alle, die es feurig mögen.',story:'Scharfe kalabrische Salsiccia trifft auf San-Marzano-Tomaten und Fior di Latte. Mit frischen Chiliflocken und einem Schuss Nduja-Öl abgeschlossen.',img:'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=180&q=80&fit=crop',ingredients:[{emoji:'🍅',name:'San-Marzano-Tomaten',detail:'D.O.P.'},{emoji:'🧀',name:'Fior di Latte',detail:'Kampanien'},{emoji:'🌶️',name:'Salsiccia Piccante',detail:'Kalabrisch, scharf'},{emoji:'🌶️',name:'Chiliflocken',detail:'Frisch'}],pairings:['v1','v5']},
+  {id:'p3',type:'pizza',emoji:'🍕',name:'Quattro Stagioni',desc:'Tomaten · Mozzarella · Schinken · Pilze · Artischocken · Oliven',price:'14 €',priceNum:14,ribbon:'BESTSELLER',ribbonClass:'',tags:['itag-pop:Nr. 1'],tagline:'Vier Jahreszeiten auf einer Pizza.',story:'Ein Klassiker der Trattoria — jedes Viertel repräsentiert eine Saison: Schinken, Champignons, Artischocken, schwarze Oliven. Alles auf Fior di Latte.',img:'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=180&q=80&fit=crop',ingredients:[{emoji:'🍄',name:'Champignons',detail:'Frisch'},{emoji:'🥩',name:'Prosciutto cotto',detail:'Gekochter Schinken'},{emoji:'🫒',name:'Schwarze Oliven',detail:'Aus der Toscana'},{emoji:'🥦',name:'Artischocken',detail:'Eingelegt in Olivenöl'}],pairings:['v1','v3']},
+  {id:'p4',type:'pizza',emoji:'🍕',name:'Burrata e Prosciutto',desc:'Tomatensauce · Rucola · Prosciutto crudo · Burrata · Balsamico',price:'16 €',priceNum:16,ribbon:'SPECIALE',ribbonClass:'',tags:['itag-new:Signature'],tagline:'Luxus auf dünnem Teig.',story:'Die Pizza kommt aus dem Ofen, dann erst belegt: kalter Prosciutto di Parma, frische Burrata, wilder Rucola, Balsamico-Reduktion. Warm und kalt zugleich.',img:'https://images.unsplash.com/photo-1528137871618-79d2761e3fd5?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1528137871618-79d2761e3fd5?w=180&q=80&fit=crop',ingredients:[{emoji:'🐄',name:'Burrata',detail:'Frisch, cremig'},{emoji:'🥩',name:'Prosciutto di Parma',detail:'24 Monate gereift'},{emoji:'🌿',name:'Rucola',detail:'Wilder Rucola'},{emoji:'🫙',name:'Balsamico-Reduktion',detail:'Modena'}],pairings:['v2','a2']},
+  {id:'p5',type:'pizza',emoji:'🍕',name:'Funghi e Tartufo',desc:'Crème fraîche · Mozzarella · Gemischte Pilze · Trüffelöl · Thymian',price:'15 €',priceNum:15,ribbon:'VEGAN mögl.',ribbonClass:'green',tags:['itag-veg:Vegetarisch'],tagline:'Waldaromen, direkt aus dem Holzofen.',story:'Keine Tomatensauce — stattdessen Crème fraîche, gemischte Wildpilze, Thymian und nach dem Backen ein großzügiger Schuss echten Trüffelöls.',img:'https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=180&q=80&fit=crop',ingredients:[{emoji:'🍄',name:'Gemischte Wildpilze',detail:'Steinpilz, Pfifferlinge'},{emoji:'🫙',name:'Crème fraîche',detail:'Statt Tomatensauce'},{emoji:'🌿',name:'Thymian',detail:'Frisch'},{emoji:'🫙',name:'Trüffelöl',detail:'Echtes schwarzes Trüffelöl'}],pairings:['v2','v3']},
+];
+const pastas = [
+  {id:'pa1',type:'pasta',emoji:'🍝',name:'Spaghetti Carbonara',sub:'Spaghetti · Guanciale · Ei · Pecorino · Schwarzer Pfeffer',price:'14 €',priceNum:14,tags:['itag-pop:Klassiker'],tagline:'Das Original. Nur mit Ei, kein Sahne.',story:'Echte römische Carbonara — kein Tropfen Sahne. Nur Guanciale, frisches Ei, Pecorino Romano und schwarzer Pfeffer. Emulgiert am Tisch mit dem Nudelwasser.',img:'https://images.unsplash.com/photo-1612874742237-6526221588e3?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1612874742237-6526221588e3?w=180&q=80&fit=crop',ingredients:[{emoji:'🍝',name:'Spaghetti',detail:'Täglich frisch'},{emoji:'🥓',name:'Guanciale',detail:'Aus dem Latium, geräuchert'},{emoji:'🥚',name:'Freilandeier',detail:'Nur Eigelb'},{emoji:'🧀',name:'Pecorino Romano',detail:'DOP, gerieben'}],pairings:['v1','v3']},
+  {id:'pa2',type:'pasta',emoji:'🍝',name:'Tagliatelle al Ragù',sub:'Hausgemachte Tagliatelle · Bolognese · Parmesan',price:'15 €',priceNum:15,tags:['itag-pop:Hausgemacht'],tagline:'Vier Stunden gekocht. Fünf Minuten gegessen.',story:'Unser Ragù kocht täglich vier Stunden — Rinder- und Schweinehack, Soffritto, Rotwein, San-Marzano-Tomaten. Auf hausgemachten Tagliatelle.',img:'https://images.unsplash.com/photo-1555949258-eb67b1ef0ceb?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1555949258-eb67b1ef0ceb?w=180&q=80&fit=crop',ingredients:[{emoji:'🍝',name:'Hausgemachte Tagliatelle',detail:'Ei-Pasta, täglich frisch'},{emoji:'🥩',name:'Rind & Schwein',detail:'Gemischtes Hack, 4h geschmort'},{emoji:'🍷',name:'Rotwein',detail:'Zum Ablöschen'},{emoji:'🧀',name:'Parmigiano Reggiano',detail:'24 Monate'}],pairings:['v1','v3']},
+  {id:'pa3',type:'pasta',emoji:'🍝',name:'Penne all\'Arrabbiata',sub:'Penne Rigate · Tomatensauce · Knoblauch · Chili · Basilikum',price:'12 €',priceNum:12,tags:['itag-veg:Vegan','itag-hot:Scharf'],tagline:'Wütend lecker.',story:'\"Arrabbiata\" heißt wütend — und diese Sauce hat Temperament. Viel Knoblauch, frischer Chili, San-Marzano-Tomaten. Vegan und stolz darauf.',img:'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?w=180&q=80&fit=crop',ingredients:[{emoji:'🍝',name:'Penne Rigate',detail:'Bronzeform-gezogen'},{emoji:'🍅',name:'San-Marzano-Tomaten',detail:'D.O.P.'},{emoji:'🧄',name:'Viel Knoblauch',detail:'Frisch'},{emoji:'🌶️',name:'Frischer Chili',detail:'Kalabrisch'}],pairings:['v4','v5']},
+  {id:'pa4',type:'pasta',emoji:'🍝',name:'Gnocchi al Pesto',sub:'Hausgemachte Gnocchi · Basilikum-Pesto · Pinienkerne · Parmesan',price:'14 €',priceNum:14,tags:['itag-veg:Vegetarisch'],tagline:'Zart, cremig, nach Ligurien.',story:'Gnocchi aus frischen Kartoffeln, täglich handgemacht. Mit Basilikum-Pesto alla Genovese — im Mörser zerstoßen, nicht gemixt.',img:'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=180&q=80&fit=crop',ingredients:[{emoji:'🥔',name:'Kartoffel-Gnocchi',detail:'Täglich handgemacht'},{emoji:'🌿',name:'Basilikum-Pesto',detail:'Im Mörser, Genovese-Art'},{emoji:'🌰',name:'Pinienkerne',detail:'Geröstet'},{emoji:'🧀',name:'Parmigiano Reggiano',detail:'Frisch gehobelt'}],pairings:['v2','v4']},
+  {id:'pa5',type:'pasta',emoji:'🍝',name:'Risotto ai Funghi',sub:'Carnaroli-Reis · Wildpilze · Weißwein · Butter · Parmesan',price:'15 €',priceNum:15,tags:['itag-veg:Vegetarisch'],tagline:'Geduld. Rühren. Perfekt.',story:'Carnaroli-Reis, wein-ablöscht, Schöpfkelle für Schöpfkelle mit warmem Gemüsefond aufgezogen. Gemischte Wildpilze, kalte Butter, Parmesan. 22 Minuten Mindestzeit.',img:'https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=180&q=80&fit=crop',ingredients:[{emoji:'🌾',name:'Carnaroli-Reis',detail:'Der König der Risotto-Reissorten'},{emoji:'🍄',name:'Gemischte Wildpilze',detail:'Steinpilz, Pfifferlinge'},{emoji:'🍷',name:'Weißwein',detail:'Zum Ablöschen'},{emoji:'🧀',name:'Parmigiano Reggiano',detail:'Mantecatura'}],pairings:['v2','v3']},
+];
+const antipastiCards = [
+  {id:'a1',type:'antipasto',emoji:'🫒',name:'Bruschetta al Pomodoro',desc:'Sauerteig · Strauchtomaten · Basilikum · Knoblauch',price:'6 €',priceNum:6,img:'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?w=180&q=80&fit=crop',tags:['itag-veg:Vegan'],tagline:'Der ehrlichste Start.',story:'Geröstetes Brot, noch heiß mit Knoblauch eingerieben, belegt mit Strauchtomaten, Basilikum und bestem Olivenöl. Das Original.',ingredients:[{emoji:'🍞',name:'Sauerteigbrot',detail:'Täglich frisch'},{emoji:'🍅',name:'Strauchtomaten',detail:'Reif'},{emoji:'🌿',name:'Basilikum',detail:'Frisch'},{emoji:'🧄',name:'Knoblauch',detail:'Direkt eingerieben'}],pairings:['v2','pa1']},
+  {id:'a2',type:'antipasto',emoji:'🧀',name:'Burrata Caprese',desc:'Burrata · Heirloom-Tomaten · Basilikumöl · Fleur de Sel',price:'11 €',priceNum:11,img:'https://images.unsplash.com/photo-1548943487-a2e4e43b4853?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1548943487-a2e4e43b4853?w=180&q=80&fit=crop',tags:['itag-veg:Vegetarisch'],tagline:'Cremig, süß, unwiderstehlich.',story:'Frische Burrata aus Apulien auf bunten Heirloom-Tomaten, hausgemachtem Basilikumöl und Fleur de Sel. Simpel und grandios.',ingredients:[{emoji:'🐄',name:'Burrata Pugliese',detail:'Täglich frisch'},{emoji:'🍅',name:'Heirloom-Tomaten',detail:'Bunt, saisonal'},{emoji:'🌿',name:'Basilikumöl',detail:'Hausgemacht'}],pairings:['v2','p4']},
+];
+const antipastiRows = [
+  {id:'a3',type:'antipasto',emoji:'🫒',name:'Tagliere Misto',sub:'Prosciutto · Salami · Käse · Oliven · Feigensenf · Cracker',price:'18 €',priceNum:18,tags:['itag-new:Zum Teilen'],tagline:'Das Brett für zwei.',story:'Eine Auswahl der besten italienischen Wurst- und Käsespezialitäten: Prosciutto di Parma, Salami Milano, Pecorino, Grana Padano — mit Feigensenf und Crackern.',img:'https://images.unsplash.com/photo-1517093728432-a0440f8d45af?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1517093728432-a0440f8d45af?w=180&q=80&fit=crop',ingredients:[{emoji:'🥩',name:'Prosciutto di Parma',detail:'24 Monate'},{emoji:'🥩',name:'Salami Milano',detail:'Klassisch'},{emoji:'🧀',name:'Pecorino & Grana Padano',detail:'Gereift'},{emoji:'🍯',name:'Feigensenf',detail:'Hausgemacht'}],pairings:['v1','v2']},
+  {id:'a4',type:'antipasto',emoji:'🥗',name:'Insalata Caesar',sub:'Romana · Parmesan · Croutons · Caesar-Dressing',price:'10 €',priceNum:10,tags:['itag-veg:Vegetarisch'],tagline:'Der Klassiker, richtig gemacht.',story:'Knackiger Romana-Salat, selbst gebackene Croutons, Parmesan-Späne und ein cremiges Caesar-Dressing mit Sardellen und Zitrone.',img:'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=180&q=80&fit=crop',ingredients:[{emoji:'🥬',name:'Romana-Salat',detail:'Knackig'},{emoji:'🧀',name:'Parmesan',detail:'Späne'},{emoji:'🍞',name:'Croutons',detail:'Selbst gebacken'},{emoji:'🫙',name:'Caesar-Dressing',detail:'Mit Sardellen, Zitrone'}],pairings:['v2','pa1']},
+];
+const vinoRosso = [
+  {id:'v1',type:'vino',emoji:'🍷',name:'Chianti Classico',sub:'Toscana · Sangiovese · trocken · 0,2l / 0,75l',price:'6 / 24 €',priceNum:6,story:'Toskaner Klassiker aus dem Chianti Classico DOCG. Kirsche, Leder, Tannine — perfekt zur Pasta.',img:'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=180&q=80&fit=crop',ingredients:[{emoji:'🍇',name:'Sangiovese',detail:'Chianti Classico DOCG, Toscana'}]},
+  {id:'v3',type:'vino',emoji:'🍷',name:'Barolo',sub:'Piemont · Nebbiolo · trocken · 0,2l / 0,75l',price:'9 / 36 €',priceNum:9,story:'Der König der italienischen Rotweine. Kräftig, komplex, mit Röst- und Veilchenaromen. Nur zu besonderen Gerichten.',img:'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=180&q=80&fit=crop',ingredients:[{emoji:'🍇',name:'Nebbiolo',detail:'Barolo DOCG, Piemont'}]},
+];
+const vinoBianco = [
+  {id:'v2',type:'vino',emoji:'🥂',name:'Pinot Grigio',sub:'Alto Adige · frisch · mineralisch · 0,2l / 0,75l',price:'5,50 / 22 €',priceNum:5.5,story:'Leichter, frischer Pinot Grigio aus dem Südtirol — ideal als Aperitivo oder zu Vorspeisen.',img:'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=180&q=80&fit=crop',ingredients:[{emoji:'🍇',name:'Pinot Grigio',detail:'Alto Adige DOC'}]},
+  {id:'v4',type:'vino',emoji:'🥂',name:'Prosecco DOC',sub:'Veneto · perlend · fruchtig · 0,2l / Flasche',price:'5 / 20 €',priceNum:5,story:'Klassischer Prosecco Superiore aus dem Veneto. Feine Perlage, grüner Apfel, Akazienblüten.',img:'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=180&q=80&fit=crop',ingredients:[{emoji:'🍇',name:'Glera',detail:'Prosecco DOC Superiore'}]},
+];
+const birra = [
+  {id:'v5',type:'drink',emoji:'🍺',name:'Peroni Nastro Azzurro',sub:'Italienisches Lager · 0,33l · 5,1%',price:'3,50 €',priceNum:3.5,story:'Das klassische italienische Bier. Leicht, frisch, ideal zur Pizza.',img:'https://images.unsplash.com/photo-1566633806827-45857f0a2c97?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1566633806827-45857f0a2c97?w=180&q=80&fit=crop',ingredients:[{emoji:'🌾',name:'Gerstenmalz',detail:'Italienisch'}]},
+  {id:'v6',type:'drink',emoji:'💧',name:'Acqua Minerale',sub:'Still oder Frizzante · 0,5l · San Pellegrino',price:'2,50 €',priceNum:2.5,story:'San Pellegrino — das klassische italienische Mineralwasser.',img:'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=800&q=85&fit=crop',thumb:'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=180&q=80&fit=crop',ingredients:[{emoji:'💧',name:'Natürliches Mineralwasser',detail:'San Pellegrino, Lombardia'}]},
+];
+
+const allItems = [...pizzas,...pastas,...antipastiCards,...antipastiRows,...vinoRosso,...vinoBianco,...birra];
+
+let wishlist=[];
+function addToWishlist(item){const ex=wishlist.find(i=>i.id===item.id);if(ex){ex.qty++;updateWishlistUI();return false;}wishlist.push({...item,qty:1});updateWishlistUI();return true;}
+function removeFromWishlist(id){wishlist=wishlist.filter(i=>i.id!==id);updateWishlistUI();renderWishlist();}
+function changeQty(id,delta){const item=wishlist.find(i=>i.id===id);if(!item)return;item.qty+=delta;if(item.qty<=0){removeFromWishlist(id);return;}updateWishlistUI();renderWishlist();}
+function updateWishlistUI(){const count=wishlist.reduce((s,i)=>s+i.qty,0);const nb=document.getElementById('nav-badge'),tb=document.getElementById('tab-badge');if(count>0){nb.textContent=count;nb.classList.add('show');tb.textContent=count;tb.classList.add('show');}else{nb.classList.remove('show');tb.classList.remove('show');}}
+function renderWishlist(){const el=document.getElementById('wishlist-content');if(!wishlist.length){el.innerHTML=`<div class="wishlist-empty"><div class="wishlist-empty-icon">🍕</div><div class="wishlist-empty-title">Ancora niente</div><div class="wishlist-empty-sub">Tippe auf ein Gericht und drücke<br>„Merken" um es zu speichern.</div></div>`;return;}const total=wishlist.reduce((s,i)=>s+(i.priceNum*i.qty),0);el.innerHTML=wishlist.map(item=>`<div class="wishlist-item"><div class="wishlist-img">${item.img?`<img src="${item.thumb||item.img}" alt="${item.name}" loading="lazy">`:`<span>${item.emoji}</span>`}</div><div class="wishlist-info"><div class="wishlist-name">${item.name}</div><div class="wishlist-cat">${item.type==='pizza'?'Pizza':item.type==='pasta'?'Pasta':item.type==='antipasto'?'Antipasto':item.type==='vino'?'Vino':'Drink'}</div></div><div class="qty-stepper"><button class="qty-btn" onclick="changeQty('${item.id}',-1)">−</button><span class="qty-num">${item.qty}</span><button class="qty-btn" onclick="changeQty('${item.id}',1)">+</button></div><div class="wishlist-price">${item.qty>1?(item.priceNum*item.qty).toFixed(2).replace('.',',')+' €':item.price}</div></div>`).join('')+`<div class="wishlist-total">${wishlist.map(i=>`<div class="wishlist-total-row"><span>${i.name}${i.qty>1?' ×'+i.qty:''}</span><span>${(i.priceNum*i.qty).toFixed(2).replace('.',',')} €</span></div>`).join('')}<div class="wishlist-total-sum"><span class="wishlist-total-label">Totale</span><span class="wishlist-total-price">${total.toFixed(2).replace('.',',')} €</span></div></div><button class="wishlist-cta" onclick="openPresent()"><span>🙋</span> Dem Kellner zeigen</button>`;}
+
+function renderPizzaCards(id,list){document.getElementById(id).innerHTML=list.map(item=>`<div class="pizza-card" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))"><img class="pizza-card-img" src="${item.img}" alt="${item.name}" loading="lazy"><div class="pizza-card-body">${item.ribbon?`<div class="pizza-card-ribbon-inline ${item.ribbonClass||''}">${item.ribbon}</div>`:''}<div class="pizza-card-header"><div class="pizza-card-name">${item.name}</div><div class="pizza-card-price">${item.price}</div></div><div class="pizza-card-desc">${item.desc}</div><div class="pizza-card-tags">${(item.tags||[]).map(t=>{const[cls,lbl]=t.split(':');return`<span class="itag ${cls}">${lbl}</span>`}).join('')}</div></div></div>`).join('');}
+function renderPastaRows(id,list){document.getElementById(id).innerHTML=list.map(item=>`<div class="pasta-row" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))"><img class="pasta-thumb" src="${item.thumb||item.img}" alt="${item.name}" loading="lazy"><div class="pasta-info"><div class="pasta-name">${item.name}</div><div class="pasta-desc">${item.sub}</div></div><div class="pasta-price">${item.price}</div><div class="pasta-arrow">›</div></div>`).join('');}
+function renderAntiCards(id,list){document.getElementById(id).innerHTML=list.map(item=>`<div class="anti-card" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))"><img class="anti-img" src="${item.img}" alt="${item.name}" loading="lazy"><div class="anti-body"><div class="anti-name">${item.name}</div><div class="anti-desc">${item.desc}</div><div class="anti-price">${item.price}</div></div></div>`).join('');}
+function renderVinoRows(id,list){document.getElementById(id).innerHTML=list.map(item=>`<div class="vino-row" onclick="openSheet(allItems.find(x=>x.id==='${item.id}'))"><div class="vino-emoji">${item.emoji}</div><div class="vino-info"><div class="vino-name">${item.name}</div><div class="vino-sub">${item.sub}</div></div><div class="vino-price">${item.price}</div><div class="vino-arrow">›</div></div>`).join('');}
+
+let currentItem=null,selectedPairings=new Set();
+function openSheet(item){currentItem=item;selectedPairings=new Set();const inW=!!wishlist.find(i=>i.id===item.id);const imgArea=document.getElementById('sheet-img-area');if(item.img){imgArea.innerHTML=`<div class="sheet-img-wrap"><img src="${item.img}" alt="${item.name}"><div class="sheet-img-gradient"></div><div class="sheet-price-float">${item.price}</div></div>`;}else{imgArea.innerHTML=`<div style="height:80px;display:flex;align-items:center;justify-content:center;font-size:48px;padding-top:20px">${item.emoji}</div>`;}const pi=(item.pairings||[]).map(id=>allItems.find(x=>x.id===id)).filter(Boolean);const ingrHtml=item.ingredients?`<div class="s-label">Zutaten</div><div class="ingr-list">${item.ingredients.map(i=>`<div class="ingr-item"><div class="ingr-emoji">${i.emoji}</div><div class="ingr-info"><div class="ingr-name">${i.name}</div><div class="ingr-detail">${i.detail}</div></div></div>`).join('')}</div>`:'';const pairHtml=pi.length?`<div class="pairing-title">Passt dazu</div><div class="pairing-list">${pi.map(p=>`<div class="pairing-card" id="pc-${p.id}" onclick="togglePairing('${p.id}')"><div class="pairing-emoji">${p.emoji||'🍷'}</div><div class="pairing-name">${p.name.length>14?p.name.slice(0,13)+'…':p.name}</div><div class="pairing-price">${p.price}</div><div class="pairing-add" id="pa-${p.id}">+</div></div>`).join('')}</div>`:'';document.getElementById('sheet-body').innerHTML=`<div class="sheet-name">${item.name}</div><div class="sheet-tagline">${item.tagline||item.sub||''}</div>${item.tags&&item.tags.length?`<div class="sheet-tags">${item.tags.map(t=>{const[cls,lbl]=t.split(':');return`<span class="itag ${cls}">${lbl}</span>`}).join('')}</div>`:''} ${item.story?`<div class="story-block"><div class="story-text">${item.story}</div></div>`:''}${ingrHtml}${pairHtml}<button class="sheet-cta ${inW?'added':''}" id="sheet-cta" onclick="handleCTA()">${inW?'<span>✓</span> <span>Gemerkt!</span>':'<span>🔖</span> <span>Merken</span>'}</button>`;document.getElementById('overlay').classList.add('open');document.getElementById('sheet').classList.add('open');document.body.style.overflow='hidden';}
+function togglePairing(id){const p=allItems.find(x=>x.id===id);if(!p)return;const card=document.getElementById(`pc-${id}`),btn=document.getElementById(`pa-${id}`);if(selectedPairings.has(id)){selectedPairings.delete(id);card.classList.remove('selected');btn.textContent='+';showToast('Entfernt');}else{selectedPairings.add(id);card.classList.add('selected');btn.textContent='✓';addToWishlist(p);showToast(`${p.emoji} ${p.name} gemerkt`);}}
+function handleCTA(){if(!currentItem)return;if(wishlist.find(i=>i.id===currentItem.id)){closeSheet();return;}addToWishlist(currentItem);const btn=document.getElementById('sheet-cta');btn.classList.add('added');btn.innerHTML='<span>✓</span> <span>Gemerkt!</span>';showToast(`${currentItem.emoji} ${currentItem.name} — perfetto!`);setTimeout(closeSheet,650);}
+function closeSheet(){document.getElementById('overlay').classList.remove('open');document.getElementById('sheet').classList.remove('open');document.body.style.overflow='';}
+function openPresent(){const ie=document.getElementById('present-items'),te=document.getElementById('present-total-price');ie.innerHTML=wishlist.map(item=>`<div class="present-item"><div class="present-item-left"><div class="present-item-emoji">${item.emoji||'🍕'}</div><div><div class="present-item-name">${item.name}</div><div class="present-item-cat">${item.type==='pizza'?'Pizza':item.type==='pasta'?'Pasta':item.type==='antipasto'?'Antipasto':item.type==='vino'?'Vino':'Drink'}</div></div></div><div class="present-item-right">${item.qty>1?`<span class="present-item-qty">×${item.qty}</span>`:''}<div class="present-item-price">${(item.priceNum*item.qty).toFixed(2).replace('.',',')} €</div></div></div>`).join('');const total=wishlist.reduce((s,i)=>s+(i.priceNum*i.qty),0);te.textContent=total.toFixed(2).replace('.',',')+' €';document.getElementById('present-overlay').classList.add('open');}
+function closePresent(){document.getElementById('present-overlay').classList.remove('open');}
+function switchTab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));const te=document.getElementById('tab-'+id);if(te){te.classList.add('active');te.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}const se=document.getElementById(id);if(se)se.classList.add('active');if(id==='merkliste')renderWishlist();}
+function setNav(btn,tabId){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');switchTab(tabId);}
+function dismissWelcome(){document.getElementById('welcome-overlay').classList.add('hidden');}
+let toastTimer;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2200);}
+let startY=0;
+document.getElementById('sheet').addEventListener('touchstart',e=>{startY=e.touches[0].clientY},{passive:true});
+document.getElementById('sheet').addEventListener('touchend',e=>{if(e.changedTouches[0].clientY-startY>80)closeSheet()},{passive:true});
+
+renderPizzaCards('pizza-list',pizzas);
+renderPastaRows('pasta-list',pastas);
+renderAntiCards('antipasti-grid',antipastiCards);
+renderPastaRows('antipasti-list',antipastiRows);
+renderVinoRows('vino-rosso',vinoRosso);
+renderVinoRows('vino-bianco',vinoBianco);
+renderVinoRows('birra-list',birra);
+document.getElementById('pizza-special').onclick=()=>openSheet(allItems.find(x=>x.id==='p1'));
+</script>
+</body>
+</html>
