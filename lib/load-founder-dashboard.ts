@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FounderDashboardData } from "@/lib/founder-types";
-import { startOfBerlinTodayUtcIso, startOfBerlinYearUtcIso } from "@/lib/berlin-time";
+import { startOfBerlinYearUtcIso } from "@/lib/berlin-time";
 
 const SCAN_SELECT =
   "event_type,stunde,wochentag,monat,tisch_nummer,item_name,kategorie,main_tab,duration_seconds,tier,created_at,restaurant_id";
@@ -8,7 +8,11 @@ const SCAN_SELECT =
 export async function loadFounderDashboardData(
   supabase: SupabaseClient,
 ): Promise<{ data: FounderDashboardData; errors: string[] }> {
-  const todayStart = startOfBerlinTodayUtcIso();
+  const now = new Date();
+  const berlinMidnight = new Date(
+    `${now.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" })}T00:00:00+01:00`,
+  );
+  const todayStart = berlinMidnight.toISOString();
   const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const monthStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const yearStart = startOfBerlinYearUtcIso();

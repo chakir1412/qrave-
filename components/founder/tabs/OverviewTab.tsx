@@ -40,23 +40,6 @@ function selectScanEvents(data: FounderDashboardData, range: OverviewScanRange):
   }
 }
 
-function consentSubtitle(range: OverviewScanRange): string {
-  switch (range) {
-    case "today":
-      return "Tracking-Stufe ≥ 1 · heute (Europe/Berlin)";
-    case "week":
-      return "Tracking-Stufe ≥ 1 · letzte 7 Tage";
-    case "month":
-      return "Tracking-Stufe ≥ 1 · letzte 30 Tage";
-    case "year":
-      return "Tracking-Stufe ≥ 1 · laufendes Jahr (Berlin)";
-    default: {
-      const _e: never = range;
-      return _e;
-    }
-  }
-}
-
 function heroScanLabel(range: OverviewScanRange): string {
   switch (range) {
     case "today":
@@ -234,9 +217,9 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
   const weekScans = data.scanEventsWeek.length;
   const weekPct = Math.min(100, Math.round((weekScans / WEEK_SCAN_TARGET) * 100));
 
-  const totalEv = selectedEvents.length;
-  const withConsent = selectedEvents.filter((e) => e.tier >= 1).length;
-  const consentPct = totalEv === 0 ? 0 : Math.round((withConsent / totalEv) * 100);
+  const consentTotal = data.scanEvents.length;
+  const consentWith = data.scanEvents.filter((e) => (e.tier ?? 0) >= 1).length;
+  const consentPct = consentTotal > 0 ? Math.round((consentWith / consentTotal) * 100) : 0;
   const consentRemain = 100 - consentPct;
 
   const { chartCounts, chartLabels } = useMemo(() => {
@@ -345,7 +328,9 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
           >
             {consentPct}%
           </p>
-          <p style={{ margin: "6px 0 0", fontSize: isMobile ? 10 : 11, color: fp.mu }}>{consentSubtitle(scanRange)}</p>
+          <p style={{ margin: "6px 0 0", fontSize: isMobile ? 10 : 11, color: fp.mu }}>
+            Alle Event-Typen · letzte 7 Tage · tier ≥ 1 vs 0
+          </p>
         </div>
       </div>
 
@@ -534,8 +519,8 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
             Einwilligung (Scan-Events)
           </h3>
           <p style={{ margin: "8px 0 0", fontSize: isMobile ? 12 : 13, color: fp.mu, lineHeight: 1.5 }}>
-            Anteil der Events mit Tracking-Stufe ≥ 1 für den gewählten Zeitraum. Gesamt:{" "}
-            <strong style={{ color: fp.tx }}>{totalEv}</strong> Events.
+            Anteil aller Scan-Events (letzte 7 Tage) mit Tracking-Stufe ≥ 1. Gesamt:{" "}
+            <strong style={{ color: fp.tx }}>{consentTotal}</strong> Events.
           </p>
           <div
             className={isTablet || isMobile ? "grid gap-3" : "mt-4 flex flex-wrap gap-6"}
@@ -548,12 +533,12 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
             <div className="flex items-center gap-2">
               <span style={{ width: 10, height: 10, borderRadius: 9999, background: fp.green }} />
               <span style={{ color: fp.mi }}>Mit Einwilligung</span>
-              <span style={{ fontWeight: 700, color: fp.tx }}>{withConsent}</span>
+              <span style={{ fontWeight: 700, color: fp.tx }}>{consentWith}</span>
             </div>
             <div className="flex items-center gap-2">
               <span style={{ width: 10, height: 10, borderRadius: 9999, background: fp.line2 }} />
               <span style={{ color: fp.mi }}>Anonym (tier 0)</span>
-              <span style={{ fontWeight: 700, color: fp.tx }}>{totalEv - withConsent}</span>
+              <span style={{ fontWeight: 700, color: fp.tx }}>{consentTotal - consentWith}</span>
             </div>
           </div>
         </div>
