@@ -217,10 +217,30 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
   const weekScans = data.scanEventsWeek.length;
   const weekPct = Math.min(100, Math.round((weekScans / WEEK_SCAN_TARGET) * 100));
 
-  const consentTotal = data.scanEvents.length;
-  const consentWith = data.scanEvents.filter((e) => (e.tier ?? 0) >= 1).length;
-  const consentPct = consentTotal > 0 ? Math.round((consentWith / consentTotal) * 100) : 0;
-  const consentRemain = 100 - consentPct;
+  const { totalSessions, withConsent, withoutConsent, consentPct, consentRemain } = useMemo(() => {
+    const allSessions = new Map<string, number>();
+    data.scanEvents.forEach((e) => {
+      const sidRaw = e.session_id?.trim() ? e.session_id : e.id;
+      const sid =
+        sidRaw != null && String(sidRaw).length > 0
+          ? String(sidRaw)
+          : `row:${e.created_at}:${e.event_type}:${e.restaurant_id ?? ""}`;
+      const tier = e.tier ?? 0;
+      const current = allSessions.get(sid) ?? 0;
+      if (tier > current) allSessions.set(sid, tier);
+    });
+    const total = allSessions.size;
+    const withC = [...allSessions.values()].filter((t) => t >= 1).length;
+    const withoutC = total - withC;
+    const pct = total > 0 ? Math.round((withC / total) * 100) : 0;
+    return {
+      totalSessions: total,
+      withConsent: withC,
+      withoutConsent: withoutC,
+      consentPct: pct,
+      consentRemain: 100 - pct,
+    };
+  }, [data.scanEvents]);
 
   const { chartCounts, chartLabels } = useMemo(() => {
     const now = new Date();
@@ -329,7 +349,7 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
             {consentPct}%
           </p>
           <p style={{ margin: "6px 0 0", fontSize: isMobile ? 10 : 11, color: fp.mu }}>
-            Alle Event-Typen · letzte 7 Tage · tier ≥ 1 vs 0
+            Eindeutige Besucher (Sessions) · letzte 7 Tage · höchstes Tier pro Session
           </p>
         </div>
       </div>
@@ -516,11 +536,17 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
         </div>
         <div className="min-w-0 flex-1">
           <h3 style={{ margin: 0, fontSize: isMobile ? 14 : 16, fontWeight: 800, color: fp.tx }}>
-            Einwilligung (Scan-Events)
+            Einwilligung (Besucher)
           </h3>
+          <p style={{ margin: "8px 0 0", fontSize: isMobile ? 12 : 13, color: fp.tx, fontWeight: 700, lineHeight: 1.5 }}>
+            {consentPct}% der Besucher haben zugestimmt.
+          </p>
           <p style={{ margin: "8px 0 0", fontSize: isMobile ? 12 : 13, color: fp.mu, lineHeight: 1.5 }}>
-            Anteil aller Scan-Events (letzte 7 Tage) mit Tracking-Stufe ≥ 1. Gesamt:{" "}
-            <strong style={{ color: fp.tx }}>{consentTotal}</strong> Events.
+            Anteil der Besucher (eindeutige Sessions, letzte 7 Tage) mit Tracking-Stufe ≥ 1. Gesamt:{" "}
+            <strong style={{ color: fp.tx }}>{totalSessions}</strong> Besucher (letzte 7 Tage).
+          </p>
+          <p style={{ margin: "8px 0 0", fontSize: isMobile ? 12 : 13, color: fp.mu, fontWeight: 600 }}>
+            {withConsent} Besucher Ja · {withoutConsent} Besucher Nein
           </p>
           <div
             className={isTablet || isMobile ? "grid gap-3" : "mt-4 flex flex-wrap gap-6"}
@@ -533,12 +559,12 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
             <div className="flex items-center gap-2">
               <span style={{ width: 10, height: 10, borderRadius: 9999, background: fp.green }} />
               <span style={{ color: fp.mi }}>Mit Einwilligung</span>
-              <span style={{ fontWeight: 700, color: fp.tx }}>{consentWith}</span>
+              <span style={{ fontWeight: 700, color: fp.tx }}>{withConsent}</span>
             </div>
             <div className="flex items-center gap-2">
               <span style={{ width: 10, height: 10, borderRadius: 9999, background: fp.line2 }} />
-              <span style={{ color: fp.mi }}>Anonym (tier 0)</span>
-              <span style={{ fontWeight: 700, color: fp.tx }}>{consentTotal - consentWith}</span>
+              <span style={{ color: fp.mi }}>Ohne Einwilligung</span>
+              <span style={{ fontWeight: 700, color: fp.tx }}>{withoutConsent}</span>
             </div>
           </div>
         </div>

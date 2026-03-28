@@ -3,12 +3,8 @@ import type { FounderDashboardData } from "@/lib/founder-types";
 import { startOfBerlinYearUtcIso } from "@/lib/berlin-time";
 import { dedupeSessionsKeepFirstEvent } from "@/lib/dedupe-scan-sessions";
 
-/** Wie SCAN_SELECT, plus id/session_id für eindeutige Sessions pro Zeitfenster. */
-const SESSION_WINDOW_SELECT =
-  "id,session_id,event_type,stunde,wochentag,monat,tisch_nummer,item_name,kategorie,main_tab,duration_seconds,tier,created_at,restaurant_id";
-
 const SCAN_SELECT =
-  "event_type,stunde,wochentag,monat,tisch_nummer,item_name,kategorie,main_tab,duration_seconds,tier,created_at,restaurant_id";
+  "id,session_id,event_type,stunde,wochentag,monat,tisch_nummer,item_name,kategorie,main_tab,duration_seconds,tier,created_at,restaurant_id";
 
 /** Höheres Limit, damit Deduplizierung nach session_id im Fenster nicht verzerrt. */
 const SESSION_WINDOW_ROW_LIMIT = 4000;
@@ -31,13 +27,13 @@ export async function loadFounderDashboardData(
   const sessionWindowBase = () =>
     supabase
       .from("scan_events")
-      .select(SESSION_WINDOW_SELECT)
+      .select(SCAN_SELECT)
       .order("created_at", { ascending: false })
       .limit(SESSION_WINDOW_ROW_LIMIT);
 
   const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl] = await Promise.all([
     supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
-    scanBaseAllTypes(500).gte("created_at", weekStart),
+    scanBaseAllTypes(SESSION_WINDOW_ROW_LIMIT).gte("created_at", weekStart),
     sessionWindowBase().gte("created_at", todayStart),
     sessionWindowBase().gte("created_at", weekStart),
     sessionWindowBase().gte("created_at", monthStart),
