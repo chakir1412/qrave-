@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { FounderDashboardData, FounderScanEventRow } from "@/lib/founder-types";
+import { berlinYmd, lastNCalendarDaysBerlin, startOfBerlinYmdUtcIso } from "@/lib/berlin-time";
 import { fp } from "../founder-palette";
 
 const WEEK_SCAN_TARGET = 500;
@@ -12,30 +14,131 @@ const eurFmt = new Intl.NumberFormat("de-DE", {
   maximumFractionDigits: 0,
 });
 
-function startOfLocalDay(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+type OverviewScanRange = "today" | "week" | "month" | "year";
+
+const RANGE_TABS: { id: OverviewScanRange; label: string }[] = [
+  { id: "today", label: "Heute" },
+  { id: "week", label: "Woche" },
+  { id: "month", label: "Monat" },
+  { id: "year", label: "Jahr" },
+];
+
+function selectScanEvents(data: FounderDashboardData, range: OverviewScanRange): FounderScanEventRow[] {
+  switch (range) {
+    case "today":
+      return data.scanEventsToday;
+    case "week":
+      return data.scanEventsWeek;
+    case "month":
+      return data.scanEventsMonth;
+    case "year":
+      return data.scanEventsYear;
+    default: {
+      const _exhaustive: never = range;
+      return _exhaustive;
+    }
+  }
 }
 
-function countsLast7Days(events: FounderScanEventRow[]): number[] {
-  const out = [0, 0, 0, 0, 0, 0, 0];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(today);
-    day.setDate(day.getDate() - (6 - i));
-    const next = new Date(day);
-    next.setDate(next.getDate() + 1);
-    const a = day.getTime();
-    const b = next.getTime();
-    for (const e of events) {
-      const t = new Date(e.created_at).getTime();
-      if (t >= a && t < b) out[i]++;
+function consentSubtitle(range: OverviewScanRange): string {
+  switch (range) {
+    case "today":
+      return "Tracking-Stufe ≥ 1 · heute (Europe/Berlin)";
+    case "week":
+      return "Tracking-Stufe ≥ 1 · letzte 7 Tage";
+    case "month":
+      return "Tracking-Stufe ≥ 1 · letzte 30 Tage";
+    case "year":
+      return "Tracking-Stufe ≥ 1 · laufendes Jahr (Berlin)";
+    default: {
+      const _e: never = range;
+      return _e;
     }
+  }
+}
+
+function heroScanLabel(range: OverviewScanRange): string {
+  switch (range) {
+    case "today":
+      return "Scans (heute)";
+    case "week":
+      return "Scans (7 Tage)";
+    case "month":
+      return "Scans (30 Tage)";
+    case "year":
+      return "Scans (Jahr)";
+    default: {
+      const _e: never = range;
+      return _e;
+    }
+  }
+}
+
+function heroBodyText(range: OverviewScanRange): string {
+  switch (range) {
+    case "today":
+      return "Stundenverteilung für heute (Mitternacht bis jetzt, Europe/Berlin).";
+    case "week":
+      return "Scans der letzten 7 Tage und Fortschritt Live-Standorte — Daten aus Supabase.";
+    case "month":
+      return "Tägliche Verteilung der letzten 30 Kalendertage (Europe/Berlin).";
+    case "year":
+      return "Monatsverteilung im laufenden Kalenderjahr (Europe/Berlin).";
+    default: {
+      const _e: never = range;
+      return _e;
+    }
+  }
+}
+
+function hourlyCountsBerlin(events: FounderScanEventRow[]): number[] {
+  const c = Array.from({ length: 24 }, () => 0);
+  for (const e of events) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Berlin",
+      hour: "numeric",
+      hour12: false,
+    }).formatToParts(new Date(e.created_at));
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+    if (h >= 0 && h < 24) c[h]++;
+  }
+  return c;
+}
+
+function countsForYmdOrder(events: FounderScanEventRow[], ymds: string[]): number[] {
+  const idx = new Map(ymds.map((y, i) => [y, i]));
+  const out = ymds.map(() => 0);
+  for (const e of events) {
+    const y = berlinYmd(new Date(e.created_at));
+    const i = idx.get(y);
+    if (i !== undefined) out[i]++;
   }
   return out;
 }
+
+function berlinYearMonth(iso: string): { year: number; month: number } {
+  const d = new Date(iso);
+  const year = Number(d.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin", year: "numeric" }));
+  const month = Number(d.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin", month: "numeric" }));
+  return { year, month };
+}
+
+function monthlyCountsBerlinYear(events: FounderScanEventRow[], ref: Date): number[] {
+  const y = Number(ref.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin", year: "numeric" }));
+  const out = Array.from({ length: 12 }, () => 0);
+  for (const e of events) {
+    const { year, month } = berlinYearMonth(e.created_at);
+    if (year === y && month >= 1 && month <= 12) out[month - 1]++;
+  }
+  return out;
+}
+
+function labelForBerlinYmd(ymd: string): string {
+  const inst = new Date(startOfBerlinYmdUtcIso(ymd));
+  return inst.toLocaleDateString("de-DE", { weekday: "short", day: "numeric" });
+}
+
+const MONTH_SHORT_DE = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 
 function buildAreaPath(
   counts: number[],
@@ -109,41 +212,62 @@ function ProgressBar({ pct, accent }: { pct: number; accent: string }) {
 }
 
 export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
+  const [scanRange, setScanRange] = useState<OverviewScanRange>("week");
+
   const pad = isMobile ? 14 : 18;
   const kpiCols = isDesktop ? "repeat(4, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))";
   const kpiTitleFs = isMobile ? 10 : 11;
   const kpiNumFs = isMobile ? 22 : 28;
   const mrrFs = isMobile ? 20 : 24;
 
+  const selectedEvents = useMemo(() => selectScanEvents(data, scanRange), [data, scanRange]);
+
   const total = data.restaurants.length;
   const aktiv = data.restaurants.filter((r) => r.aktiv).length;
   const pctLive = total === 0 ? 0 : Math.round((aktiv / total) * 100);
 
-  const day0 = startOfLocalDay().getTime();
-  const scansToday = data.scanEvents.filter((e) => new Date(e.created_at).getTime() >= day0).length;
+  const scansTodayBerlin = data.scanEventsToday.length;
 
   const liveRestaurants = data.restaurants.filter((r) => r.aktiv);
   const mrrSum = liveRestaurants.reduce((s, r) => s + (Number(r.umsatz_monat) || 0), 0);
 
-  const weekScans = data.scanEvents.length;
+  const weekScans = data.scanEventsWeek.length;
   const weekPct = Math.min(100, Math.round((weekScans / WEEK_SCAN_TARGET) * 100));
 
-  const dayCounts = countsLast7Days(data.scanEvents);
-  const w = 560;
-  const h = isMobile ? 120 : 140;
-  const { lineD, areaD } = buildAreaPath(dayCounts, w, h, 8, 10);
-
-  const totalEv = data.scanEvents.length;
-  const withConsent = data.scanEvents.filter((e) => e.tier >= 1).length;
+  const totalEv = selectedEvents.length;
+  const withConsent = selectedEvents.filter((e) => e.tier >= 1).length;
   const consentPct = totalEv === 0 ? 0 : Math.round((withConsent / totalEv) * 100);
   const consentRemain = 100 - consentPct;
 
-  const dayLabels = dayCounts.map((_, i) => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - (6 - i));
-    return d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric" });
-  });
+  const { chartCounts, chartLabels } = useMemo(() => {
+    const now = new Date();
+    if (scanRange === "today") {
+      const counts = hourlyCountsBerlin(selectedEvents);
+      const labels = counts.map((_, i) => `${i}h`);
+      return { chartCounts: counts, chartLabels: labels };
+    }
+    if (scanRange === "week") {
+      const ymds = lastNCalendarDaysBerlin(7, now);
+      const counts = countsForYmdOrder(selectedEvents, ymds);
+      const labels = ymds.map((y) => labelForBerlinYmd(y));
+      return { chartCounts: counts, chartLabels: labels };
+    }
+    if (scanRange === "month") {
+      const ymds = lastNCalendarDaysBerlin(30, now);
+      const counts = countsForYmdOrder(selectedEvents, ymds);
+      const labels = ymds.map((y, i) => {
+        if (isMobile && i % 5 !== 0 && i !== ymds.length - 1) return "";
+        return labelForBerlinYmd(y);
+      });
+      return { chartCounts: counts, chartLabels: labels };
+    }
+    const counts = monthlyCountsBerlinYear(selectedEvents, now);
+    return { chartCounts: counts, chartLabels: [...MONTH_SHORT_DE] };
+  }, [scanRange, selectedEvents, isMobile]);
+
+  const w = 560;
+  const h = isMobile ? 120 : 140;
+  const { lineD, areaD } = buildAreaPath(chartCounts, w, h, 8, 10);
 
   const r = isMobile ? 38 : 44;
   const c = 2 * Math.PI * r;
@@ -152,6 +276,9 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
 
   const heroTitleFs = isMobile ? 17 : isTablet ? 18 : 20;
   const heroBodyFs = isMobile ? 12 : 13;
+
+  const tabBtnFs = isMobile ? 11 : 12;
+
   return (
     <div className="flex flex-col gap-5 pb-6" style={{ gap: isMobile ? 14 : 20 }}>
       <div className="grid gap-4" style={{ gridTemplateColumns: kpiCols, gap: isMobile ? 10 : 16 }}>
@@ -185,8 +312,9 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {scansToday}
+            {scansTodayBerlin}
           </p>
+          <p style={{ margin: "6px 0 0", fontSize: isMobile ? 10 : 11, color: fp.mu }}>0:00 Europe/Berlin</p>
         </div>
         <div style={cardStyle(pad)}>
           <p style={{ fontSize: kpiTitleFs, fontWeight: 700, letterSpacing: "0.06em", color: fp.mu, margin: 0 }}>MRR</p>
@@ -217,11 +345,44 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
           >
             {consentPct}%
           </p>
-          <p style={{ margin: "6px 0 0", fontSize: isMobile ? 10 : 11, color: fp.mu }}>Tracking tier ≥ 1 · 7 Tage</p>
+          <p style={{ margin: "6px 0 0", fontSize: isMobile ? 10 : 11, color: fp.mu }}>{consentSubtitle(scanRange)}</p>
         </div>
       </div>
 
       <div style={{ ...cardStyle(isMobile ? 14 : 24), padding: isMobile ? 14 : 24 }}>
+        <div
+          className="flex flex-wrap gap-2"
+          style={{ marginBottom: isMobile ? 12 : 16 }}
+          role="tablist"
+          aria-label="Zeitraum Scans"
+        >
+          {RANGE_TABS.map((t) => {
+            const active = scanRange === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setScanRange(t.id)}
+                style={{
+                  padding: `${isMobile ? 6 : 8}px ${isMobile ? 12 : 14}px`,
+                  borderRadius: 9999,
+                  fontSize: tabBtnFs,
+                  fontWeight: 700,
+                  border: `1px solid ${active ? fp.or : fp.line}`,
+                  background: active ? "rgba(255,149,0,0.12)" : "rgba(255,255,255,0.04)",
+                  color: active ? fp.tx : fp.mu,
+                  cursor: "pointer",
+                  transition: "background 0.15s, border-color 0.15s, color 0.15s",
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div
           style={{
             display: "flex",
@@ -235,11 +396,11 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
           <div style={{ minWidth: 0 }}>
             <h2 style={{ margin: 0, fontSize: heroTitleFs, fontWeight: 800, color: fp.tx }}>Willkommen zurück</h2>
             <p style={{ margin: "8px 0 0", fontSize: heroBodyFs, color: fp.mu, maxWidth: 420 }}>
-              Scans der letzten 7 Tage und Fortschritt Live-Standorte — Daten aus Supabase.
+              {heroBodyText(scanRange)}
             </p>
           </div>
           <div style={{ textAlign: isTablet ? "left" : "right" }}>
-            <p style={{ margin: 0, fontSize: 11, color: fp.mu }}>Scans (7 Tage)</p>
+            <p style={{ margin: 0, fontSize: 11, color: fp.mu }}>{heroScanLabel(scanRange)}</p>
             <p
               style={{
                 margin: "4px 0 0",
@@ -249,7 +410,7 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {weekScans}
+              {selectedEvents.length}
             </p>
           </div>
         </div>
@@ -274,9 +435,29 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
               <path d={lineD} fill="none" stroke={fp.or} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
             ) : null}
           </svg>
-          <div className="flex justify-between" style={{ marginTop: 6, paddingLeft: 2, paddingRight: 2 }}>
-            {dayLabels.map((lbl) => (
-              <span key={lbl} style={{ fontSize: isMobile ? 9 : 10, color: fp.mu, fontWeight: 600 }}>
+          <div
+            className="flex justify-between"
+            style={{
+              marginTop: 6,
+              paddingLeft: 2,
+              paddingRight: 2,
+              gap: scanRange === "month" ? 0 : undefined,
+            }}
+          >
+            {chartLabels.map((lbl, i) => (
+              <span
+                key={`${lbl}-${i}`}
+                style={{
+                  fontSize: isMobile ? 8 : scanRange === "month" ? 7 : 10,
+                  color: fp.mu,
+                  fontWeight: 600,
+                  flex: scanRange === "month" ? "1 1 0" : undefined,
+                  textAlign: "center",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {lbl}
               </span>
             ))}
@@ -353,7 +534,7 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
             Einwilligung (Scan-Events)
           </h3>
           <p style={{ margin: "8px 0 0", fontSize: isMobile ? 12 : 13, color: fp.mu, lineHeight: 1.5 }}>
-            Anteil der Events mit Tracking-Stufe ≥ 1 (Consent) in den letzten 7 Tagen. Gesamt:{" "}
+            Anteil der Events mit Tracking-Stufe ≥ 1 für den gewählten Zeitraum. Gesamt:{" "}
             <strong style={{ color: fp.tx }}>{totalEv}</strong> Events.
           </p>
           <div

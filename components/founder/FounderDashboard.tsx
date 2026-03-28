@@ -110,46 +110,16 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
   async function loadData() {
     setRefreshing(true);
     setLoadError(null);
-
     try {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-      const [r1, r2, r3, r4, r5, r6] = await Promise.all([
-        supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
-        supabase
-          .from("scan_events")
-          .select(
-            "event_type,stunde,wochentag,monat,tisch_nummer,item_name,kategorie,main_tab,duration_seconds,tier,created_at,restaurant_id",
-          )
-          .gt("created_at", sevenDaysAgo)
-          .order("created_at", { ascending: false })
-          .limit(500),
-        supabase.from("founder_pipeline").select("*").order("added_at", { ascending: false }),
-        supabase.from("founder_todos").select("*").order("created_at", { ascending: false }),
-        supabase.from("founder_restaurants").select("*"),
-        supabase.from("restaurant_tables").select("*").order("tisch_nummer"),
-      ]);
-
-      const newData: Partial<FounderDashboardData> = {};
-      if (!r1.error && r1.data) newData.restaurants = r1.data as FounderDashboardData["restaurants"];
-      if (!r2.error && r2.data) newData.scanEvents = r2.data as FounderDashboardData["scanEvents"];
-      if (!r3.error && r3.data) newData.pipeline = r3.data as FounderDashboardData["pipeline"];
-      if (!r4.error && r4.data) newData.todos = r4.data as FounderDashboardData["todos"];
-      if (!r5.error && r5.data) newData.restaurantExtras = r5.data as FounderDashboardData["restaurantExtras"];
-      if (!r6.error && r6.data) newData.restaurantTables = r6.data as FounderDashboardData["restaurantTables"];
-
-      if (Object.keys(newData).length > 0) {
-        setData((prev) => ({ ...prev, ...newData }));
+      const res = await fetch("/api/founder/refresh", { credentials: "same-origin" });
+      if (!res.ok) {
+        setLoadError("Fehler beim Laden");
+        return;
       }
-
-      const errors = [r1, r2, r3, r4, r5, r6]
-        .filter((r) => r.error)
-        .map((r) => r.error?.message ?? "")
-        .filter(Boolean)
-        .join(" · ");
-      if (errors) setLoadError(errors);
+      const newData = (await res.json()) as FounderDashboardData;
+      setData((prev) => ({ ...prev, ...newData }));
     } catch {
-      setLoadError("Unbekannter Fehler");
+      setLoadError("Netzwerkfehler");
     } finally {
       setRefreshing(false);
     }

@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { FounderDashboard } from "@/components/founder/FounderDashboard";
-import type { FounderDashboardData } from "@/lib/founder-types";
+import { loadFounderDashboardData } from "@/lib/load-founder-dashboard";
 
 export const metadata: Metadata = {
   title: "Founder · Qrave",
@@ -32,46 +32,12 @@ export default async function FounderPage() {
     redirect("/founder/login");
   }
 
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const [restaurantsRes, scansRes, pipelineRes, todosRes, extRes, tablesRes] = await Promise.all([
-    supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
-    supabase
-      .from("scan_events")
-      .select(
-        "event_type, stunde, wochentag, monat, tisch_nummer, item_name, kategorie, main_tab, duration_seconds, tier, created_at, restaurant_id",
-      )
-      .gt("created_at", sevenDaysAgo)
-      .order("created_at", { ascending: false })
-      .limit(500),
-    supabase.from("founder_pipeline").select("*").order("added_at", { ascending: false }),
-    supabase.from("founder_todos").select("*").order("created_at", { ascending: false }),
-    supabase.from("founder_restaurants").select("*"),
-    supabase
-      .from("restaurant_tables")
-      .select("id, restaurant_id, tisch_nummer, bereich, qr_url, nfc_programmiert, sticker_angebracht, created_at")
-      .order("restaurant_id", { ascending: true })
-      .order("tisch_nummer", { ascending: true }),
-  ]);
+  const { data, errors } = await loadFounderDashboardData(supabase);
 
-  const initErrors = [
-    restaurantsRes.error,
-    scansRes.error,
-    pipelineRes.error,
-    todosRes.error,
-    extRes.error,
-    tablesRes.error,
-  ]
-    .filter((x) => x)
-    .map((x) => x?.message ?? "");
-
-  const data: FounderDashboardData = {
-    restaurants: (restaurantsRes.data ?? []) as FounderDashboardData["restaurants"],
-    scanEvents: (scansRes.data ?? []) as FounderDashboardData["scanEvents"],
-    pipeline: (pipelineRes.data ?? []) as FounderDashboardData["pipeline"],
-    todos: (todosRes.data ?? []) as FounderDashboardData["todos"],
-    restaurantExtras: (extRes.data ?? []) as FounderDashboardData["restaurantExtras"],
-    restaurantTables: (tablesRes.data ?? []) as FounderDashboardData["restaurantTables"],
-  };
-
-  return <FounderDashboard data={data} initialLoadError={initErrors.length > 0 ? initErrors.join(" · ") : null} />;
+  return (
+    <FounderDashboard
+      data={data}
+      initialLoadError={errors.length > 0 ? errors.join(" · ") : null}
+    />
+  );
 }

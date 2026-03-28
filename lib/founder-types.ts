@@ -78,7 +78,12 @@ export type FounderRestaurantTableRow = {
 
 export type FounderDashboardData = {
   restaurants: FounderRestaurantRow[];
+  /** @deprecated Alias für scanEventsWeek (Kompatibilität). */
   scanEvents: FounderScanEventRow[];
+  scanEventsToday: FounderScanEventRow[];
+  scanEventsWeek: FounderScanEventRow[];
+  scanEventsMonth: FounderScanEventRow[];
+  scanEventsYear: FounderScanEventRow[];
   pipeline: FounderPipelineRow[];
   todos: FounderTodoRow[];
   restaurantExtras: FounderRestaurantExtRow[];
