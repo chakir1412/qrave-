@@ -3,7 +3,7 @@
 import { Roboto } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { fp } from "@/components/founder/founder-palette";
 import { iterateBerlinDaysInclusive } from "@/lib/berlin-time";
@@ -82,15 +82,21 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
 
   const navigateRange = useCallback(
     (from: string, to: string) => {
+      setLoading(true);
+      setLoadError(null);
       router.push(`/founder/restaurants/${restaurantId}/analytics?from=${from}&to=${to}`);
     },
     [router, restaurantId],
   );
 
-  useEffect(() => {
-    let cancelled = false;
+  /** Skeleton sofort vor dem ersten Paint nach Zeitraum-/Restaurant-Wechsel (auch Browser-Zurück). */
+  useLayoutEffect(() => {
     setLoading(true);
     setLoadError(null);
+  }, [restaurantId, fromYmd, toYmd]);
+
+  useEffect(() => {
+    let cancelled = false;
     void (async () => {
       try {
         const u = new URLSearchParams({ restaurantId, from: fromYmd, to: toYmd });
@@ -185,7 +191,12 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
   const ready = Boolean(!loading && data?.restaurant && computed);
 
   return (
-    <div className={`min-h-screen pb-12 ${roboto.className}`} style={{ background: BG, color: fp.tx }}>
+    <div
+      className={`min-h-screen pb-12 ${roboto.className}`}
+      style={{ background: BG, color: fp.tx }}
+      aria-busy={loading}
+      aria-live="polite"
+    >
       <div className="mx-auto max-w-3xl px-4 pt-4">
         {/* Zeile 1: Zurück | Zeitraum + Export rechts */}
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -208,7 +219,7 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
             <button
               type="button"
               onClick={() => setCalendarOpen(true)}
-              className="min-h-[48px] flex-1 rounded-2xl px-4 py-3 text-left text-sm font-bold sm:min-w-[200px] sm:flex-none"
+              className={`min-h-[48px] flex-1 rounded-2xl px-4 py-3 text-left text-sm font-bold sm:min-w-[200px] sm:flex-none ${loading ? "animate-pulse" : ""}`}
               style={card}
             >
               <span className="block text-[10px] font-extrabold tracking-wide" style={{ color: "rgba(255,255,255,0.4)" }}>
@@ -241,6 +252,10 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
           onApplyRange={navigateRange}
           onQuick7={quick7}
         />
+
+        {loading ? (
+          <p className="sr-only">Analytics werden geladen …</p>
+        ) : null}
 
         {loadError ? (
           <div
