@@ -42,3 +42,4 @@ next-env.d.ts
 **/.DS_Store
 ._*
 ._.DS_Store
+.env*.local
