@@ -113,11 +113,11 @@ export async function GET(req: Request) {
   } | null = null;
 
   let dailyRows: DailyRow[] = [];
-  let topItemRows: Array<{ item_name: string | null }> = [];
-  let topCategoryRows: Array<{ kategorie: string | null }> = [];
+  let topItemRows: Array<{ event_type: string; item_name: string | null }> = [];
+  let topCategoryRows: Array<{ event_type: string; kategorie: string | null }> = [];
   let tableScanRows: Array<{ tisch_nummer: number | null; created_at: string }> = [];
   try {
-    const [rRes, tRes, frRes, dailyRes, itemsRes, catsRes, tableScansRes] = await Promise.all([
+    const [rRes, tRes, frRes, dailyRes] = await Promise.all([
       supabase.from("restaurants").select("id,name,slug,stadt,telefon,aktiv").eq("id", restaurantId).maybeSingle(),
       supabase
         .from("restaurant_tables")
@@ -136,9 +136,12 @@ export async function GET(req: Request) {
         .gte("day_berlin", fromYmd)
         .lte("day_berlin", toYmd)
         .order("day_berlin", { ascending: true }),
+    ]);
+
+    const [itemsRes, catsRes, tableScansRes] = await Promise.all([
       supabaseSrv
         .from("scan_events")
-        .select("item_name")
+        .select("event_type,item_name")
         .eq("restaurant_id", restaurantId)
         .eq("event_type", "item_detail")
         .gte("created_at", fromIso)
@@ -146,7 +149,7 @@ export async function GET(req: Request) {
         .limit(10000),
       supabaseSrv
         .from("scan_events")
-        .select("kategorie")
+        .select("event_type,kategorie")
         .eq("restaurant_id", restaurantId)
         .eq("event_type", "category_enter")
         .gte("created_at", fromIso)
@@ -201,8 +204,8 @@ export async function GET(req: Request) {
         }
       : null;
     dailyRows = (dailyRes.data ?? []) as DailyRow[];
-    topItemRows = (itemsRes.data ?? []) as Array<{ item_name: string | null }>;
-    topCategoryRows = (catsRes.data ?? []) as Array<{ kategorie: string | null }>;
+    topItemRows = (itemsRes.data ?? []) as Array<{ event_type: string; item_name: string | null }>;
+    topCategoryRows = (catsRes.data ?? []) as Array<{ event_type: string; kategorie: string | null }>;
     tableScanRows = (tableScansRes.data ?? []) as Array<{ tisch_nummer: number | null; created_at: string }>;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Fetch failed";
