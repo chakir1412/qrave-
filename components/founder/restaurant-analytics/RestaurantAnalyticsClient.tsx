@@ -3,7 +3,7 @@
 import { Roboto } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { fp } from "@/components/founder/founder-palette";
 import { iterateBerlinDaysInclusive } from "@/lib/berlin-time";
@@ -77,8 +77,21 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const cacheRef = useRef<Map<string, RestaurantAnalyticsApiPayload>>(new Map());
 
   const rangeLabel = formatRangeLabel(fromYmd, toYmd);
+  const cacheKey = `${restaurantId}-${fromYmd}-${toYmd}`;
+
+  const setCacheEntry = useCallback((key: string, value: RestaurantAnalyticsApiPayload) => {
+    const cache = cacheRef.current;
+    if (cache.has(key)) cache.delete(key);
+    cache.set(key, value);
+    while (cache.size > 10) {
+      const oldest = cache.keys().next().value;
+      if (!oldest) break;
+      cache.delete(oldest);
+    }
+  }, []);
 
   const navigateRange = useCallback(
     (from: string, to: string) => {
@@ -91,11 +104,19 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
 
   /** Skeleton sofort vor dem ersten Paint nach Zeitraum-/Restaurant-Wechsel (auch Browser-Zurück). */
   useLayoutEffect(() => {
-    setLoading(true);
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached) {
+      setData(cached);
+      setLoadError(null);
+      setLoading(false);
+      return;
+    }
     setLoadError(null);
-  }, [restaurantId, fromYmd, toYmd]);
+    setLoading(true);
+  }, [cacheKey]);
 
   useEffect(() => {
+    if (cacheRef.current.has(cacheKey)) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -112,7 +133,10 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
           return;
         }
         const payload = (await res.json()) as RestaurantAnalyticsApiPayload;
-        if (!cancelled) setData(payload);
+        if (!cancelled) {
+          setCacheEntry(cacheKey, payload);
+          setData(payload);
+        }
       } catch {
         if (!cancelled) setLoadError("Netzwerkfehler");
       } finally {
@@ -122,7 +146,7 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
     return () => {
       cancelled = true;
     };
-  }, [restaurantId, fromYmd, toYmd]);
+  }, [cacheKey, fromYmd, restaurantId, setCacheEntry, toYmd]);
 
   const exportCsv = useCallback(() => {
     if (!data?.restaurant) return;
