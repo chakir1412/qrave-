@@ -45,6 +45,51 @@ function getService() {
   }
 }
 
+async function handleToggleStatus(
+  srv: NonNullable<ReturnType<typeof getService>>,
+  rec: JsonRecord,
+): Promise<Response> {
+  const tischIdFromTisch = typeof rec.tischId === "string" ? rec.tischId.trim() : "";
+  const tischIdFromTable = typeof rec.tableId === "string" ? rec.tableId.trim() : "";
+  const tischId = tischIdFromTisch || tischIdFromTable;
+  const field = rec.field;
+  if (!tischId) {
+    return NextResponse.json({ error: "tischId fehlt" }, { status: 400 });
+  }
+  if (field !== "nfc_installiert" && field !== "sticker_installiert") {
+    return NextResponse.json({ error: "field muss nfc_installiert oder sticker_installiert sein" }, { status: 400 });
+  }
+
+  const { data: cur, error: gErr } = await srv
+    .from("restaurant_tables")
+    .select("id, nfc_installiert, sticker_installiert")
+    .eq("id", tischId)
+    .maybeSingle();
+  if (gErr) {
+    return NextResponse.json({ error: gErr.message }, { status: 500 });
+  }
+  if (!cur) {
+    return NextResponse.json({ error: "Tisch nicht gefunden" }, { status: 404 });
+  }
+
+  const row = cur as { id: string; nfc_installiert: boolean | null; sticker_installiert: boolean | null };
+  const patch =
+    field === "nfc_installiert"
+      ? { nfc_installiert: !Boolean(row.nfc_installiert) }
+      : { sticker_installiert: !Boolean(row.sticker_installiert) };
+
+  const { data: updated, error: uErr } = await srv
+    .from("restaurant_tables")
+    .update(patch)
+    .eq("id", tischId)
+    .select()
+    .maybeSingle();
+  if (uErr) {
+    return NextResponse.json({ error: uErr.message }, { status: 500 });
+  }
+  return NextResponse.json({ table: updated });
+}
+
 async function handleCreate(
   srv: NonNullable<ReturnType<typeof getService>>,
   restaurantId: string,
@@ -82,8 +127,32 @@ async function handleCreate(
 }
 
 /**
+ * PATCH: `{ action: "toggleStatus", tischId, field: "nfc_installiert" | "sticker_installiert" }`
+ */
+export async function PATCH(req: Request) {
+  const denied = await assertFounder();
+  if (denied) return denied;
+
+  const srv = getService();
+  if (!srv) {
+    return NextResponse.json({ error: "Server-Konfiguration unvollständig" }, { status: 500 });
+  }
+
+  const parsed = parseJson(await req.text().catch(() => null));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return NextResponse.json({ error: "Ungültiger JSON-Body" }, { status: 400 });
+  }
+  const body = parsed as JsonRecord;
+  if (body.action !== "toggleStatus") {
+    return NextResponse.json({ error: "Nur action: toggleStatus" }, { status: 400 });
+  }
+  return handleToggleStatus(srv, body);
+}
+
+/**
  * POST:
  * - Legacy / create: `{ restaurantId, bereich, count }` oder `{ action: "create", ... }`
+ * - `{ action: "toggleStatus", tischId, field }` (wie PATCH)
  * - `{ action: "deleteMany", tableIds: string[] }`
  * - `{ action: "move", tableId, bereich }` (bereich `null` = ohne Bereich)
  * - `{ action: "renameArea", restaurantId, newBereich, oldBereichIsNull?, oldBereich? }`
@@ -102,6 +171,10 @@ export async function POST(req: Request) {
   const srv = getService();
   if (!srv) {
     return NextResponse.json({ error: "Server-Konfiguration unvollständig" }, { status: 500 });
+  }
+
+  if (action === "toggleStatus") {
+    return handleToggleStatus(srv, body);
   }
 
   if (action === "deleteMany") {

@@ -549,6 +549,32 @@ export function RestaurantsTab({
     [onRefresh],
   );
 
+  const toggleTableInstallStatus = useCallback(
+    async (tischId: string, field: "nfc_installiert" | "sticker_installiert") => {
+      setSupabaseError(null);
+      setPending(true);
+      try {
+        const res = await fetch("/api/founder/restaurant-tables", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ action: "toggleStatus", tischId, field }),
+        });
+        const j = (await res.json()) as { error?: string };
+        if (!res.ok) {
+          setSupabaseError(j.error ?? `Fehler ${res.status}`);
+          return;
+        }
+        await onRefresh();
+      } catch {
+        setSupabaseError("Netzwerkfehler");
+      } finally {
+        setPending(false);
+      }
+    },
+    [onRefresh],
+  );
+
   useEffect(() => {
     if (!stickerModalFor) return;
     const ex = extForRestaurant(restaurantExtras, stickerModalFor);
@@ -773,16 +799,9 @@ export function RestaurantsTab({
                       <label className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
                         <input
                           type="checkbox"
-                          checked={tb.nfc_programmiert}
+                          checked={Boolean(tb.nfc_installiert)}
                           disabled={pending}
-                          onChange={(e) =>
-                            void run(
-                              supabase
-                                .from("restaurant_tables")
-                                .update({ nfc_programmiert: e.target.checked })
-                                .eq("id", tb.id),
-                            )
-                          }
+                          onChange={() => void toggleTableInstallStatus(tb.id, "nfc_installiert")}
                           style={{ accentColor: ORANGE }}
                         />
                         NFC
@@ -790,16 +809,9 @@ export function RestaurantsTab({
                       <label className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
                         <input
                           type="checkbox"
-                          checked={tb.sticker_angebracht}
+                          checked={Boolean(tb.sticker_installiert)}
                           disabled={pending}
-                          onChange={(e) =>
-                            void run(
-                              supabase
-                                .from("restaurant_tables")
-                                .update({ sticker_angebracht: e.target.checked })
-                                .eq("id", tb.id),
-                            )
-                          }
+                          onChange={() => void toggleTableInstallStatus(tb.id, "sticker_installiert")}
                           style={{ accentColor: "#34e89e" }}
                         />
                         Sticker

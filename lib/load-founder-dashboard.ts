@@ -44,7 +44,7 @@ export async function loadFounderDashboardData(
     supabase.from("founder_restaurants").select("*"),
     supabase
       .from("restaurant_tables")
-      .select("id, restaurant_id, tisch_nummer, bereich, qr_url, nfc_programmiert, sticker_angebracht, created_at")
+      .select("id, restaurant_id, tisch_nummer, bereich, qr_url, nfc_installiert, sticker_installiert, created_at")
       .order("restaurant_id", { ascending: true })
       .order("tisch_nummer", { ascending: true }),
     loadFounderKpiDeltas(now),

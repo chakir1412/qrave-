@@ -73,8 +73,8 @@ export type FounderRestaurantTableRow = {
   tisch_nummer: number;
   bereich: string | null;
   qr_url: string | null;
-  nfc_programmiert: boolean;
-  sticker_angebracht: boolean;
+  nfc_installiert: boolean;
+  sticker_installiert: boolean;
   created_at: string;
 };
 

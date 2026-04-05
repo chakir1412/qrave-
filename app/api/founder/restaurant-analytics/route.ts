@@ -121,7 +121,7 @@ export async function GET(req: Request) {
       supabase.from("restaurants").select("id,name,slug,stadt,telefon,aktiv").eq("id", restaurantId).maybeSingle(),
       supabase
         .from("restaurant_tables")
-        .select("id,restaurant_id,tisch_nummer,bereich,qr_url,nfc_programmiert,sticker_angebracht,created_at")
+        .select("id,restaurant_id,tisch_nummer,bereich,qr_url,nfc_installiert,sticker_installiert,created_at")
         .eq("restaurant_id", restaurantId)
         .order("tisch_nummer", { ascending: true }),
       supabase
