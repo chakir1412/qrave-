@@ -13,7 +13,9 @@ import type {
 } from "@/lib/founder-types";
 import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
 import { slugifyRestaurantName } from "@/lib/slugify-restaurant";
+import { RestaurantTableHeatmap } from "@/components/founder/RestaurantTableHeatmap";
 import { RestaurantTablesManager } from "@/components/founder/RestaurantTablesManager";
+import { openRestaurantQrPrintWindow } from "@/lib/open-restaurant-qr-print";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -38,7 +40,7 @@ const STICKER_TIERS = [
 
 type SortMode = "scans" | "az";
 
-type SubView = { restaurantId: string; tab: "tische" | "qr" } | null;
+type SubView = { restaurantId: string; tab: "tische" | "qr" | "heatmap" } | null;
 
 function extForRestaurant(
   extras: FounderRestaurantExtRow[],
@@ -482,6 +484,7 @@ export function RestaurantsTab({
   const [newTischNr, setNewTischNr] = useState("");
   const [newBereich, setNewBereich] = useState("");
   const [qrFormError, setQrFormError] = useState<string | null>(null);
+  const [qrPrintBusy, setQrPrintBusy] = useState(false);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
 
   const [modalTier, setModalTier] = useState<string>("starter");
@@ -596,6 +599,11 @@ export function RestaurantsTab({
             label="QR-Codes"
             onClick={() => setSubView({ restaurantId: subView.restaurantId, tab: "qr" })}
           />
+          <DetailTabChip
+            active={subView.tab === "heatmap"}
+            label="Heatmap"
+            onClick={() => setSubView({ restaurantId: subView.restaurantId, tab: "heatmap" })}
+          />
         </div>
 
         {supabaseError ? (
@@ -617,6 +625,14 @@ export function RestaurantsTab({
             setPending={setPending}
             onSupabaseError={(msg) => setSupabaseError(msg)}
             onClearSupabaseError={() => setSupabaseError(null)}
+          />
+        ) : null}
+
+        {subView.tab === "heatmap" ? (
+          <RestaurantTableHeatmap
+            restaurantId={subRestaurant.id}
+            tables={tablesForSub}
+            isMobile={isMobile}
           />
         ) : null}
 
@@ -700,6 +716,30 @@ export function RestaurantsTab({
               }}
             >
               Alle URLs kopieren
+            </button>
+            <button
+              type="button"
+              disabled={pending || qrPrintBusy || tablesForSub.length === 0}
+              onClick={() => {
+                setQrPrintBusy(true);
+                void openRestaurantQrPrintWindow(subRestaurant.name, subRestaurant.slug, tablesForSub).finally(() => {
+                  setQrPrintBusy(false);
+                });
+              }}
+              className="mt-3 w-full"
+              style={{
+                padding: "12px 16px",
+                borderRadius: 14,
+                border: `1px solid ${ORANGE}`,
+                fontWeight: 800,
+                fontSize: 14,
+                color: ORANGE,
+                cursor: pending || qrPrintBusy || tablesForSub.length === 0 ? "not-allowed" : "pointer",
+                background: "transparent",
+                width: "100%",
+              }}
+            >
+              {qrPrintBusy ? "Erstellt…" : "Alle als PDF exportieren"}
             </button>
             <div className="mt-6 flex flex-col gap-3">
               {tablesForSub.length === 0 ? (
