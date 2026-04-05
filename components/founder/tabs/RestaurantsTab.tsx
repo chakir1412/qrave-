@@ -15,7 +15,7 @@ import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
 import { slugifyRestaurantName } from "@/lib/slugify-restaurant";
 import { RestaurantTableHeatmap } from "@/components/founder/RestaurantTableHeatmap";
 import { RestaurantTablesManager } from "@/components/founder/RestaurantTablesManager";
-import { openRestaurantQrPrintWindow } from "@/lib/open-restaurant-qr-print";
+import { downloadRestaurantQrCodesHtml } from "@/lib/open-restaurant-qr-print";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -748,7 +748,7 @@ export function RestaurantsTab({
               disabled={pending || qrPrintBusy || tablesForSub.length === 0}
               onClick={() => {
                 setQrPrintBusy(true);
-                void openRestaurantQrPrintWindow(subRestaurant.name, subRestaurant.slug, tablesForSub).finally(() => {
+                void downloadRestaurantQrCodesHtml(subRestaurant.name, subRestaurant.slug, tablesForSub).finally(() => {
                   setQrPrintBusy(false);
                 });
               }}

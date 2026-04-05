@@ -10,10 +10,16 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function filenameSafeSlug(slug: string): string {
+  const t = slug.trim().replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+  return t.length > 0 ? t : "restaurant";
+}
+
 /**
- * Öffnet ein neues Fenster mit druckfertigem A4-Layout (6 QR-Codes pro Seite) und ruft danach `print()` auf.
+ * Erzeugt druckfertiges HTML (6 QR-Codes pro A4-Seite) und lädt es als Datei herunter
+ * (`qrave-<slug>-qrcodes.html`) — kein `window.open`, daher kein Pop-up-Blocker.
  */
-export async function openRestaurantQrPrintWindow(
+export async function downloadRestaurantQrCodesHtml(
   restaurantName: string,
   slug: string,
   tables: FounderRestaurantTableRow[],
@@ -101,21 +107,24 @@ export async function openRestaurantQrPrintWindow(
 </head>
 <body>
   <h1 style="font-size:16px;margin:8mm 14mm 0;">${escapeHtml(restaurantName)}</h1>
-  <p style="font-size:11px;color:#666;margin:4px 14mm 8mm;">QRave · Speisekarte scannen</p>
+  <p style="font-size:11px;color:#666;margin:4px 14mm 8mm;">QRave · Speisekarte scannen · Datei im Browser öffnen und bei Bedarf drucken (Strg/Cmd+P)</p>
   ${pageHtml}
-  <script>
-    window.onload = function () {
-      setTimeout(function () { window.print(); }, 250);
-    };
-  </script>
 </body>
 </html>`;
 
-  const w = window.open("", "_blank", "noopener,noreferrer");
-  if (!w) {
-    return;
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const objectUrl = URL.createObjectURL(blob);
+  const safe = filenameSafeSlug(slug);
+  try {
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = `qrave-${safe}-qrcodes.html`;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
   }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
 }
