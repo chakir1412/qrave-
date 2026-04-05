@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   BarChart2,
+  Check,
   Globe,
   Sparkles,
   Star,
@@ -13,7 +14,9 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 const CYAN = "#00C2FF";
+const ORANGE = "#FF5C1A";
 const MINT = "#34E89E";
+const BG = "#050508";
 
 const BENEFITS: { Icon: LucideIcon; title: string; text: string }[] = [
   {
@@ -47,6 +50,15 @@ const BENEFITS: { Icon: LucideIcon; title: string; text: string }[] = [
     text: "Sieh, welche Gerichte deine Gäste am meisten interessieren.",
   },
 ];
+
+const STATS = [
+  { value: "30%", label: "+Umsatz durch digitale Karte" },
+  { value: "0€", label: "Kosten für dich — immer" },
+  { value: "360€", label: "sparen vs. andere Anbieter pro Jahr" },
+  { value: "3min", label: "Bis deine Karte online ist" },
+] as const;
+
+const TRUST_BRANDS = ["Heineken", "Red Bull", "Coca-Cola"] as const;
 
 export default function Home() {
   const [navSolid, setNavSolid] = useState(false);
@@ -98,20 +110,13 @@ export default function Home() {
   }
 
   return (
-    <div className="relative isolate min-h-screen overflow-x-hidden bg-[#030a0c] text-white">
-      <div className="qrave-landing-blobs" aria-hidden>
-        <div className="qrave-blob qrave-blob--1" />
-        <div className="qrave-blob qrave-blob--2" />
-        <div className="qrave-blob qrave-blob--3" />
-        <div className="qrave-blob qrave-blob--4" />
-      </div>
-
+    <div className="relative isolate min-h-screen overflow-x-hidden text-white" style={{ backgroundColor: BG }}>
       <div className="relative z-10">
         <header
           className={`sticky top-0 z-50 border-b transition-[background-color,backdrop-filter,border-color] duration-300 ${
             navSolid
-              ? "border-white/10 bg-[#030a0c]/75 backdrop-blur-xl"
-              : "border-transparent bg-[#030a0c]/30 backdrop-blur-md"
+              ? "border-white/10 bg-[#050508]/85 backdrop-blur-xl"
+              : "border-transparent bg-[#050508]/40 backdrop-blur-md"
           }`}
         >
           <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
@@ -128,114 +133,109 @@ export default function Home() {
           </nav>
         </header>
 
-        <main>
+        <main className="text-left">
           {/* HERO */}
-          <section className="relative px-4 pb-20 pt-10 sm:px-6 sm:pb-28 sm:pt-14 md:pt-20">
-            <div className="relative mx-auto max-w-6xl">
-              <p
-                className="mb-5 inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] sm:text-xs"
-                style={{
-                  borderColor: "rgba(45,212,191,0.35)",
-                  background: "rgba(13,148,136,0.15)",
-                  color: "#5eead4",
-                }}
-              >
-                Für Restaurants · 100% kostenlos
-              </p>
-              <h1 className="max-w-4xl text-[2.1rem] font-bold leading-[1.12] tracking-tight sm:text-5xl md:text-6xl md:leading-[1.08]">
-                Die schönste Speisekarte deines Lebens.
-                <br />
-                <span
-                  className="bg-clip-text text-transparent"
+          <section className="relative overflow-hidden px-4 pb-24 pt-12 sm:px-6 sm:pb-28 sm:pt-16 md:pb-32 md:pt-20">
+            <div className="relative mx-auto flex max-w-6xl flex-col gap-12 lg:flex-row lg:items-center lg:gap-8">
+              <div className="relative z-10 max-w-2xl lg:max-w-[min(100%,36rem)] lg:flex-1">
+                <p
+                  className="mb-6 inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-teal-300/90 sm:text-xs"
                   style={{
-                    backgroundImage: `linear-gradient(105deg, ${CYAN} 0%, #ffffff 45%, ${CYAN} 100%)`,
+                    borderColor: "rgba(0,194,255,0.35)",
+                    background: "rgba(0,194,255,0.08)",
                   }}
                 >
-                  Kostenlos.
-                </span>
-              </h1>
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-slate-400 sm:text-lg">
-                QR-Code scannen — fertig. Kein App-Download, kein Login. Deine Gäste sehen dein Menü sofort.
-              </p>
-              <div className="mt-8 flex flex-col items-start gap-3">
-                <a
-                  href="#kontakt"
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-bold text-black transition hover:bg-slate-100 sm:text-base"
+                  Für Restaurants · 100% kostenlos
+                </p>
+                <h1 className="text-[2.35rem] font-bold leading-[1.08] tracking-tight sm:text-5xl md:text-6xl lg:text-[3.35rem] xl:text-[3.75rem]">
+                  <span className="block">Die schönste Speisekarte</span>
+                  <span className="block">deines Lebens.</span>
+                  <span
+                    className="mt-2 block bg-clip-text text-transparent sm:mt-3"
+                    style={{
+                      backgroundImage: `linear-gradient(100deg, ${CYAN} 0%, #7dd3fc 35%, ${ORANGE} 100%)`,
+                    }}
+                  >
+                    Kostenlos.
+                  </span>
+                </h1>
+                <p className="mt-6 max-w-md text-sm leading-relaxed text-slate-400 sm:text-base">
+                  QR-Code scannen — fertig. Kein App-Download, kein Login. Deine Gäste sehen dein Menü sofort.
+                </p>
+                <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                  <a
+                    href="#kontakt"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-bold text-black transition hover:bg-slate-100 sm:text-base"
+                  >
+                    Jetzt kostenlos starten
+                    <span aria-hidden>→</span>
+                  </a>
+                  <a
+                    href="https://qrave.menu/qrave-demo"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center rounded-full border px-7 py-3.5 text-sm font-bold transition hover:bg-white/5 sm:text-base"
+                    style={{ borderColor: CYAN, color: CYAN }}
+                  >
+                    Beispiel ansehen
+                  </a>
+                </div>
+
+                <div
+                  className="mt-14 flex flex-wrap items-center gap-x-8 gap-y-2 border-t border-white/10 pt-10 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:gap-x-12 sm:text-xs"
+                  aria-label="Bekannte Marken"
                 >
-                  Jetzt kostenlos starten
-                  <span aria-hidden>→</span>
-                </a>
-                <a
-                  href="https://qrave.menu/qrave-demo"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-semibold text-[#00C2FF] underline-offset-4 transition hover:underline"
-                >
-                  Beispiel-Karte ansehen →
-                </a>
+                  {TRUST_BRANDS.map((name) => (
+                    <span key={name}>{name}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                className="pointer-events-none relative min-h-[260px] flex-1 sm:min-h-[320px] lg:min-h-[min(520px,50vh)]"
+                aria-hidden
+              >
+                <div className="qrave-hero-glow absolute left-1/2 top-1/2 -translate-x-[20%] -translate-y-1/2 sm:-translate-x-[10%] lg:left-auto lg:right-[-12%] lg:translate-x-0 xl:right-[-4%]" />
               </div>
             </div>
           </section>
 
-          {/* ZAHLEN */}
-          <section className="border-y border-white/10 bg-black/25 px-4 py-14 backdrop-blur-sm sm:px-6 sm:py-20">
-            <div className="mx-auto grid max-w-6xl gap-14 md:grid-cols-3 md:gap-x-20 md:gap-y-10 lg:gap-x-28">
-              <div>
-                <p
-                  className="text-[48px] font-extrabold leading-none tracking-tight md:text-[64px]"
-                  style={{ color: CYAN }}
+          {/* STATS */}
+          <section className="border-y border-white/10 px-4 py-24 sm:px-6">
+            <div className="mx-auto grid max-w-6xl grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
+              {STATS.map((s) => (
+                <div
+                  key={s.value}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 sm:px-5 sm:py-6"
                 >
-                  bis zu 30%
-                </p>
-                <p className="mt-4 text-sm leading-relaxed text-slate-400 sm:text-base">
-                  Mehr Bestellungen durch digitale Karte
-                  <span className="mt-2 block text-xs text-slate-500">Quelle: Toast-POS-Studie</span>
-                </p>
-              </div>
-              <div>
-                <p
-                  className="text-[48px] font-extrabold leading-none tracking-tight md:text-[64px]"
-                  style={{ color: CYAN }}
-                >
-                  0€
-                </p>
-                <p className="mt-4 text-sm leading-relaxed text-slate-400 sm:text-base">
-                  Kosten für dich — heute und für immer
-                </p>
-              </div>
-              <div>
-                <p
-                  className="text-[48px] font-extrabold leading-none tracking-tight md:text-[64px]"
-                  style={{ color: CYAN }}
-                >
-                  360€/Jahr
-                </p>
-                <p className="mt-4 text-sm leading-relaxed text-slate-400 sm:text-base">
-                  sparen vs. andere Anbieter
-                </p>
-              </div>
+                  <p className="text-3xl font-extrabold tracking-tight sm:text-4xl" style={{ color: CYAN }}>
+                    {s.value}
+                  </p>
+                  <p className="mt-3 text-xs leading-snug text-slate-400 sm:text-sm">{s.label}</p>
+                </div>
+              ))}
             </div>
           </section>
 
           {/* BENEFITS */}
-          <section id="vorteile" className="px-4 py-16 sm:px-6 sm:py-24">
+          <section id="vorteile" className="px-4 py-24 sm:px-6">
             <div className="mx-auto max-w-6xl">
-              <h2 className="text-2xl font-bold sm:text-3xl">Alles, was dein Lokal braucht</h2>
-              <p className="mt-2 max-w-2xl text-slate-400">Mehr Umsatz, weniger Aufwand — für dich und deine Gäste.</p>
-              <ul className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+              <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">Alles was dein Restaurant braucht</h2>
+              <p className="mt-3 max-w-2xl text-slate-400">Mehr Umsatz, weniger Aufwand — für dich und deine Gäste.</p>
+              <ul className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
                 {BENEFITS.map(({ Icon, title, text }) => (
                   <li
                     key={title}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm transition hover:border-white/20"
+                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-left backdrop-blur-sm transition hover:border-white/15 sm:p-7"
                   >
                     <Icon
                       className="shrink-0"
-                      size={24}
-                      strokeWidth={2}
+                      size={36}
+                      strokeWidth={1.75}
                       aria-hidden
                       style={{ color: CYAN }}
                     />
-                    <h3 className="mt-3 text-lg font-bold text-white">{title}</h3>
+                    <h3 className="mt-4 text-lg font-bold text-white">{title}</h3>
                     <p className="mt-2 text-sm leading-relaxed text-slate-400">{text}</p>
                   </li>
                 ))}
@@ -244,61 +244,34 @@ export default function Home() {
           </section>
 
           {/* VERGLEICH */}
-          <section className="px-4 py-16 sm:px-6 sm:py-24">
+          <section className="px-4 py-24 sm:px-6">
             <div className="mx-auto max-w-6xl">
-              <h2 className="text-2xl font-bold sm:text-3xl">Andere kosten. Qrave nicht.</h2>
-              <p className="mt-2 text-slate-400">Transparent — ohne Kleingedrucktes.</p>
-              <div className="mt-10 grid gap-5 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
-                  <p className="text-sm font-bold uppercase tracking-wider text-slate-500">Andere Anbieter</p>
-                  <ul className="mt-5 space-y-3 text-sm text-slate-400">
-                    <li className="flex gap-2">
-                      <span className="text-slate-600" aria-hidden>
-                        ·
-                      </span>
-                      Ab ca. 360€ pro Jahr
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-slate-600" aria-hidden>
-                        ·
-                      </span>
-                      Monatliche Gebühren
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-slate-600" aria-hidden>
-                        ·
-                      </span>
-                      Oft Vertragsbindung
-                    </li>
+              <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">Andere kosten. Qrave nicht.</h2>
+              <p className="mt-3 text-slate-400">Transparent — ohne Kleingedrucktes.</p>
+              <div className="mt-12 grid gap-4 md:grid-cols-2 md:gap-6">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 sm:p-10">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Andere Anbieter</p>
+                  <ul className="mt-6 space-y-4 text-sm text-slate-400">
+                    <li>Ab ca. 360€ pro Jahr</li>
+                    <li>Monatliche Gebühren</li>
+                    <li>Oft Vertragsbindung</li>
                   </ul>
                 </div>
-                <div
-                  className="rounded-2xl border p-6 sm:p-8"
-                  style={{
-                    borderColor: "rgba(52,232,158,0.35)",
-                    background: "linear-gradient(145deg, rgba(52,232,158,0.08) 0%, rgba(0,194,255,0.06) 100%)",
-                  }}
-                >
-                  <p className="text-sm font-bold uppercase tracking-wider" style={{ color: MINT }}>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-8 sm:p-10">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: MINT }}>
                     Qrave
                   </p>
-                  <ul className="mt-5 space-y-3 text-sm text-slate-200">
-                    <li className="flex items-start gap-2">
-                      <span style={{ color: MINT }} aria-hidden>
-                        ✓
-                      </span>
+                  <ul className="mt-6 space-y-4 text-sm text-slate-200">
+                    <li className="flex items-center gap-3">
+                      <Check className="h-5 w-5 shrink-0" strokeWidth={2.5} style={{ color: MINT }} aria-hidden />
                       0€ — immer
                     </li>
-                    <li className="flex items-start gap-2">
-                      <span style={{ color: MINT }} aria-hidden>
-                        ✓
-                      </span>
+                    <li className="flex items-center gap-3">
+                      <Check className="h-5 w-5 shrink-0" strokeWidth={2.5} style={{ color: MINT }} aria-hidden />
                       Keine versteckten Gebühren
                     </li>
-                    <li className="flex items-start gap-2">
-                      <span style={{ color: MINT }} aria-hidden>
-                        ✓
-                      </span>
+                    <li className="flex items-center gap-3">
+                      <Check className="h-5 w-5 shrink-0" strokeWidth={2.5} style={{ color: MINT }} aria-hidden />
                       Kein Vertrag
                     </li>
                   </ul>
@@ -308,10 +281,10 @@ export default function Home() {
           </section>
 
           {/* SCHRITTE */}
-          <section className="border-t border-white/10 bg-black/15 px-4 py-16 sm:px-6 sm:py-24">
+          <section className="border-t border-white/10 bg-white/[0.02] px-4 py-24 sm:px-6">
             <div className="mx-auto max-w-6xl">
-              <h2 className="text-2xl font-bold sm:text-3xl">In 3 Schritten live</h2>
-              <ol className="mt-12 grid gap-8 md:grid-cols-3 md:gap-6">
+              <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">In 3 Schritten live</h2>
+              <ol className="mt-14 grid gap-6 md:grid-cols-3 md:gap-8">
                 {[
                   {
                     n: "1",
@@ -329,19 +302,24 @@ export default function Home() {
                     text: "Änderungen jederzeit selbst vornehmen.",
                   },
                 ].map((step) => (
-                  <li key={step.n} className="relative flex gap-4">
+                  <li
+                    key={step.n}
+                    className="flex flex-col gap-5 rounded-3xl border border-white/10 bg-[#050508] p-8 sm:p-10 md:p-12"
+                  >
                     <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg font-extrabold"
+                      className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 text-2xl font-black tracking-tight sm:h-24 sm:w-24 sm:text-3xl"
                       style={{
-                        background: `linear-gradient(135deg, ${CYAN}33, rgba(13,148,136,0.35))`,
+                        borderColor: "rgba(0,194,255,0.45)",
+                        background: `linear-gradient(145deg, rgba(0,194,255,0.18) 0%, rgba(255,92,26,0.12) 100%)`,
                         color: CYAN,
+                        boxShadow: "0 0 48px rgba(0,194,255,0.12)",
                       }}
                     >
                       {step.n}
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold">{step.title}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-400">{step.text}</p>
+                      <h3 className="text-xl font-bold">{step.title}</h3>
+                      <p className="mt-3 text-sm leading-relaxed text-slate-400 sm:text-base">{step.text}</p>
                     </div>
                   </li>
                 ))}
@@ -350,10 +328,11 @@ export default function Home() {
           </section>
 
           {/* KONTAKT */}
-          <section id="kontakt" className="scroll-mt-20 px-4 py-16 sm:px-6 sm:py-24">
-            <div className="mx-auto max-w-xl">
-              <h2 className="text-2xl font-bold sm:text-3xl">Bereit? Wir melden uns innerhalb von 24 Stunden.</h2>
-              <p className="mt-2 text-slate-400">Fülle das Formular aus — unverbindlich und kostenlos.</p>
+          <section id="kontakt" className="scroll-mt-20 px-4 py-24 sm:px-6">
+            <div className="mx-auto max-w-6xl">
+              <div className="max-w-xl">
+              <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">Bereit? Wir melden uns innerhalb von 24 Stunden.</h2>
+              <p className="mt-3 text-slate-400">Fülle das Formular aus — unverbindlich und kostenlos.</p>
 
               <form className="mt-10 space-y-4" onSubmit={onSubmitContact}>
                 <div>
@@ -432,12 +411,15 @@ export default function Home() {
                   {formStatus === "loading" ? "Wird gesendet…" : "Kostenlos anfragen →"}
                 </button>
               </form>
+              </div>
             </div>
           </section>
         </main>
 
-        <footer className="border-t border-white/10 px-4 py-8 text-center text-xs text-slate-500 sm:px-6">
-          <p>© {new Date().getFullYear()} Qrave · Digitale Speisekarte</p>
+        <footer className="border-t border-white/10 px-4 py-10 sm:px-6">
+          <div className="mx-auto max-w-6xl text-left text-xs text-slate-500">
+            <p>© {new Date().getFullYear()} Qrave · Digitale Speisekarte</p>
+          </div>
         </footer>
       </div>
     </div>
