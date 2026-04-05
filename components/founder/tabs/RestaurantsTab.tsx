@@ -12,6 +12,7 @@ import type {
   FounderScanEventRow,
 } from "@/lib/founder-types";
 import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
+import { slugifyRestaurantName } from "@/lib/slugify-restaurant";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -195,6 +196,210 @@ const inputBase: CSSProperties = {
   outline: "none",
 };
 
+const ERR_RED = "#FF4B6E";
+
+type AddFieldKey = "name" | "stadt" | "slug" | "_";
+
+function AddRestaurantModal({
+  isMobile,
+  onClose,
+  onSaved,
+}: {
+  isMobile: boolean;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [stadt, setStadt] = useState("Frankfurt");
+  const [adresse, setAdresse] = useState("");
+  const [telefon, setTelefon] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugManual, setSlugManual] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<AddFieldKey, string>>>({});
+  const [saving, setSaving] = useState(false);
+
+  function onNameInput(v: string) {
+    setName(v);
+    if (!slugManual) setSlug(slugifyRestaurantName(v));
+  }
+
+  async function handleSubmit() {
+    const next: Partial<Record<AddFieldKey, string>> = {};
+    if (!name.trim()) next.name = "Bitte einen Namen eingeben.";
+    if (!stadt.trim()) next.stadt = "Bitte eine Stadt eingeben.";
+    if (!slug.trim()) next.slug = "Bitte einen Slug eingeben.";
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+
+    setSaving(true);
+    setErrors({});
+    try {
+      const res = await fetch("/api/founder/restaurants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          name: name.trim(),
+          stadt: stadt.trim(),
+          adresse: adresse.trim() || undefined,
+          telefon: telefon.trim() || undefined,
+          slug: slug.trim().toLowerCase(),
+        }),
+      });
+      const j = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        if (res.status === 409) {
+          setErrors({ slug: j.error ?? "Dieser Slug ist bereits vergeben." });
+        } else {
+          setErrors({ _: j.error ?? `Fehler ${res.status}` });
+        }
+        return;
+      }
+      await onSaved();
+      onClose();
+    } catch {
+      setErrors({ _: "Netzwerkfehler" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const pad = isMobile ? 16 : 22;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-end justify-center p-4 sm:items-center"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
+      role="presentation"
+      onClick={onClose}
+      onKeyDown={(e) => e.key === "Escape" && onClose()}
+    >
+      <div
+        role="dialog"
+        aria-modal
+        aria-labelledby="add-restaurant-title"
+        className="w-full max-w-md"
+        style={{ ...cardBase, padding: pad, maxHeight: "90vh", overflow: "auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="add-restaurant-title" style={{ margin: 0, fontSize: isMobile ? 18 : 20, fontWeight: 800, color: "#fff" }}>
+          Neues Restaurant
+        </h2>
+
+        <div className="mt-5 flex flex-col gap-4">
+          <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Name *
+            <input
+              value={name}
+              onChange={(e) => onNameInput(e.target.value)}
+              placeholder="z. B. Café Sonne"
+              style={{ ...inputBase, marginTop: 6 }}
+              autoComplete="organization"
+            />
+            {errors.name ? (
+              <p style={{ margin: "6px 0 0", fontSize: 11, fontWeight: 600, color: ERR_RED }}>{errors.name}</p>
+            ) : null}
+          </label>
+
+          <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Stadt *
+            <input
+              value={stadt}
+              onChange={(e) => setStadt(e.target.value)}
+              placeholder="Frankfurt"
+              style={{ ...inputBase, marginTop: 6 }}
+            />
+            {errors.stadt ? (
+              <p style={{ margin: "6px 0 0", fontSize: 11, fontWeight: 600, color: ERR_RED }}>{errors.stadt}</p>
+            ) : null}
+          </label>
+
+          <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Adresse
+            <input
+              value={adresse}
+              onChange={(e) => setAdresse(e.target.value)}
+              placeholder="Optional"
+              style={{ ...inputBase, marginTop: 6 }}
+            />
+          </label>
+
+          <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Telefon
+            <input
+              value={telefon}
+              onChange={(e) => setTelefon(e.target.value)}
+              placeholder="Optional"
+              type="tel"
+              style={{ ...inputBase, marginTop: 6 }}
+            />
+          </label>
+
+          <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Slug *
+            <input
+              value={slug}
+              onChange={(e) => {
+                setSlugManual(true);
+                setSlug(e.target.value);
+              }}
+              placeholder="cafe-sonne"
+              style={{
+                ...inputBase,
+                marginTop: 6,
+                background: "rgba(255,255,255,0.06)",
+                fontFamily: "ui-monospace, monospace",
+              }}
+            />
+            <p style={{ margin: "6px 0 0", fontSize: 10, color: "rgba(255,255,255,0.38)", fontWeight: 600 }}>
+              qrave.menu/{slug.trim() || "…"}
+            </p>
+            {errors.slug ? (
+              <p style={{ margin: "6px 0 0", fontSize: 11, fontWeight: 600, color: ERR_RED }}>{errors.slug}</p>
+            ) : null}
+          </label>
+        </div>
+
+        {errors._ ? (
+          <p style={{ margin: "14px 0 0", fontSize: 12, fontWeight: 600, color: ERR_RED }}>{errors._}</p>
+        ) : null}
+
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onClose}
+            className="flex-1 rounded-xl py-3 text-sm font-bold"
+            style={{
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(255,255,255,0.05)",
+              color: "rgba(255,255,255,0.75)",
+              cursor: saving ? "not-allowed" : "pointer",
+            }}
+          >
+            Abbrechen
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void handleSubmit()}
+            className="flex-1 rounded-xl py-3 text-sm font-extrabold"
+            style={{
+              border: "none",
+              background: ORANGE,
+              color: "#fff",
+              cursor: saving ? "wait" : "pointer",
+              opacity: saving ? 0.75 : 1,
+            }}
+          >
+            {saving ? "Speichert…" : "Speichern"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function RestaurantsTab({
   restaurants,
   scanEvents,
@@ -217,6 +422,7 @@ export function RestaurantsTab({
   const [modalTier, setModalTier] = useState<string>("starter");
   const [modalCount, setModalCount] = useState(0);
   const [modalPaid, setModalPaid] = useState(false);
+  const [addRestaurantOpen, setAddRestaurantOpen] = useState(false);
 
   const bezirke = useMemo(() => {
     const s = new Set<string>();
@@ -501,9 +707,22 @@ export function RestaurantsTab({
         <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: "rgba(255,255,255,0.4)" }}>
           {sortedList.length} RESTAURANTS
         </span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <SortChip active={sortMode === "scans"} label="Scans ↓" onClick={() => setSortMode("scans")} />
           <SortChip active={sortMode === "az"} label="A-Z" onClick={() => setSortMode("az")} />
+          <button
+            type="button"
+            onClick={() => setAddRestaurantOpen(true)}
+            className="shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-bold"
+            style={{
+              border: `1px solid ${ORANGE}`,
+              background: "transparent",
+              color: ORANGE,
+              cursor: "pointer",
+            }}
+          >
+            + Restaurant hinzufügen
+          </button>
         </div>
       </div>
 
@@ -527,6 +746,14 @@ export function RestaurantsTab({
           onOpenStickerModal={() => setStickerModalFor(r.id)}
         />
       ))}
+
+      {addRestaurantOpen ? (
+        <AddRestaurantModal
+          isMobile={isMobile}
+          onClose={() => setAddRestaurantOpen(false)}
+          onSaved={onRefresh}
+        />
+      ) : null}
 
       {stickerModalFor ? (
         <StickerModal
