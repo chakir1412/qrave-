@@ -13,6 +13,7 @@ import type {
 } from "@/lib/founder-types";
 import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
 import { slugifyRestaurantName } from "@/lib/slugify-restaurant";
+import { RestaurantTablesManager } from "@/components/founder/RestaurantTablesManager";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -37,7 +38,7 @@ const STICKER_TIERS = [
 
 type SortMode = "scans" | "az";
 
-type SubView = { kind: "tables"; restaurantId: string } | null;
+type SubView = { restaurantId: string; tab: "tische" | "qr" } | null;
 
 function extForRestaurant(
   extras: FounderRestaurantExtRow[],
@@ -200,6 +201,12 @@ const ERR_RED = "#FF4B6E";
 
 type AddFieldKey = "name" | "stadt" | "slug" | "_";
 
+const RESTAURANT_STATUS_OPTIONS = [
+  { value: "in_einrichtung", label: "In Einrichtung" },
+  { value: "live", label: "Live" },
+  { value: "offline", label: "Offline" },
+] as const;
+
 function AddRestaurantModal({
   isMobile,
   onClose,
@@ -213,6 +220,10 @@ function AddRestaurantModal({
   const [stadt, setStadt] = useState("Frankfurt");
   const [adresse, setAdresse] = useState("");
   const [telefon, setTelefon] = useState("");
+  const [ansprechpartner, setAnsprechpartner] = useState("");
+  const [status, setStatus] = useState<(typeof RESTAURANT_STATUS_OPTIONS)[number]["value"]>("in_einrichtung");
+  const [naechsterBesuch, setNaechsterBesuch] = useState("");
+  const [notiz, setNotiz] = useState("");
   const [slug, setSlug] = useState("");
   const [slugManual, setSlugManual] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<AddFieldKey, string>>>({});
@@ -244,6 +255,10 @@ function AddRestaurantModal({
           adresse: adresse.trim() || undefined,
           telefon: telefon.trim() || undefined,
           slug: slug.trim().toLowerCase(),
+          ansprechpartner: ansprechpartner.trim() || undefined,
+          status,
+          naechster_besuch: naechsterBesuch.trim() || undefined,
+          notiz: notiz.trim() || undefined,
         }),
       });
       const j = (await res.json()) as { error?: string };
@@ -336,6 +351,54 @@ function AddRestaurantModal({
           </label>
 
           <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Ansprechpartner
+            <input
+              value={ansprechpartner}
+              onChange={(e) => setAnsprechpartner(e.target.value)}
+              placeholder="Optional — Name des Wirtes"
+              style={{ ...inputBase, marginTop: 6 }}
+            />
+          </label>
+
+          <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Status
+            <select
+              value={status}
+              onChange={(e) =>
+                setStatus(e.target.value as (typeof RESTAURANT_STATUS_OPTIONS)[number]["value"])
+              }
+              style={{ ...inputBase, marginTop: 6, cursor: "pointer" }}
+            >
+              {RESTAURANT_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Nächster Besuch
+            <input
+              type="date"
+              value={naechsterBesuch}
+              onChange={(e) => setNaechsterBesuch(e.target.value)}
+              style={{ ...inputBase, marginTop: 6 }}
+            />
+          </label>
+
+          <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            Notiz
+            <textarea
+              value={notiz}
+              onChange={(e) => setNotiz(e.target.value)}
+              placeholder="Optional"
+              rows={3}
+              style={{ ...inputBase, marginTop: 6, resize: "vertical", minHeight: 72 }}
+            />
+          </label>
+
+          <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
             Slug *
             <input
               value={slug}
@@ -418,6 +481,8 @@ export function RestaurantsTab({
   const [pending, setPending] = useState(false);
   const [newTischNr, setNewTischNr] = useState("");
   const [newBereich, setNewBereich] = useState("");
+  const [qrFormError, setQrFormError] = useState<string | null>(null);
+  const [supabaseError, setSupabaseError] = useState<string | null>(null);
 
   const [modalTier, setModalTier] = useState<string>("starter");
   const [modalCount, setModalCount] = useState(0);
@@ -465,11 +530,12 @@ export function RestaurantsTab({
 
   const run = useCallback(
     async (op: PromiseLike<{ error: { message: string } | null }>) => {
+      setSupabaseError(null);
       setPending(true);
       try {
         const { error } = await Promise.resolve(op);
         if (error) {
-          window.alert(error.message);
+          setSupabaseError(error.message);
           return;
         }
         await onRefresh();
@@ -491,7 +557,7 @@ export function RestaurantsTab({
 
   const subRestaurant = subView ? restaurants.find((r) => r.id === subView.restaurantId) : undefined;
   const tablesForSub = useMemo(() => {
-    if (!subView || subView.kind !== "tables") return [];
+    if (!subView) return [];
     return restaurantTables
       .filter((t) => t.restaurant_id === subView.restaurantId)
       .sort((a, b) => a.tisch_nummer - b.tisch_nummer);
@@ -515,10 +581,46 @@ export function RestaurantsTab({
         >
           ← Restaurants
         </button>
-        <h2 style={{ margin: "0 0 16px", fontSize: isMobile ? 20 : 22, fontWeight: 800, color: "#fff" }}>
+        <h2 style={{ margin: "0 0 12px", fontSize: isMobile ? 20 : 22, fontWeight: 800, color: "#fff" }}>
           {subRestaurant.name}
         </h2>
 
+        <div className="mb-4 flex flex-wrap gap-2">
+          <DetailTabChip
+            active={subView.tab === "tische"}
+            label="Tische"
+            onClick={() => setSubView({ restaurantId: subView.restaurantId, tab: "tische" })}
+          />
+          <DetailTabChip
+            active={subView.tab === "qr"}
+            label="QR-Codes"
+            onClick={() => setSubView({ restaurantId: subView.restaurantId, tab: "qr" })}
+          />
+        </div>
+
+        {supabaseError ? (
+          <p
+            className="mb-3 rounded-xl px-3 py-2 text-xs font-semibold"
+            style={{ background: "rgba(239,68,68,0.12)", color: "#fda4af", border: "1px solid rgba(239,68,68,0.35)" }}
+          >
+            {supabaseError}
+          </p>
+        ) : null}
+
+        {subView.tab === "tische" ? (
+          <RestaurantTablesManager
+            restaurant={subRestaurant}
+            tables={tablesForSub}
+            isMobile={isMobile}
+            pending={pending}
+            onRefresh={onRefresh}
+            setPending={setPending}
+            onSupabaseError={(msg) => setSupabaseError(msg)}
+            onClearSupabaseError={() => setSupabaseError(null)}
+          />
+        ) : null}
+
+        {subView.tab === "qr" ? (
         <div style={{ ...cardBase, padding: isMobile ? 16 : 22 }}>
             <p style={{ margin: "0 0 14px", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)" }}>
               TISCHE · QR & NFC
@@ -543,13 +645,19 @@ export function RestaurantsTab({
                 />
               </label>
             </div>
+            {qrFormError ? (
+              <p className="mb-2 text-xs font-semibold" style={{ color: ERR_RED }}>
+                {qrFormError}
+              </p>
+            ) : null}
             <button
               type="button"
               disabled={pending}
               onClick={() => {
+                setQrFormError(null);
                 const n = Number.parseInt(newTischNr, 10);
                 if (!Number.isFinite(n) || n < 1) {
-                  window.alert("Bitte gültige Tisch-Nummer eingeben.");
+                  setQrFormError("Bitte gültige Tisch-Nummer eingeben.");
                   return;
                 }
                 void run(
@@ -679,6 +787,7 @@ export function RestaurantsTab({
               ))}
             </div>
           </div>
+        ) : null}
       </div>
     );
   }
@@ -738,7 +847,8 @@ export function RestaurantsTab({
           isMobile={isMobile}
           pending={pending}
           onToggleExpand={() => setExpandedId((cur) => (cur === r.id ? null : r.id))}
-          onOpenTables={() => setSubView({ kind: "tables", restaurantId: r.id })}
+          onOpenTische={() => setSubView({ restaurantId: r.id, tab: "tische" })}
+          onOpenQrNfc={() => setSubView({ restaurantId: r.id, tab: "qr" })}
           onOpenAnalytics={() => {
             const { fromYmd, toYmd } = defaultLast7Ymd();
             router.push(`/founder/restaurants/${r.id}/analytics?from=${fromYmd}&to=${toYmd}`);
@@ -787,6 +897,44 @@ export function RestaurantsTab({
         />
       ) : null}
     </div>
+  );
+}
+
+function DetailTabChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full px-4 py-2 text-sm font-bold"
+      style={{
+        border: active ? `1px solid ${ORANGE}` : "1px solid rgba(255,255,255,0.12)",
+        background: active ? "rgba(255,92,26,0.15)" : "rgba(255,255,255,0.05)",
+        color: active ? "#fff" : "rgba(255,255,255,0.55)",
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function IconTables() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <g stroke="currentColor" strokeWidth={2} strokeLinecap="round" fill="none">
+        <rect x="4" y="5" width="16" height="5" rx="1" />
+        <rect x="4" y="14" width="7" height="6" rx="1" />
+        <rect x="13" y="14" width="7" height="6" rx="1" />
+      </g>
+    </svg>
   );
 }
 
@@ -891,7 +1039,8 @@ function RestaurantCard({
   isMobile,
   pending,
   onToggleExpand,
-  onOpenTables,
+  onOpenTische,
+  onOpenQrNfc,
   onOpenAnalytics,
   onOpenStickerModal,
 }: {
@@ -904,7 +1053,8 @@ function RestaurantCard({
   isMobile: boolean;
   pending: boolean;
   onToggleExpand: () => void;
-  onOpenTables: () => void;
+  onOpenTische: () => void;
+  onOpenQrNfc: () => void;
   onOpenAnalytics: () => void;
   onOpenStickerModal: () => void;
 }) {
@@ -1134,7 +1284,13 @@ function RestaurantCard({
           </div>
 
           <div className="flex flex-wrap gap-2" style={{ gap: 8 }}>
-            <button type="button" disabled={pending} onClick={onOpenTables} style={glassActionBtn}>
+            <button type="button" disabled={pending} onClick={onOpenTische} style={glassActionBtn}>
+              <span style={actionIconWrap}>
+                <IconTables />
+              </span>
+              <span>Tische</span>
+            </button>
+            <button type="button" disabled={pending} onClick={onOpenQrNfc} style={glassActionBtn}>
               <span style={actionIconWrap}>
                 <IconQrCodes />
               </span>

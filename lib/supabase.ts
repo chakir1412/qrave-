@@ -57,6 +57,12 @@ export type Restaurant = {
   telefon: string | null;
   email: string | null;
   aktiv: boolean;
+  /** Founder-Modal / CRM (Migration restaurants) */
+  ansprechpartner?: string | null;
+  /** z. B. in_einrichtung | live | offline */
+  status?: string | null;
+  naechster_besuch?: string | null;
+  notiz?: string | null;
   ansprechpartner_name: string | null;
   notizen: string | null;
   letzter_kontakt: string | null; // ISO-Date

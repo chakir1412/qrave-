@@ -3,12 +3,18 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
 
+const RESTAURANT_STATUSES = new Set(["in_einrichtung", "live", "offline"]);
+
 type Body = {
   name?: string;
   stadt?: string;
   adresse?: string;
   telefon?: string;
   slug?: string;
+  ansprechpartner?: string;
+  status?: string;
+  naechster_besuch?: string;
+  notiz?: string;
 };
 
 function parseBody(raw: string | null): Body {
@@ -52,6 +58,18 @@ export async function POST(req: Request) {
   const slugRaw = typeof body.slug === "string" ? body.slug.trim().toLowerCase() : "";
   const adresse = typeof body.adresse === "string" && body.adresse.trim() ? body.adresse.trim() : null;
   const telefon = typeof body.telefon === "string" && body.telefon.trim() ? body.telefon.trim() : null;
+  const ansprechpartner =
+    typeof body.ansprechpartner === "string" && body.ansprechpartner.trim()
+      ? body.ansprechpartner.trim()
+      : null;
+  const statusRaw = typeof body.status === "string" ? body.status.trim() : "in_einrichtung";
+  const status = RESTAURANT_STATUSES.has(statusRaw) ? statusRaw : "in_einrichtung";
+  const naechsterBesuchRaw =
+    typeof body.naechster_besuch === "string" && body.naechster_besuch.trim()
+      ? body.naechster_besuch.trim()
+      : "";
+  const naechster_besuch = naechsterBesuchRaw ? naechsterBesuchRaw.slice(0, 10) : null;
+  const notiz = typeof body.notiz === "string" && body.notiz.trim() ? body.notiz.trim() : null;
 
   if (!name) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
@@ -89,7 +107,11 @@ export async function POST(req: Request) {
       stadt,
       adresse,
       telefon,
-      aktiv: false,
+      ansprechpartner,
+      status,
+      naechster_besuch,
+      notiz,
+      aktiv: status === "live",
     })
     .select()
     .single();
