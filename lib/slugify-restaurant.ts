@@ -1,6 +1,7 @@
 /** URL-Slug aus Restaurantname: lowercase, Sonderzeichen raus, Leerzeichen → Bindestrich. */
 export function slugifyRestaurantName(name: string): string {
   const stripped = name
+    .replace(/ß/g, "ss")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
