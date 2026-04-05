@@ -10,11 +10,21 @@ const FALLBACK_Q = "#FF5C1A";
 /** Weißer Logo-Hintergrund: Durchmesser ≈ 22 % der QR-Innenbreite */
 const LOGO_DIAMETER_RATIO = 0.22;
 
+/** Eckenradius der Finder-Quadrate als Anteil der jeweiligen Kantenlänge (Squircle / fast rund) */
+const FINDER_CORNER_RATIO = 0.46;
+/** Weißer Innenbereich etwas enger → dickerer schwarzer Außenring */
+const FINDER_WHITE_RING_INSET = 1.12;
+
 function isFinderRegion(row: number, col: number, n: number): boolean {
   if (row < 7 && col < 7) return true;
   if (row < 7 && col >= n - 7) return true;
   if (row >= n - 7 && col < 7) return true;
   return false;
+}
+
+function isDark(modules: BitMatrix, row: number, col: number, n: number): boolean {
+  if (row < 0 || col < 0 || row >= n || col >= n) return false;
+  return modules.get(row, col) !== 0;
 }
 
 function fillRoundRect(
@@ -40,20 +50,81 @@ function fillRoundRect(
   ctx.fill();
 }
 
-function drawFinderPattern(
+/**
+ * Finder: drei ineinanderliegende Squircles — sehr starke Rundungen (~46 %), dicker Außenring.
+ */
+function drawSquircleFinder(
   ctx: CanvasRenderingContext2D,
   px: number,
   py: number,
   cell: number,
   color: string,
+  bg: string,
 ): void {
-  const w = 7 * cell;
+  const outerS = 7 * cell;
+  const outerR = outerS * FINDER_CORNER_RATIO;
+
+  const inset = FINDER_WHITE_RING_INSET * cell;
+  const whiteS = outerS - 2 * inset;
+  const whiteR = whiteS * FINDER_CORNER_RATIO;
+
+  const centerS = 3 * cell;
+  const centerOff = 2 * cell;
+  const centerR = centerS * FINDER_CORNER_RATIO;
+
   ctx.fillStyle = color;
-  fillRoundRect(ctx, px, py, w, w, 2.15 * cell);
-  ctx.fillStyle = BG;
-  fillRoundRect(ctx, px + cell, py + cell, 5 * cell, 5 * cell, 1.35 * cell);
+  fillRoundRect(ctx, px, py, outerS, outerS, outerR);
+
+  ctx.fillStyle = bg;
+  fillRoundRect(ctx, px + inset, py + inset, whiteS, whiteS, whiteR);
+
   ctx.fillStyle = color;
-  fillRoundRect(ctx, px + 2 * cell, py + 2 * cell, 3 * cell, 3 * cell, 0.85 * cell);
+  fillRoundRect(ctx, px + centerOff, py + centerOff, centerS, centerS, centerR);
+}
+
+/**
+ * Organische Datenmodule: halbe Zelle in Richtung schwarzer Kardinalnachbarn überstehen lassen,
+ * dann ein abgerundetes Rechteck — benachbarte Module verschmelzen optisch zu einer Form.
+ */
+function drawOrganicDataModules(
+  ctx: CanvasRenderingContext2D,
+  modules: BitMatrix,
+  pad: number,
+  cell: number,
+  n: number,
+): void {
+  const half = cell * 0.5;
+  const maxCorner = cell * 0.5;
+  ctx.fillStyle = MODULE_COLOR;
+
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (isFinderRegion(r, c, n)) continue;
+      if (!isDark(modules, r, c, n)) continue;
+
+      const nN = isDark(modules, r - 1, c, n);
+      const nS = isDark(modules, r + 1, c, n);
+      const nW = isDark(modules, r, c - 1, n);
+      const nE = isDark(modules, r, c + 1, n);
+
+      const x0 = pad + c * cell;
+      const y0 = pad + r * cell;
+
+      const x = x0 - (nW ? half : 0);
+      const y = y0 - (nN ? half : 0);
+      const w = cell + (nW ? half : 0) + (nE ? half : 0);
+      const h = cell + (nN ? half : 0) + (nS ? half : 0);
+
+      const rad = Math.min(maxCorner, w / 2 - 0.001, h / 2 - 0.001);
+      fillRoundRect(ctx, x, y, w, h, rad);
+    }
+  }
+}
+
+function drawFinderPatterns(ctx: CanvasRenderingContext2D, pad: number, cell: number, n: number): void {
+  drawSquircleFinder(ctx, pad + 0 * cell, pad + 0 * cell, cell, MODULE_COLOR, BG);
+  drawSquircleFinder(ctx, pad + (n - 7) * cell, pad + 0 * cell, cell, MODULE_COLOR, BG);
+  drawSquircleFinder(ctx, pad + 0 * cell, pad + (n - 7) * cell, cell, MODULE_COLOR, BG);
 }
 
 function loadImageCors(url: string): Promise<HTMLImageElement | null> {
@@ -64,34 +135,6 @@ function loadImageCors(url: string): Promise<HTMLImageElement | null> {
     img.onerror = () => resolve(null);
     img.src = url;
   });
-}
-
-function drawDataModules(
-  ctx: CanvasRenderingContext2D,
-  modules: BitMatrix,
-  pad: number,
-  cell: number,
-  n: number,
-): void {
-  const gap = cell * 0.06;
-  const w = cell - 2 * gap;
-  const cornerR = Math.max(cell * 0.32, 0.5);
-  ctx.fillStyle = MODULE_COLOR;
-  for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
-      if (isFinderRegion(r, c, n)) continue;
-      if (!modules.get(r, c)) continue;
-      const x = pad + c * cell + gap;
-      const y = pad + r * cell + gap;
-      fillRoundRect(ctx, x, y, w, w, cornerR);
-    }
-  }
-}
-
-function drawFinderPatterns(ctx: CanvasRenderingContext2D, pad: number, cell: number, n: number): void {
-  drawFinderPattern(ctx, pad + 0 * cell, pad + 0 * cell, cell, MODULE_COLOR);
-  drawFinderPattern(ctx, pad + (n - 7) * cell, pad + 0 * cell, cell, MODULE_COLOR);
-  drawFinderPattern(ctx, pad + 0 * cell, pad + (n - 7) * cell, cell, MODULE_COLOR);
 }
 
 async function drawLogoCenter(
@@ -130,7 +173,7 @@ async function drawLogoCenter(
   ctx.font = `800 ${r * 1.35}px system-ui, -apple-system, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("Q", centerX, centerY * 1.02);
+  ctx.fillText("Q", centerX, centerY);
   ctx.restore();
 }
 
@@ -140,7 +183,7 @@ export type GenerateQrCanvasOptions = {
 };
 
 /**
- * Erzeugt einen Qrave-stilisierten QR-Code (Canvas): abgerundete Finder & Module, Logo in der Mitte.
+ * Qrave QR: Squircle-Finder, organisch verbundene Datenmodule, Logo in der Mitte.
  * Nur im Browser verwenden (Canvas + Image).
  */
 export async function generateQrCanvas(
@@ -170,7 +213,7 @@ export async function generateQrCanvas(
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, outer, outer);
 
-  drawDataModules(ctx, modules, PAD, cell, n);
+  drawOrganicDataModules(ctx, modules, PAD, cell, n);
   drawFinderPatterns(ctx, PAD, cell, n);
 
   const cx = PAD + inner / 2;
