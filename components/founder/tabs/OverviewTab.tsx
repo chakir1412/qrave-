@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import type { FounderDashboardData, FounderScanEventRow } from "@/lib/founder-types";
+import type { FounderDashboardData, FounderKpiDeltaLine, FounderScanEventRow } from "@/lib/founder-types";
 import { berlinYmd, lastNCalendarDaysBerlin, startOfBerlinYmdUtcIso } from "@/lib/berlin-time";
 import { fp } from "../founder-palette";
 
@@ -168,6 +168,25 @@ function cardStyle(pad: number): CSSProperties {
   };
 }
 
+function KpiDeltaSub({ line, isMobile }: { line: FounderKpiDeltaLine; isMobile: boolean }) {
+  if (!line.show) return null;
+  const color =
+    line.tone === "up" ? "#34E89E" : line.tone === "down" ? "#FF4B6E" : fp.mu;
+  return (
+    <p
+      style={{
+        margin: "6px 0 0",
+        fontSize: isMobile ? 10 : 11,
+        fontWeight: 700,
+        color,
+        lineHeight: 1.35,
+      }}
+    >
+      {line.text}
+    </p>
+  );
+}
+
 function ProgressBar({ pct, accent }: { pct: number; accent: string }) {
   return (
     <div
@@ -317,6 +336,7 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
           >
             {scansTodayBerlin}
           </p>
+          <KpiDeltaSub line={data.kpiDeltas.scansToday} isMobile={isMobile} />
           <p style={{ margin: "6px 0 0", fontSize: isMobile ? 10 : 11, color: fp.mu }}>0:00 Europe/Berlin</p>
         </div>
         <div style={cardStyle(pad)}>
@@ -348,6 +368,7 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
           >
             {consentPct}%
           </p>
+          <KpiDeltaSub line={data.kpiDeltas.consent} isMobile={isMobile} />
           <p style={{ margin: "6px 0 0", fontSize: isMobile ? 10 : 11, color: fp.mu }}>
             Eindeutige Besucher (Sessions) · letzte 7 Tage · höchstes Tier pro Session
           </p>
@@ -482,6 +503,7 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
             <span style={{ fontWeight: 700, color: fp.tx }}>{weekPct}%</span>
           </div>
           <ProgressBar pct={weekPct} accent={fp.blue} />
+          <KpiDeltaSub line={data.kpiDeltas.scansWeek} isMobile={isMobile} />
         </div>
       </div>
 

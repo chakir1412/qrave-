@@ -35,6 +35,17 @@ export function startOfBerlinTodayUtcIso(now: Date = new Date()): string {
   return startOfBerlinYmdUtcIso(berlinYmd(now));
 }
 
+/**
+ * Anteil des laufenden Berlin-Kalendertags \[0..1] bis zum Zeitpunkt `now`
+ * (Mitternacht → Ende des Kalendertags in Europe/Berlin).
+ */
+export function berlinDayElapsedFraction(now: Date = new Date()): number {
+  const ymd = berlinYmd(now);
+  const startMs = new Date(startOfBerlinYmdUtcIso(ymd)).getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.min(1, Math.max(0, (now.getTime() - startMs) / dayMs));
+}
+
 /** 1. Januar 00:00 Uhr Europe/Berlin (Jahr des übergebenen Datums in Berlin). */
 export function startOfBerlinYearUtcIso(now: Date = new Date()): string {
   const y = Number(
@@ -47,6 +58,13 @@ export function startOfBerlinYearUtcIso(now: Date = new Date()): string {
 export function prevBerlinYmd(ymd: string): string {
   const t0 = new Date(startOfBerlinYmdUtcIso(ymd)).getTime();
   return berlinYmd(new Date(t0 - 1));
+}
+
+/** `ymd` minus `days` Kalendertage (Europe/Berlin). */
+export function berlinMinusCalendarDays(ymd: string, days: number): string {
+  let d = ymd;
+  for (let i = 0; i < days; i++) d = prevBerlinYmd(d);
+  return d;
 }
 
 /** Nächster Kalendertag (Europe/Berlin) zu `YYYY-MM-DD`. */

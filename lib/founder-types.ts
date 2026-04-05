@@ -78,6 +78,22 @@ export type FounderRestaurantTableRow = {
   created_at: string;
 };
 
+export type FounderKpiDeltaTone = "up" | "down" | "flat" | "muted";
+
+/** Eine Zeile unter einer KPI-Zahl (Delta vs. Vorperiode). */
+export type FounderKpiDeltaLine = {
+  show: boolean;
+  /** z. B. "↑ +12% vs. gestern" */
+  text: string;
+  tone: FounderKpiDeltaTone;
+};
+
+export type FounderKpiDeltas = {
+  scansToday: FounderKpiDeltaLine;
+  scansWeek: FounderKpiDeltaLine;
+  consent: FounderKpiDeltaLine;
+};
+
 export type FounderDashboardData = {
   restaurants: FounderRestaurantRow[];
   /** @deprecated Alias für scanEventsWeek (Kompatibilität). */
@@ -90,4 +106,6 @@ export type FounderDashboardData = {
   todos: FounderTodoRow[];
   restaurantExtras: FounderRestaurantExtRow[];
   restaurantTables: FounderRestaurantTableRow[];
+  /** Aus `restaurant_analytics_daily` (Service Role); fehlt z. B. ohne Key. */
+  kpiDeltas: FounderKpiDeltas;
 };

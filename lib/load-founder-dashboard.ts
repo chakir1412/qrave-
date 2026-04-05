@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FounderDashboardData } from "@/lib/founder-types";
+import { loadFounderKpiDeltas } from "@/lib/founder-kpi-deltas";
 import { startOfBerlinYearUtcIso } from "@/lib/berlin-time";
 import { dedupeSessionsKeepFirstEvent } from "@/lib/dedupe-scan-sessions";
 
@@ -31,7 +32,7 @@ export async function loadFounderDashboardData(
       .order("created_at", { ascending: false })
       .limit(SESSION_WINDOW_ROW_LIMIT);
 
-  const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl] = await Promise.all([
+  const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl, kpiDeltas] = await Promise.all([
     supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
     scanBaseAllTypes(SESSION_WINDOW_ROW_LIMIT).gte("created_at", weekStart),
     sessionWindowBase().gte("created_at", todayStart),
@@ -46,6 +47,7 @@ export async function loadFounderDashboardData(
       .select("id, restaurant_id, tisch_nummer, bereich, qr_url, nfc_programmiert, sticker_angebracht, created_at")
       .order("restaurant_id", { ascending: true })
       .order("tisch_nummer", { ascending: true }),
+    loadFounderKpiDeltas(now),
   ]);
 
   const errors: string[] = [];
@@ -87,6 +89,7 @@ export async function loadFounderDashboardData(
     todos: (rTodo.data ?? []) as FounderDashboardData["todos"],
     restaurantExtras: (rExt.data ?? []) as FounderDashboardData["restaurantExtras"],
     restaurantTables: (rTbl.data ?? []) as FounderDashboardData["restaurantTables"],
+    kpiDeltas,
   };
 
   return { data, errors };
