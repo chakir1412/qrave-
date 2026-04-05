@@ -149,11 +149,29 @@ export function RestaurantTablesManager({
   const [addToAreaSaving, setAddToAreaSaving] = useState(false);
   const [rename, setRename] = useState<RenameState | null>(null);
   const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
 
   const byBereich = useMemo(() => groupTablesByBereich(tables), [tables]);
   const bereichNames = useMemo(() => [...byBereich.keys()], [byBereich]);
   const selCount = selectedIds.size;
   const selectionMode = selCount > 0;
+
+  const selectedTables = useMemo(() => tables.filter((t) => selectedIds.has(t.id)), [tables, selectedIds]);
+
+  /** Zielbereiche: bei Auswahl nur aus einem Bereich diesen ausblenden; bei gemischter Auswahl alle anzeigen. */
+  const bulkMoveDestinations = useMemo(() => {
+    const pool = new Set<string>(bereichNames);
+    pool.add("Ohne Bereich");
+    const sorted = [...pool].sort((a, b) => a.localeCompare(b, "de"));
+    const keys = new Set(
+      selectedTables.map((t) => (t.bereich != null && t.bereich.trim() !== "" ? t.bereich.trim() : "Ohne Bereich")),
+    );
+    if (keys.size === 1) {
+      const only = [...keys][0];
+      return sorted.filter((d) => d !== only);
+    }
+    return sorted;
+  }, [bereichNames, selectedTables]);
 
   useEffect(() => {
     const valid = new Set(tables.map((t) => t.id));
@@ -361,6 +379,32 @@ export function RestaurantTablesManager({
         setApiError(r.error ?? "Fehler");
         return;
       }
+      await onRefresh();
+    } catch {
+      setApiError("Netzwerkfehler");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function moveManyTables(targetDisplay: string) {
+    if (selectedIds.size === 0) return;
+    setApiError(null);
+    setPending(true);
+    try {
+      const bereich = targetDisplay === "Ohne Bereich" ? null : targetDisplay;
+      const r = await apiPost({
+        action: "moveMany",
+        restaurantId: restaurant.id,
+        tableIds: [...selectedIds],
+        bereich,
+      });
+      if (!r.ok) {
+        setApiError(r.error ?? "Fehler");
+        return;
+      }
+      setBulkMoveOpen(false);
+      setSelectedIds(new Set());
       await onRefresh();
     } catch {
       setApiError("Netzwerkfehler");
@@ -772,12 +816,91 @@ export function RestaurantTablesManager({
           <button
             type="button"
             disabled={pending}
-            onClick={() => setSelectedIds(new Set())}
+            onClick={() => {
+              setApiError(null);
+              setBulkMoveOpen(true);
+            }}
+            className="text-sm font-bold"
+            style={{ color: ORANGE, background: "none", border: "none", cursor: "pointer" }}
+          >
+            Verschieben nach…
+          </button>
+          <span style={{ color: "rgba(255,255,255,0.25)" }}>·</span>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              setBulkMoveOpen(false);
+              setSelectedIds(new Set());
+            }}
             className="text-sm font-bold"
             style={{ color: "rgba(255,255,255,0.65)", background: "none", border: "none", cursor: "pointer" }}
           >
             Abbrechen
           </button>
+        </div>
+      ) : null}
+
+      {bulkMoveOpen ? (
+        <div
+          className="fixed inset-0 z-[132] flex items-end justify-center p-4 sm:items-center"
+          style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+          role="presentation"
+          onClick={() => !pending && setBulkMoveOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal
+            aria-labelledby="bulk-move-title"
+            className="w-full max-w-xs"
+            style={{ ...cardBase, padding: isMobile ? 16 : 18 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="bulk-move-title" style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#fff" }}>
+              Verschieben nach
+            </h2>
+            <p className="mt-2 text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+              {selCount} Tisch{selCount === 1 ? "" : "e"} · Zielbereich wählen
+            </p>
+            <div className="mt-4 flex max-h-[min(50vh,280px)] flex-col gap-1 overflow-y-auto">
+              {bulkMoveDestinations.length === 0 ? (
+                <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  Kein anderer Zielbereich verfügbar.
+                </p>
+              ) : (
+                bulkMoveDestinations.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => void moveManyTables(name)}
+                    className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white transition-colors"
+                    style={{
+                      border: "0.5px solid rgba(255,255,255,0.1)",
+                      background: "rgba(255,255,255,0.06)",
+                      cursor: pending ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setBulkMoveOpen(false)}
+              className="mt-4 w-full rounded-xl py-2.5 text-sm font-bold"
+              style={{
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.05)",
+                color: "rgba(255,255,255,0.75)",
+                cursor: "pointer",
+              }}
+            >
+              Schließen
+            </button>
+          </div>
         </div>
       ) : null}
 

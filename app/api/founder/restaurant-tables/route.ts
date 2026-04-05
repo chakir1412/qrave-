@@ -155,6 +155,7 @@ export async function PATCH(req: Request) {
  * - `{ action: "toggleStatus", tischId, field }` (wie PATCH)
  * - `{ action: "deleteMany", tableIds: string[] }`
  * - `{ action: "move", tableId, bereich }` (bereich `null` = ohne Bereich)
+ * - `{ action: "moveMany", restaurantId, tableIds[], bereich }` (Bulk-Verschieben)
  * - `{ action: "renameArea", restaurantId, newBereich, oldBereichIsNull?, oldBereich? }`
  */
 export async function POST(req: Request) {
@@ -221,6 +222,58 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Tisch nicht gefunden" }, { status: 404 });
     }
     return NextResponse.json({ table: row });
+  }
+
+  if (action === "moveMany") {
+    const restaurantId = typeof body.restaurantId === "string" ? body.restaurantId.trim() : "";
+    const rawIds = body.tableIds;
+    if (!restaurantId) {
+      return NextResponse.json({ error: "restaurantId fehlt" }, { status: 400 });
+    }
+    if (!Array.isArray(rawIds)) {
+      return NextResponse.json({ error: "tableIds muss ein Array sein" }, { status: 400 });
+    }
+    const tableIds = [...new Set(rawIds.filter((x): x is string => typeof x === "string" && x.length > 0))].slice(
+      0,
+      250,
+    );
+    if (tableIds.length === 0) {
+      return NextResponse.json({ error: "Keine gültigen Tisch-IDs" }, { status: 400 });
+    }
+    const bereichVal = body.bereich;
+    const bereich =
+      bereichVal === null || bereichVal === undefined
+        ? null
+        : typeof bereichVal === "string"
+          ? bereichVal.trim() || null
+          : null;
+
+    const { data: rows, error: selErr } = await srv
+      .from("restaurant_tables")
+      .select("id, restaurant_id")
+      .in("id", tableIds);
+    if (selErr) {
+      return NextResponse.json({ error: selErr.message }, { status: 500 });
+    }
+    const found = (rows ?? []) as { id: string; restaurant_id: string }[];
+    if (found.length !== tableIds.length) {
+      return NextResponse.json({ error: "Ein oder mehrere Tische wurden nicht gefunden" }, { status: 400 });
+    }
+    for (const r of found) {
+      if (r.restaurant_id !== restaurantId) {
+        return NextResponse.json({ error: "Tische gehören nicht zu diesem Restaurant" }, { status: 400 });
+      }
+    }
+
+    const { error: uErr } = await srv
+      .from("restaurant_tables")
+      .update({ bereich })
+      .in("id", tableIds)
+      .eq("restaurant_id", restaurantId);
+    if (uErr) {
+      return NextResponse.json({ error: uErr.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, moved: tableIds.length });
   }
 
   if (action === "renameArea") {
