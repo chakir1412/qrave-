@@ -1,4 +1,5 @@
 import type { FounderRestaurantTableRow } from "@/lib/founder-types";
+import { generateQrPngDataUrl } from "@/lib/generate-qr-canvas";
 
 const PER_PAGE = 6;
 
@@ -10,7 +11,7 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function filenameSafeSlug(slug: string): string {
+export function filenameSafeSlug(slug: string): string {
   const t = slug.trim().replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
   return t.length > 0 ? t : "restaurant";
 }
@@ -23,8 +24,8 @@ export async function downloadRestaurantQrCodesHtml(
   restaurantName: string,
   slug: string,
   tables: FounderRestaurantTableRow[],
+  logoUrl: string | null,
 ): Promise<void> {
-  const QRCode = (await import("qrcode")).default;
   const sorted = [...tables].sort((a, b) => a.tisch_nummer - b.tisch_nummer);
   if (sorted.length === 0) {
     return;
@@ -33,7 +34,7 @@ export async function downloadRestaurantQrCodesHtml(
   const items: { dataUrl: string; nummer: number; bereich: string; url: string }[] = [];
   for (const t of sorted) {
     const url = t.qr_url ?? `https://qrave.menu/${slug}/tisch-${t.tisch_nummer}`;
-    const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 220, errorCorrectionLevel: "M" });
+    const dataUrl = await generateQrPngDataUrl(url, logoUrl, 240);
     items.push({
       dataUrl,
       nummer: t.tisch_nummer,

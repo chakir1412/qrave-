@@ -76,6 +76,8 @@ export type Restaurant = {
   guest_note?: string | null;
   /** Wochenplan Mo–So */
   opening_hours?: OpeningHours | null;
+  /** Öffentliche URL zum Logo (Supabase Storage, z. B. restaurant-assets) */
+  logo_url?: string | null;
 };
 
 /** Mehrpreise z.B. 0,2l / 0,3l / 0,5l / Flasche */

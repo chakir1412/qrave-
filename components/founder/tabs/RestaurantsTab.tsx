@@ -15,7 +15,8 @@ import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
 import { slugifyRestaurantName } from "@/lib/slugify-restaurant";
 import { RestaurantTableHeatmap } from "@/components/founder/RestaurantTableHeatmap";
 import { RestaurantTablesManager } from "@/components/founder/RestaurantTablesManager";
-import { downloadRestaurantQrCodesHtml } from "@/lib/open-restaurant-qr-print";
+import { RestaurantTableQrPreview } from "@/components/founder/RestaurantTableQrPreview";
+import { downloadRestaurantQrCodesHtml, filenameSafeSlug } from "@/lib/open-restaurant-qr-print";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -748,7 +749,12 @@ export function RestaurantsTab({
               disabled={pending || qrPrintBusy || tablesForSub.length === 0}
               onClick={() => {
                 setQrPrintBusy(true);
-                void downloadRestaurantQrCodesHtml(subRestaurant.name, subRestaurant.slug, tablesForSub).finally(() => {
+                void downloadRestaurantQrCodesHtml(
+                  subRestaurant.name,
+                  subRestaurant.slug,
+                  tablesForSub,
+                  subRestaurant.logo_url ?? null,
+                ).finally(() => {
                   setQrPrintBusy(false);
                 });
               }}
@@ -781,7 +787,7 @@ export function RestaurantsTab({
                   }}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div style={{ fontWeight: 800, color: "#fff", fontSize: 15 }}>
                         Tisch {tb.tisch_nummer}
                         {tb.bereich ? (
@@ -795,6 +801,14 @@ export function RestaurantsTab({
                         {tb.qr_url ?? "—"}
                       </div>
                     </div>
+                    {tb.qr_url ? (
+                      <RestaurantTableQrPreview
+                        menuUrl={tb.qr_url}
+                        logoUrl={subRestaurant.logo_url ?? null}
+                        downloadFilenameBase={`qrave-${filenameSafeSlug(subRestaurant.slug)}-tisch-${tb.tisch_nummer}`}
+                        orange={ORANGE}
+                      />
+                    ) : null}
                     <div className="flex flex-wrap items-center gap-3">
                       <label className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
                         <input
