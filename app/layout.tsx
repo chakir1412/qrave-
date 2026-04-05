@@ -19,8 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Qrave – Digitale Speisekarte",
-  description: "Digitale Speisekarte und Restaurant-Dashboard mit Supabase & Next.js",
+  title: "Qrave – Die schönste digitale Speisekarte",
+  description:
+    "QR scannen — Menü sofort. Kostenlos, mehrsprachig, mit KI-Import. Kein App-Download, kein Zwang für Gäste.",
 };
 
 export default function RootLayout({

@@ -76,6 +76,13 @@ body {
     transform: translateX(0);
   }
 }
+/* Landing: animierter Gradient-Mesh (Hero) */
+@keyframes qrave-mesh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .dashboard-slR {
   animation: dashboard-slR 0.28s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
