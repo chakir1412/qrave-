@@ -3,7 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DailyPush, OpeningHours } from "@/lib/supabase";
+import type { DailyPush, LunchOffer, OpeningHours } from "@/lib/supabase";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
@@ -50,8 +50,11 @@ type Props = {
   restaurant: DashboardRestaurant;
   initialMenuItems: MenuItem[];
   initialAnalytics: DashboardAnalytics;
-  initialDailyPush: DailyPush | null;
+  initialDailyPushes: DailyPush[];
+  initialLunchOffers: LunchOffer[];
 };
+
+const MAX_DAILY_PUSHES = 3;
 
 export function DashboardApp({
   userFirstName,
@@ -59,13 +62,15 @@ export function DashboardApp({
   restaurant: restaurantProp,
   initialMenuItems,
   initialAnalytics,
-  initialDailyPush,
+  initialDailyPushes,
+  initialLunchOffers,
 }: Props) {
   const router = useRouter();
   const [restaurant, setRestaurant] = useState(restaurantProp);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems);
   const [analytics, setAnalytics] = useState<DashboardAnalytics>(initialAnalytics);
-  const [dailyPush, setDailyPush] = useState<DailyPush | null>(initialDailyPush);
+  const [dailyPushes, setDailyPushes] = useState<DailyPush[]>(initialDailyPushes);
+  const [lunchOffers, setLunchOffers] = useState<LunchOffer[]>(initialLunchOffers);
 
   const {
     bereiche: tischBereiche,
@@ -130,8 +135,12 @@ export function DashboardApp({
   }, [initialAnalytics]);
 
   useEffect(() => {
-    setDailyPush(initialDailyPush);
-  }, [initialDailyPush]);
+    setDailyPushes(initialDailyPushes);
+  }, [initialDailyPushes]);
+
+  useEffect(() => {
+    setLunchOffers(initialLunchOffers);
+  }, [initialLunchOffers]);
 
   useEffect(() => {
     setGuestNotiz(restaurant.guest_note ?? "");
@@ -187,6 +196,10 @@ export function DashboardApp({
     setSavingDaily(true);
     setDailyError(null);
     try {
+      if (dailyPushes.length >= MAX_DAILY_PUSHES) {
+        setDailyError(`Maximal ${MAX_DAILY_PUSHES} Tages-Specials gleichzeitig.`);
+        return;
+      }
       let name = dailyForm.name.trim();
       let desc = dailyForm.desc.trim();
       const emoji = dailyForm.emoji.trim() || "⭐";
@@ -207,31 +220,39 @@ export function DashboardApp({
       const today = todayIsoDate();
       const { data, error } = await supabase
         .from("daily_push")
-        .upsert(
-          {
-            restaurant_id: restaurant.id,
-            active_date: today,
-            item_name: name,
-            item_desc: desc || null,
-            item_emoji: emoji,
-          },
-          { onConflict: "restaurant_id,active_date" },
-        )
-        .select("id, restaurant_id, active_date, item_emoji, item_name, item_desc")
+        .insert({
+          restaurant_id: restaurant.id,
+          active_date: today,
+          item_name: name,
+          item_desc: desc || null,
+          item_emoji: emoji,
+        })
+        .select("id, restaurant_id, active_date, item_emoji, item_name, item_desc, created_at")
         .single();
 
       if (error) {
         setDailyError(error.message);
         return;
       }
-      setDailyPush(data as DailyPush);
-      showToast("✓ Tagesempfehlung gespeichert");
+      setDailyPushes((prev) => [...prev, data as DailyPush]);
+      setDailyForm({ mode: "select", itemId: null, name: "", desc: "", emoji: "⭐" });
+      showToast("✓ Tages-Special hinzugefügt");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Fehler beim Speichern.";
       setDailyError(msg);
     } finally {
       setSavingDaily(false);
     }
+  }
+
+  async function handleDailyPushDelete(id: string) {
+    const { error } = await supabase.from("daily_push").delete().eq("id", id);
+    if (error) {
+      showToast(error.message ?? "Konnte nicht entfernt werden");
+      return;
+    }
+    setDailyPushes((prev) => prev.filter((p) => p.id !== id));
+    showToast("✓ Special entfernt");
   }
 
   async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
@@ -338,7 +359,7 @@ export function DashboardApp({
               topItemsWeek={analytics.topItemsWeek}
               menuItems={menuItems}
               peaksToday={analytics.peaksToday}
-              dailyPush={dailyPush}
+              dailyPushes={dailyPushes}
               onGoKarte={(sub) => {
                 setActiveKarteSub(sub);
                 goTab("karte");
@@ -367,13 +388,16 @@ export function DashboardApp({
               }}
               onOpenAddCat={() => setOverlays((o) => ({ ...o, addCat: true }))}
               onOpenPreview={() => setPages((p) => ({ ...p, preview: true }))}
-              dailyPush={dailyPush}
-              onDailyPushUpdated={setDailyPush}
+              dailyPushes={dailyPushes}
+              onDailyPushDelete={handleDailyPushDelete}
+              maxDailyPushes={MAX_DAILY_PUSHES}
               dailyForm={dailyForm}
               setDailyForm={setDailyForm}
               savingDaily={savingDaily}
               dailyError={dailyError}
               onSaveDaily={handleDailyPushSave}
+              lunchOffers={lunchOffers}
+              onLunchOffersChange={setLunchOffers}
               onToast={showToast}
               guestNotiz={guestNotiz}
               onGuestNotizChange={setGuestNotiz}
@@ -461,7 +485,7 @@ export function DashboardApp({
         slug={restaurant.slug}
         logoUrl={currentLogoUrl ?? restaurant.logo_url ?? null}
         menuItems={menuItems}
-        dailyPush={dailyPush}
+        dailyPushes={dailyPushes}
         guestNotiz={guestNotiz}
       />
 

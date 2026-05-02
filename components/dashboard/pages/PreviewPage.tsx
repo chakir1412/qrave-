@@ -12,7 +12,7 @@ type Props = {
   slug: string;
   logoUrl: string | null;
   menuItems: MenuItem[];
-  dailyPush: DailyPush | null;
+  dailyPushes: DailyPush[];
   guestNotiz: string;
 };
 
@@ -23,7 +23,7 @@ export function PreviewPage({
   slug,
   logoUrl,
   menuItems,
-  dailyPush,
+  dailyPushes,
   guestNotiz,
 }: Props) {
   if (!open) return null;
@@ -88,25 +88,30 @@ export function PreviewPage({
           </p>
         </div>
 
-        {dailyPush && (
-          <div
-            className="mb-4 rounded-2xl border px-4 py-3"
-            style={{
-              backgroundColor: dash.ord,
-              borderColor: dash.orm,
-            }}
-          >
-            <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: dash.or }}>
-              Tages-Special
-            </div>
-            <div className="text-lg font-extrabold">
-              {dailyPush.item_emoji} {dailyPush.item_name}
-            </div>
-            {dailyPush.item_desc && (
-              <div className="mt-1 text-xs" style={{ color: dash.mi }}>
-                {dailyPush.item_desc}
+        {dailyPushes.length > 0 && (
+          <div className="mb-4 flex flex-col gap-2">
+            {dailyPushes.map((dp) => (
+              <div
+                key={dp.id}
+                className="rounded-2xl border px-4 py-3"
+                style={{
+                  backgroundColor: dash.ord,
+                  borderColor: dash.orm,
+                }}
+              >
+                <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: dash.or }}>
+                  Tages-Special
+                </div>
+                <div className="text-lg font-extrabold">
+                  {dp.item_emoji} {dp.item_name}
+                </div>
+                {dp.item_desc && (
+                  <div className="mt-1 text-xs" style={{ color: dash.mi }}>
+                    {dp.item_desc}
+                  </div>
+                )}
               </div>
-            )}
+            ))}
           </div>
         )}
 

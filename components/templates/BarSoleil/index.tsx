@@ -12,6 +12,7 @@ import ItemModal from "@/components/speisekarte/ItemModal";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { DailyPushBanner, DailyPushPopup } from "@/components/speisekarte/DailyPush";
 import GuestNoteBanner from "@/components/speisekarte/GuestNoteBanner";
+import LunchSection from "@/components/speisekarte/LunchSection";
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
 import {
@@ -62,12 +63,14 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
     accentColor,
     logoUrl,
     highlights = [],
-    dailyPush = null,
+    dailyPushes = [],
     restaurantId,
     tischNummer,
     sponsoredItems = [],
     guestNote = null,
+    lunchOffers = [],
   } = props;
+  const primaryDailyPush = dailyPushes[0] ?? null;
 
   const [lang, setLang] = useState<"de" | "en">("de");
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
@@ -102,7 +105,7 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
     open: dailyPopupOpen,
     openPopup: openDailyPopup,
     closePopup: closeDailyPopup,
-  } = useDailyPush(dailyPush ?? null, consentGiven);
+  } = useDailyPush(primaryDailyPush, consentGiven);
 
   const { track } = useAnalytics();
 
@@ -115,13 +118,13 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
   useMemo(() => {
     track("view_menu", {
       restaurantName,
-      hasDailyPush: Boolean(dailyPush),
+      hasDailyPush: dailyPushes.length > 0,
       itemCount: menuItems.length,
       categoriesCount: categories.length,
       template: "bar-soleil",
     });
     return undefined;
-  }, [track, restaurantName, dailyPush, menuItems.length, categories.length]);
+  }, [track, restaurantName, dailyPushes.length, menuItems.length, categories.length]);
 
   const mainTabs: MainTabItem[] = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
 
@@ -313,9 +316,11 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
       ) : null}
 
       {/* Special bar / Daily Push – unterhalb des Headers mit Abstand, nicht abgeschnitten */}
-      {dailyPush && (
-        <div className="max-w-[880px] mx-auto px-4 mt-4 mb-3">
-          <DailyPushBanner dailyPush={dailyPush} onOpenPopup={openDailyPopup} />
+      {dailyPushes.length > 0 && (
+        <div className="max-w-[880px] mx-auto px-4 mt-4 mb-3 flex flex-col gap-2">
+          {dailyPushes.map((dp) => (
+            <DailyPushBanner key={dp.id} dailyPush={dp} onOpenPopup={openDailyPopup} />
+          ))}
         </div>
       )}
 
@@ -344,6 +349,12 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
 
       {/* Content – MenuGrid mit Bar-Soleil-Farben (--text, --copper, --card) */}
       <main className="max-w-[880px] mx-auto px-4 pt-6 pb-28" style={{ backgroundColor: "#0F0D0A" }}>
+        <LunchSection
+          offers={lunchOffers}
+          menuItems={menuItems}
+          onItemClick={pushModal}
+          theme="dark"
+        />
         <MenuGrid
           theme="bar-soleil"
           showHighlightSlider={showHighlightSlider}
@@ -389,10 +400,10 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
         theme="bar-soleil"
       />
 
-      {/* Daily Push Popup — dailyPush und handleAddToWishlist werden durchgereicht */}
-      {dailyPush && (
+      {/* Daily Push Popup — zeigt nur das erste Special an */}
+      {primaryDailyPush && (
         <DailyPushPopup
-          dailyPush={dailyPush}
+          dailyPush={primaryDailyPush}
           menuItems={menuItems}
           open={dailyPopupOpen}
           onClose={closeDailyPopup}

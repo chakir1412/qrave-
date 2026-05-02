@@ -132,11 +132,12 @@ export default async function TischSpeisekartePage({
     accentColor: data.restaurant.accent_color ?? undefined,
     logoUrl: data.restaurant.logo_url ?? undefined,
     highlights: data.highlights,
-    dailyPush: data.dailyPush,
+    dailyPushes: data.dailyPushes,
     restaurantId: data.restaurant.id,
     tischNummer: tischNr,
     sponsoredItems,
     guestNote: data.restaurant.guest_note ?? null,
+    lunchOffers: data.lunchOffers,
   };
 
   const templateKey = (data.restaurant.template ?? "bar-soleil") as string;

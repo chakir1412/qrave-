@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import type { DailyPush, MenuItem } from "@/lib/supabase";
+import { supabase, fetchDailyPushes, fetchLunchOffers } from "@/lib/supabase";
+import type { DailyPush, LunchOffer, MenuItem } from "@/lib/supabase";
 import { fetchMenuItemsForDashboard } from "@/hooks/useMenuItems";
 import { fetchDashboardAnalytics } from "@/hooks/useAnalytics";
 import { DashboardApp } from "@/components/dashboard/DashboardApp";
@@ -25,7 +25,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [restaurant, setRestaurant] = useState<DashboardRestaurant | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [dailyPush, setDailyPush] = useState<DailyPush | null>(null);
+  const [dailyPushes, setDailyPushes] = useState<DailyPush[]>([]);
+  const [lunchOffers, setLunchOffers] = useState<LunchOffer[]>([]);
   const [userFirstName, setUserFirstName] = useState("Gast");
   const [analytics, setAnalytics] = useState<Awaited<ReturnType<typeof fetchDashboardAnalytics>> | null>(
     null,
@@ -69,22 +70,18 @@ export default function DashboardPage() {
         ),
       );
 
-      const [items, pushRes, dashAnalytics] = await Promise.all([
+      const [items, pushes, offers, dashAnalytics] = await Promise.all([
         fetchMenuItemsForDashboard(restRow.id),
-        supabase
-          .from("daily_push")
-          .select("id, restaurant_id, active_date, item_emoji, item_name, item_desc")
-          .eq("restaurant_id", restRow.id)
-          .order("active_date", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+        fetchDailyPushes(restRow.id),
+        fetchLunchOffers(restRow.id),
         fetchDashboardAnalytics(restRow.id),
       ]);
 
       if (cancelled) return;
 
       setMenuItems(items);
-      setDailyPush(pushRes.data ? (pushRes.data as DailyPush) : null);
+      setDailyPushes(pushes);
+      setLunchOffers(offers);
       setAnalytics(dashAnalytics);
       setLoading(false);
     })();
@@ -124,7 +121,8 @@ export default function DashboardPage() {
       restaurant={restaurant}
       initialMenuItems={menuItems}
       initialAnalytics={analytics}
-      initialDailyPush={dailyPush}
+      initialDailyPushes={dailyPushes}
+      initialLunchOffers={lunchOffers}
     />
   );
 }

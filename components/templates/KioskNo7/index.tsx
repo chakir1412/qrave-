@@ -10,6 +10,7 @@ import ItemModal from "@/components/speisekarte/ItemModal";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { DailyPushBanner, DailyPushPopup } from "@/components/speisekarte/DailyPush";
 import GuestNoteBanner from "@/components/speisekarte/GuestNoteBanner";
+import LunchSection from "@/components/speisekarte/LunchSection";
 import type { MenuItem } from "@/lib/supabase";
 import { getItemEmoji, getDisplayPrice } from "@/components/speisekarte/utils";
 import { BADGE_LABELS, BADGE_STYLES, type FilterKey } from "@/components/speisekarte/constants";
@@ -63,13 +64,14 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
   const {
     menuItems,
     restaurantName,
-    dailyPush = null,
+    dailyPushes = [],
     accentColor,
     logoUrl,
     restaurantId,
     tischNummer,
     sponsoredItems = [],
     guestNote = null,
+    lunchOffers = [],
   } = props;
 
   const ACCENT = (accentColor ?? "#FFD600").trim() || "#FFD600";
@@ -99,11 +101,12 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     isInWishlist,
   } = useWishlist();
 
+  const primaryDailyPush = dailyPushes[0] ?? null;
   const {
     open: dailyPopupOpen,
     openPopup: openDailyPopup,
     closePopup: closeDailyPopup,
-  } = useDailyPush(dailyPush ?? null, consentGiven);
+  } = useDailyPush(primaryDailyPush, consentGiven);
 
   const { track } = useAnalytics();
 
@@ -116,12 +119,12 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
   useMemo(() => {
     track("view_menu", {
       restaurantName,
-      hasDailyPush: Boolean(dailyPush),
+      hasDailyPush: dailyPushes.length > 0,
       itemCount: menuItems.length,
       template: "kiosk-no7",
     });
     return undefined;
-  }, [track, restaurantName, dailyPush, menuItems.length]);
+  }, [track, restaurantName, dailyPushes.length, menuItems.length]);
 
   const allTabs: MainTabDef[] = useMemo(() => {
     const cats = deriveCategoryTabsFromItems(menuItems);
@@ -325,10 +328,12 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
         </div>
       ) : null}
 
-      {/* Special bar – Daily Push */}
-      {dailyPush && (
-        <div className="px-4 mt-2">
-          <DailyPushBanner dailyPush={dailyPush} onOpenPopup={openDailyPopup} />
+      {/* Special bar – Daily Pushes */}
+      {dailyPushes.length > 0 && (
+        <div className="px-4 mt-2 flex flex-col gap-2">
+          {dailyPushes.map((dp) => (
+            <DailyPushBanner key={dp.id} dailyPush={dp} onOpenPopup={openDailyPopup} />
+          ))}
         </div>
       )}
 
@@ -363,6 +368,12 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
 
       {/* Content */}
       <main className="px-4 pt-2 pb-28">
+        <LunchSection
+          offers={lunchOffers}
+          menuItems={menuItems}
+          onItemClick={pushModal}
+          theme="dark"
+        />
         {showMenu && (
           <div>
             {currentSections.map((sec) => (
@@ -719,9 +730,9 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
         theme="bar-soleil"
       />
 
-      {dailyPush && (
+      {primaryDailyPush && (
         <DailyPushPopup
-          dailyPush={dailyPush}
+          dailyPush={primaryDailyPush}
           menuItems={menuItems}
           open={dailyPopupOpen}
           onClose={closeDailyPopup}

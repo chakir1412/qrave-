@@ -1,5 +1,5 @@
-import { supabase, fetchDailyPush } from "@/lib/supabase";
-import type { Restaurant, MenuItem } from "@/lib/supabase";
+import { supabase, fetchDailyPushes, fetchLunchOffers } from "@/lib/supabase";
+import type { Restaurant, MenuItem, DailyPush, LunchOffer } from "@/lib/supabase";
 import { orderedCategoriesFromItems } from "@/components/speisekarte/menu-layout";
 
 const RESTAURANT_SELECT_PUBLIC =
@@ -21,7 +21,8 @@ export type PublicSpeisekarteData = {
   menuItems: MenuItem[];
   categories: string[];
   highlights: MenuItem[];
-  dailyPush: Awaited<ReturnType<typeof fetchDailyPush>>;
+  dailyPushes: DailyPush[];
+  lunchOffers: LunchOffer[];
 };
 
 export async function loadPublicSpeisekarteBySlug(
@@ -76,13 +77,17 @@ export async function loadPublicSpeisekarteBySlug(
   const categories = orderedCategoriesFromItems(menuItems);
 
   const highlights = menuItems.filter((item) => item.is_highlight === true);
-  const dailyPush = await fetchDailyPush(restaurant.id);
+  const [dailyPushes, lunchOffers] = await Promise.all([
+    fetchDailyPushes(restaurant.id),
+    fetchLunchOffers(restaurant.id),
+  ]);
 
   return {
     restaurant,
     menuItems,
     categories,
     highlights,
-    dailyPush,
+    dailyPushes,
+    lunchOffers,
   };
 }

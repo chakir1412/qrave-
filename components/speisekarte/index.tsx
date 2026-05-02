@@ -7,7 +7,7 @@ import {
   categoryTabLabel,
   CATEGORY_TAB_ALLE_KEY,
 } from "./menu-layout";
-import type { MenuItem, DailyPush, SponsoredItem } from "@/lib/supabase";
+import type { MenuItem, DailyPush, SponsoredItem, LunchOffer } from "@/lib/supabase";
 import { useWishlist } from "../shared/useWishlist";
 import { useDailyPush } from "../shared/useDailyPush";
 import { useAnalytics } from "../shared/useAnalytics";
@@ -19,6 +19,7 @@ import ItemModal from "./ItemModal";
 import Wishlist from "./Wishlist";
 import { DailyPushBanner, DailyPushPopup } from "./DailyPush";
 import GuestNoteBanner from "./GuestNoteBanner";
+import LunchSection from "./LunchSection";
 import type { FilterKey } from "./constants";
 import { useSpeisekarteTier1Tracking } from "./useSpeisekarteTier1Tracking";
 
@@ -29,7 +30,8 @@ export type SpeisekarteProps = {
   accentColor?: string;
   logoUrl?: string;
   highlights?: MenuItem[];
-  dailyPush?: DailyPush | null;
+  /** Bis zu 3 Tages-Specials pro Tag. */
+  dailyPushes?: DailyPush[];
   /** Öffentliche Restaurant-ID für Tier-1-Tracking */
   restaurantId?: string;
   tischNummer?: number;
@@ -37,6 +39,8 @@ export type SpeisekarteProps = {
   sponsoredItems?: SponsoredItem[];
   /** Frei-Text-Hinweis für Gäste (z. B. „Heute extra-lange Wartezeiten"). */
   guestNote?: string | null;
+  /** Mittagsangebote — wenn aktuell im Zeitfenster, eigene Sektion oben. */
+  lunchOffers?: LunchOffer[];
 };
 
 export default function Speisekarte({
@@ -44,12 +48,14 @@ export default function Speisekarte({
   menuItems,
   restaurantName,
   highlights = [],
-  dailyPush = null,
+  dailyPushes = [],
   restaurantId,
   tischNummer,
   sponsoredItems = [],
   guestNote = null,
+  lunchOffers = [],
 }: SpeisekarteProps) {
+  const primaryDailyPush = dailyPushes[0] ?? null;
   const [lang, setLang] = useState<"de" | "en">("de");
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -82,7 +88,7 @@ export default function Speisekarte({
     open: dailyPopupOpen,
     openPopup: openDailyPopup,
     closePopup: closeDailyPopup,
-  } = useDailyPush(dailyPush ?? null, consentGiven);
+  } = useDailyPush(primaryDailyPush, consentGiven);
   const { track } = useAnalytics();
 
   useEffect(() => {
@@ -96,11 +102,11 @@ export default function Speisekarte({
   useMemo(() => {
     track("view_menu", {
       restaurantName,
-      hasDailyPush: Boolean(dailyPush),
+      hasDailyPush: dailyPushes.length > 0,
       itemCount: menuItems.length,
     });
     return undefined;
-  }, [track, restaurantName, dailyPush, menuItems.length]);
+  }, [track, restaurantName, dailyPushes.length, menuItems.length]);
 
   const mainTabs: MainTabItem[] = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
 
@@ -243,6 +249,11 @@ export default function Speisekarte({
       ) : null}
 
       <main className="max-w-[880px] mx-auto px-[22px] pt-7 pb-28">
+        <LunchSection
+          offers={lunchOffers}
+          menuItems={menuItems}
+          onItemClick={pushModal}
+        />
         <MenuGrid
           showHighlightSlider={showHighlightSlider}
           highlights={highlights}
@@ -254,8 +265,12 @@ export default function Speisekarte({
           isInWishlist={isInWishlist}
           onCategorySectionRef={onCategorySectionRef}
           bannerSlot={
-            dailyPush && effectiveMainTab === CATEGORY_TAB_ALLE_KEY ? (
-              <DailyPushBanner dailyPush={dailyPush} onOpenPopup={openDailyPopup} />
+            dailyPushes.length > 0 && effectiveMainTab === CATEGORY_TAB_ALLE_KEY ? (
+              <div className="mb-3 flex flex-col gap-2">
+                {dailyPushes.map((dp) => (
+                  <DailyPushBanner key={dp.id} dailyPush={dp} onOpenPopup={openDailyPopup} />
+                ))}
+              </div>
             ) : null
           }
         />
@@ -287,9 +302,9 @@ export default function Speisekarte({
         restaurantName={restaurantName}
       />
 
-      {dailyPush && (
+      {primaryDailyPush && (
         <DailyPushPopup
-          dailyPush={dailyPush}
+          dailyPush={primaryDailyPush}
           menuItems={menuItems}
           open={dailyPopupOpen}
           onClose={closeDailyPopup}

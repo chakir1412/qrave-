@@ -31,7 +31,7 @@ type Props = {
   topItemsWeek: { name: string; count: number }[];
   menuItems: MenuItem[];
   peaksToday: PeakRow[];
-  dailyPush: DailyPush | null;
+  dailyPushes: DailyPush[];
   onGoKarte: (sub: KarteSub) => void;
 };
 
@@ -79,9 +79,10 @@ export function HomeTab({
   topItemsWeek,
   menuItems,
   peaksToday,
-  dailyPush,
+  dailyPushes,
   onGoKarte,
 }: Props) {
+  const primaryDailyPush = dailyPushes[0] ?? null;
   const [chartReady, setChartReady] = useState(false);
   const [insightPeriod, setInsightPeriod] = useState<InsightPeriod>("week");
   const [top3Mode, setTop3Mode] = useState<"food" | "drink">("food");
@@ -231,15 +232,17 @@ export function HomeTab({
           >
             <div className="mb-1.5 text-lg">⭐</div>
             <div className="text-[13px] font-bold">Tages-Special</div>
-            {dailyPush ? (
+            {primaryDailyPush ? (
               <>
                 <div className="text-[11px] font-semibold" style={{ color: dash.gr }}>
-                  {dailyPush.item_emoji} {dailyPush.item_name}
+                  {primaryDailyPush.item_emoji} {primaryDailyPush.item_name}
                 </div>
                 <div className="text-[10px]" style={{ color: dash.mu }}>
-                  {dailyPush.active_date === todayIsoDate()
-                    ? "Aktiv heute"
-                    : `Vom ${formatActiveDate(dailyPush.active_date)}`}
+                  {dailyPushes.length > 1
+                    ? `${dailyPushes.length} Specials aktiv heute`
+                    : primaryDailyPush.active_date === todayIsoDate()
+                      ? "Aktiv heute"
+                      : `Vom ${formatActiveDate(primaryDailyPush.active_date)}`}
                 </div>
               </>
             ) : (

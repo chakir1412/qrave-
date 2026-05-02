@@ -147,7 +147,41 @@ export type DailyPush = {
   item_emoji: string;
   item_name: string;
   item_desc: string | null;
+  created_at?: string;
 };
+
+/** Wochentags-Keys, wie in `lunch_offers.weekdays text[]` und im UI verwendet. */
+export const LUNCH_WEEKDAY_KEYS = ["mo", "di", "mi", "do", "fr", "sa", "so"] as const;
+export type LunchWeekday = (typeof LUNCH_WEEKDAY_KEYS)[number];
+
+/** Mittagsangebot-Eintrag (public.lunch_offers). */
+export type LunchOffer = {
+  id: string;
+  restaurant_id: string;
+  item_id: string;
+  /** Optional abweichender Mittagspreis; wenn null, gilt der reguläre Preis. */
+  lunch_price: number | null;
+  /** ISO-Time "HH:MM" oder "HH:MM:SS". */
+  time_from: string;
+  time_to: string;
+  /** Auswahl aus LUNCH_WEEKDAY_KEYS, z. B. ["mo","di","mi","do","fr"]. */
+  weekdays: string[];
+  aktiv: boolean;
+  created_at?: string;
+};
+
+/** Liefert alle aktiven Mittagsangebote für ein Restaurant. */
+export async function fetchLunchOffers(restaurantId: string): Promise<LunchOffer[]> {
+  const { data, error } = await supabase
+    .from("lunch_offers")
+    .select(
+      "id, restaurant_id, item_id, lunch_price, time_from, time_to, weekdays, aktiv, created_at",
+    )
+    .eq("restaurant_id", restaurantId)
+    .eq("aktiv", true);
+  if (error || !data) return [];
+  return data as LunchOffer[];
+}
 
 /** NFC / QR-Tischplatzierung (public.restaurant_tables) */
 export interface RestaurantTable {
@@ -164,15 +198,22 @@ export interface RestaurantTable {
   created_at: string;
 }
 
-/** Fetches today's daily_push for a restaurant. */
-export async function fetchDailyPush(restaurantId: string): Promise<DailyPush | null> {
+/** Fetches today's daily_push entries for a restaurant (bis zu 3 Specials). */
+export async function fetchDailyPushes(restaurantId: string): Promise<DailyPush[]> {
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("daily_push")
-    .select("id, restaurant_id, active_date, item_emoji, item_name, item_desc")
+    .select("id, restaurant_id, active_date, item_emoji, item_name, item_desc, created_at")
     .eq("restaurant_id", restaurantId)
     .eq("active_date", today)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data as DailyPush;
+    .order("created_at", { ascending: true })
+    .limit(3);
+  if (error || !data) return [];
+  return data as DailyPush[];
+}
+
+/** @deprecated nutze fetchDailyPushes — gibt erstes Special oder null zurück. */
+export async function fetchDailyPush(restaurantId: string): Promise<DailyPush | null> {
+  const list = await fetchDailyPushes(restaurantId);
+  return list[0] ?? null;
 }
