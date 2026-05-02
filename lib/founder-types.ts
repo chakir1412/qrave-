@@ -37,20 +37,23 @@ export type FounderRestaurantExtRow = {
 export type FounderPipelineRow = {
   id: string;
   name: string;
-  area: string | null;
-  phone: string | null;
-  contact: string | null;
+  inhaber: string | null;
+  bezirk: string | null;
+  telefon: string | null;
+  /** Legacy-Feld, bleibt für Rückwärtskompatibilität. */
+  status: string | null;
   stage: string | null;
-  heat: string | null;
-  note: string | null;
-  added_at: string;
+  waerme: string | null;
+  next_action: string | null;
+  notizen: string | null;
+  created_at: string;
 };
 
 export type FounderTodoRow = {
   id: string;
   text: string;
   sub: string | null;
-  prio: string | null;
+  priority: string | null;
   done: boolean;
   created_at: string;
 };

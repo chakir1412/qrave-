@@ -39,7 +39,7 @@ export async function loadFounderDashboardData(
     sessionWindowBase().gte("created_at", weekStart),
     sessionWindowBase().gte("created_at", monthStart),
     sessionWindowBase().gte("created_at", yearStart),
-    supabase.from("founder_pipeline").select("*").order("added_at", { ascending: false }),
+    supabase.from("pipeline").select("*").order("created_at", { ascending: false }),
     supabase.from("founder_todos").select("*").order("created_at", { ascending: false }),
     supabase.from("founder_restaurants").select("*"),
     supabase
@@ -60,7 +60,7 @@ export async function loadFounderDashboardData(
   note(rWeek, "scan_events_week");
   note(rMonth, "scan_events_month");
   note(rYear, "scan_events_year");
-  note(rPipe, "founder_pipeline");
+  note(rPipe, "pipeline");
   note(rTodo, "founder_todos");
   note(rExt, "founder_restaurants");
   note(rTbl, "restaurant_tables");

@@ -3,7 +3,16 @@ import type { Restaurant } from "@/lib/supabase";
 /** Restaurant-Zeile mit den fürs Dashboard geladenen Spalten */
 export type DashboardRestaurant = Pick<
   Restaurant,
-  "id" | "slug" | "name" | "template" | "aktiv" | "guest_note" | "opening_hours"
+  | "id"
+  | "slug"
+  | "name"
+  | "template"
+  | "aktiv"
+  | "guest_note"
+  | "opening_hours"
+  | "adresse"
+  | "stadt"
+  | "email"
 > & {
   accent_color?: string | null;
   logo_url?: string | null;

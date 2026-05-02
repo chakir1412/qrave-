@@ -18,7 +18,7 @@ function IconKarte({ active }: { active: boolean }) {
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
-      style={{ color: active ? dash.or : dash.mu }}
+      style={{ color: active ? dash.teal : dash.navInactive }}
     >
       <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
       <polyline points="14 2 14 8 20 8" />
@@ -38,7 +38,7 @@ function IconHome({ active }: { active: boolean }) {
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
-      style={{ color: active ? dash.or : dash.mu }}
+      style={{ color: active ? dash.teal : dash.navInactive }}
     >
       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
@@ -56,7 +56,7 @@ function IconTische({ active }: { active: boolean }) {
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
-      style={{ color: active ? dash.or : dash.mu }}
+      style={{ color: active ? dash.teal : dash.navInactive }}
     >
       <rect x="3" y="3" width="7" height="7" rx="1" />
       <rect x="14" y="3" width="7" height="7" rx="1" />
@@ -68,54 +68,45 @@ function IconTische({ active }: { active: boolean }) {
 
 export function DashboardBottomNav({ active, onChange }: Props) {
   return (
-    <nav
-      className="pointer-events-none fixed bottom-0 left-1/2 z-[100] w-full max-w-[430px] -translate-x-1/2 px-4 pb-5"
-      style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}
-    >
+    <nav className="pointer-events-none fixed bottom-0 left-1/2 z-[100] w-full max-w-[480px] -translate-x-1/2 md:max-w-[860px]">
       <div
-        className="pointer-events-auto flex items-center justify-around rounded-[28px] border px-2 py-2.5 shadow-[0_8px_40px_rgba(0,0,0,0.35)]"
+        className="pointer-events-auto flex items-center justify-around border-t px-2 pt-2.5"
         style={{
-          backgroundColor: "rgba(18,18,18,0.72)",
-          borderColor: "rgba(255,255,255,0.06)",
-          backdropFilter: "blur(40px) saturate(180%)",
-          WebkitBackdropFilter: "blur(40px) saturate(180%)",
+          backgroundColor: dash.navBg,
+          borderColor: dash.navBorderTop,
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          paddingBottom: "max(12px, env(safe-area-inset-bottom))",
         }}
       >
         <button
           type="button"
           onClick={() => onChange("karte")}
-          className="flex flex-col items-center gap-0.5 rounded-[18px] px-[18px] py-2 transition active:scale-[0.88]"
-          style={{ color: active === "karte" ? dash.or : dash.mu }}
+          className="flex flex-col items-center gap-0.5 rounded-[12px] px-5 py-1.5 transition active:scale-[0.92]"
+          style={{ color: active === "karte" ? dash.teal : dash.navInactive }}
         >
           <IconKarte active={active === "karte"} />
-          <span className="text-[10px] font-semibold tracking-wide">Karte</span>
+          <span className="text-[11px] font-semibold tracking-wide md:text-sm">Karte</span>
         </button>
 
         <button
           type="button"
           onClick={() => onChange("home")}
-          className="flex flex-col items-center gap-0.5 rounded-[20px] px-[22px] py-2.5 transition active:scale-[0.88]"
-          style={{
-            backgroundColor: active === "home" ? dash.ord : "transparent",
-            color: active === "home" ? dash.or : dash.mu,
-          }}
+          className="flex flex-col items-center gap-0.5 rounded-[12px] px-6 py-1.5 transition active:scale-[0.92]"
+          style={{ color: active === "home" ? dash.teal : dash.navInactive }}
         >
           <IconHome active={active === "home"} />
-          <span
-            className={`text-[10px] tracking-wide ${active === "home" ? "font-bold" : "font-semibold"}`}
-          >
-            Home
-          </span>
+          <span className="text-[11px] font-semibold tracking-wide md:text-sm">Home</span>
         </button>
 
         <button
           type="button"
           onClick={() => onChange("tische")}
-          className="flex flex-col items-center gap-0.5 rounded-[18px] px-[18px] py-2 transition active:scale-[0.88]"
-          style={{ color: active === "tische" ? dash.or : dash.mu }}
+          className="flex flex-col items-center gap-0.5 rounded-[12px] px-5 py-1.5 transition active:scale-[0.92]"
+          style={{ color: active === "tische" ? dash.teal : dash.navInactive }}
         >
           <IconTische active={active === "tische"} />
-          <span className="text-[10px] font-semibold tracking-wide">Tische</span>
+          <span className="text-[11px] font-semibold tracking-wide md:text-sm">Tische</span>
         </button>
       </div>
     </nav>

@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { FounderDashboard } from "@/components/founder/FounderDashboard";
 import { loadFounderDashboardData } from "@/lib/load-founder-dashboard";
 
+const FOUNDER_USER_ID = "b48eeabc-0652-4b8c-8579-4286c0570d54";
+
 export const metadata: Metadata = {
   title: "Founder · Qrave",
   robots: { index: false, follow: false },
@@ -28,7 +30,7 @@ export default async function FounderPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/founder/login");
-  if (user.id !== process.env.FOUNDER_USER_ID) {
+  if (user.id !== FOUNDER_USER_ID) {
     redirect("/founder/login");
   }
 

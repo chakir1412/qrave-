@@ -1,17 +1,77 @@
 import { NextResponse } from "next/server";
+import { parseMenuJsonFromModel, type ParsedMenuItemDto } from "@/lib/parse-menu";
 import {
-  PARSE_MENU_PROMPT,
-  parseMenuJsonFromModel,
-  type ParsedMenuItemDto,
-} from "@/lib/parse-menu";
+  extractPdfTextFromBuffer,
+  MIN_TEXT_CHARS_TEXT_PATH,
+  pdfBufferToPngBase64Pages,
+} from "@/lib/server/pdf-scan";
 
+/** Vercel Serverless Timeout (PDF-Rendering + KI). */
 export const maxDuration = 120;
+export const dynamic = "force-dynamic";
+
+/** Grober Schutz vor riesigem Form-Body (Vercel ~4,5 MB Request-Limit). */
+const MAX_EXTRACTED_TEXT_CHARS = 3_500_000;
+
+/** PDF-Binary direkt an Anthropic (Base64 im JSON); unter Limit bleibt Request unter Vercel ~4,5 MB. */
+const MAX_PDF_BYTES_DIRECT = 2_500_000;
 
 const MODEL = "claude-sonnet-4-20250514";
 const CHUNK_SIZE = 2000;
 const MAX_CHUNKS = 8;
 const CHUNK_MAX_TOKENS = 4000;
 const CHUNK_RETRY_SPLIT_MIN_LENGTH = 1000;
+const PDF_IMPORT_PROMPT = `Du bist ein Experte für Restaurantspeisekarten. Extrahiere alle Menüpunkte aus der Speisekarte.
+Antworte NUR mit einem JSON Array, ohne Markdown, ohne Erklärung, ohne Codeblöcke:
+[{"name":"...","beschreibung":"...","preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
+KATEGORIEN:
+
+Burger, Sandwiches, Wraps -> "Burger"
+Pizza -> "Pizza"
+Pasta -> "Pasta"
+Hauptgerichte, Fleisch, Fisch -> "Hauptgerichte"
+Vorspeisen, Antipasti -> "Vorspeisen"
+Salate -> "Salads"
+Suppen -> "Suppen"
+Beilagen, Sides -> "Sides"
+Extras, Zusätze, Toppings -> "Extras"
+Desserts -> "Desserts"
+Frühstück -> "Frühstück"
+Bowls -> "Bowls"
+Sushi, Nigiri, Maki -> "Sushi"
+Softdrinks, Cola, Limo, Schorle, Wasser, Säfte, Eistee, Spezi, Energy -> "Drinks" + main_tab: "DRINKS"
+Bier, Radler, Weizen, Craft Beer -> "Bier" + main_tab: "DRINKS"
+Wein, Prosecco, Champagner, Sekt -> "Weine" + main_tab: "DRINKS"
+Cocktails, Longdrinks, Shots, Spirituosen -> "Cocktails" + main_tab: "DRINKS"
+Kaffee, Espresso, Cappuccino, Latte, Flat White -> "Kaffee" + main_tab: "DRINKS"
+Tee, Matcha, Chai -> "Tee" + main_tab: "DRINKS"
+
+NAMEN:
+
+Kurz und klar - keine Variantenbeschreibungen im Namen
+"Fritz-Kola Original | Super Zero" -> name: "Fritz-Kola", beschreibung: "Original | Super Zero, 0,33l"
+Allergenkennzeichnungen (A1, C, G, J etc.) entfernen
+Mengenangaben (0,33l) in die beschreibung
+
+VARIANTEN:
+
+"Fresh Salad mit Avocado 13.90, mit Ziegenkäse 13.90" -> zwei separate Items
+
+PREISE:
+
+Dezimalzahl: 10.90 nicht "10,90 EUR"
+Kein Preis vorhanden -> 0
+
+EMOJIS:
+
+Burger->🍔 Pizza->🍕 Pasta->🍝 Salat->🥗 Suppe->🍲
+Bier->🍺 Wein->🍷 Cocktail->🍸 Kaffee->☕ Wasser->💧
+Softdrinks->🥤 Tee->🍵 Dessert->🍰 Fleisch->🥩 Vegetarisch->🌱
+
+main_tab:
+
+Alle Getränke -> "DRINKS"
+Alles andere -> "FOOD"`;
 
 type AnthropicContentPart =
   | {
@@ -154,7 +214,7 @@ async function parseChunkOnce(chunk: string, apiKey: string): Promise<ParsedMenu
             content: [
               {
                 type: "text",
-                text: `${PARSE_MENU_PROMPT}
+                text: `${PDF_IMPORT_PROMPT}
 
 Text-Chunk der Speisekarte:
 ${chunk}`,
@@ -264,101 +324,13 @@ function dedupeItems(items: ParsedMenuItemDto[]): ParsedMenuItemDto[] {
   return out;
 }
 
-export async function POST(req: Request) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey?.trim()) {
-    return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY fehlt (Server-Umgebung)." },
-      { status: 500 },
-    );
-  }
-
-  let formData: FormData;
-  try {
-    formData = await req.formData();
-  } catch {
-    return NextResponse.json(
-      { error: "Formular-Daten konnten nicht gelesen werden." },
-      { status: 400 },
-    );
-  }
-
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Keine Datei übermittelt." }, { status: 400 });
-  }
-  const extractedText = formData.get("extractedText") as string | null;
-
-  const buf = Buffer.from(await file.arrayBuffer());
-  if (buf.length === 0) {
-    return NextResponse.json({ error: "Leere Datei." }, { status: 400 });
-  }
-  if (buf.length > 32 * 1024 * 1024) {
-    return NextResponse.json(
-      { error: "Datei zu groß (max. 32 MB)." },
-      { status: 400 },
-    );
-  }
-
-  const base64 = buf.toString("base64");
-  const declaredMime = (file.type || "").toLowerCase();
-  const nameLower = file.name.toLowerCase();
-
-  const isPdf =
-    declaredMime === "application/pdf" || nameLower.endsWith(".pdf");
-  const isPng = declaredMime === "image/png" || nameLower.endsWith(".png");
-  const isJpeg =
-    declaredMime === "image/jpeg" ||
-    declaredMime === "image/jpg" ||
-    nameLower.endsWith(".jpg") ||
-    nameLower.endsWith(".jpeg");
-
-  let userContent: AnthropicContentPart[];
-  let usePdfBeta = false;
-
-  if (isPdf) {
-    const normalizedExtractedText = extractedText?.trim() ?? "";
-    if (!normalizedExtractedText) {
-      return NextResponse.json(
-        { error: "Kein Text aus PDF extrahiert. Bitte erneut versuchen." },
-        { status: 422 },
-      );
-    }
-    const chunks = splitTextIntoChunks(normalizedExtractedText, CHUNK_SIZE);
-    const allItemArrays = await Promise.all(chunks.map((chunk) => parseChunk(chunk, apiKey)));
-    const merged = dedupeItems(allItemArrays.flat());
-    return NextResponse.json({ items: merged });
-  } else if (isPng) {
-    userContent = [
-      {
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: "image/png",
-          data: base64,
-        },
-      },
-      { type: "text", text: PARSE_MENU_PROMPT },
-    ];
-  } else if (isJpeg) {
-    userContent = [
-      {
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: "image/jpeg",
-          data: base64,
-        },
-      },
-      { type: "text", text: PARSE_MENU_PROMPT },
-    ];
-  } else {
-    return NextResponse.json(
-      { error: "Nur PDF oder JPG/PNG erlaubt." },
-      { status: 400 },
-    );
-  }
-
+/** Ein Anthropic messages-Call mit Bild oder PDF-Dokument → strukturierte Menü-Items. */
+async function anthropicExtractMenuItems(
+  userContent: AnthropicContentPart[],
+  apiKey: string,
+  options: { usePdfBeta: boolean; maxTokens: number },
+): Promise<ParsedMenuItemDto[]> {
+  const { usePdfBeta, maxTokens } = options;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "x-api-key": apiKey,
@@ -373,7 +345,7 @@ export async function POST(req: Request) {
     headers,
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 4000,
+      max_tokens: maxTokens,
       messages: [
         {
           role: "user",
@@ -392,48 +364,343 @@ export async function POST(req: Request) {
     } catch {
       if (rawText) msg = rawText.slice(0, 200);
     }
-    return NextResponse.json({ error: msg }, { status: 502 });
+    throw new Error(msg);
   }
 
   let anthropicBody: AnthropicMessageResponse;
   try {
     anthropicBody = JSON.parse(rawText) as AnthropicMessageResponse;
   } catch {
-    return NextResponse.json(
-      { error: "Ungültige Antwort der KI." },
-      { status: 502 },
-    );
+    throw new Error("Ungültige Antwort der KI.");
   }
 
   const textBlock = anthropicBody.content?.find((c) => c.type === "text");
   const text = textBlock?.text?.trim() ?? "";
   if (!text) {
-    return NextResponse.json(
-      { error: "Kein Text in der KI-Antwort." },
-      { status: 502 },
-    );
+    throw new Error("Kein Text in der KI-Antwort.");
   }
 
   const cleanedResponse = normalizeModelJsonText(text);
   try {
     const parsed = JSON.parse(cleanedResponse) as unknown;
     if (Array.isArray(parsed)) {
-      const items = parseMenuJsonFromModel(JSON.stringify({ items: parsed }));
-      return NextResponse.json({ items });
+      return parseMenuJsonFromModel(JSON.stringify({ items: parsed }));
     }
     const asObj = parsed as { items?: unknown };
     if (Array.isArray(asObj?.items)) {
-      const items = parseMenuJsonFromModel(JSON.stringify({ items: asObj.items }));
-      return NextResponse.json({ items });
+      return parseMenuJsonFromModel(JSON.stringify({ items: asObj.items }));
     }
-    const items = parseMenuJsonFromModel(cleanedResponse);
-    return NextResponse.json({ items });
+    return parseMenuJsonFromModel(cleanedResponse);
   } catch (e) {
     console.error("JSON parse error:", e);
     console.error("Raw response:", cleanedResponse.slice(0, 500));
+    throw new Error("KI-Antwort konnte nicht verarbeitet werden. Bitte erneut versuchen.");
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "ANTHROPIC_API_KEY nicht gesetzt" },
+        { status: 500 },
+      );
+    }
+
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch (err) {
+      console.error("parse-menu: formData failed", err);
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Anfrage-Body konnte nicht gelesen werden (evtl. zu groß für das Server-Limit).",
+        },
+        { status: 400 },
+      );
+    }
+
+    console.log("parse-menu FormData keys:", [...formData.keys()]);
+
+    const pdfDocumentRaw = formData.get("pdfDocument");
+    const pdfDocument =
+      pdfDocumentRaw === "1" ||
+      pdfDocumentRaw === "true" ||
+      String(pdfDocumentRaw ?? "").toLowerCase() === "true";
+
+    const pdfTextOnlyRaw = formData.get("pdfTextOnly");
+    const pdfTextOnly =
+      pdfTextOnlyRaw === "1" ||
+      pdfTextOnlyRaw === "true" ||
+      String(pdfTextOnlyRaw ?? "").toLowerCase() === "true";
+
+    const extractedTextField = formData.get("extractedText");
+    const extractedTextStr =
+      typeof extractedTextField === "string"
+        ? extractedTextField
+        : extractedTextField != null
+          ? String(extractedTextField)
+          : null;
+
+    /** PDF: Binary direkt an Anthropic (kleine Dateien; zuverlässiger als nur Browser-Text). */
+    if (pdfDocument) {
+      const pdfFile = formData.get("file");
+      if (!(pdfFile instanceof File)) {
+        return NextResponse.json(
+          { success: false, error: "Keine PDF-Datei übermittelt." },
+          { status: 400 },
+        );
+      }
+      const dm = (pdfFile.type || "").toLowerCase();
+      const nl = pdfFile.name.toLowerCase();
+      const isPdfMime = dm === "application/pdf" || nl.endsWith(".pdf");
+      if (!isPdfMime) {
+        return NextResponse.json(
+          { success: false, error: "Nur PDF-Dateien für pdfDocument erlaubt." },
+          { status: 400 },
+        );
+      }
+      const pdfBuf = Buffer.from(await pdfFile.arrayBuffer());
+      if (pdfBuf.length === 0) {
+        return NextResponse.json({ success: false, error: "Leere PDF-Datei." }, { status: 400 });
+      }
+      if (pdfBuf.length > MAX_PDF_BYTES_DIRECT) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `PDF zu groß für Direkt-Analyse (max. ${Math.round(MAX_PDF_BYTES_DIRECT / 1_000_000)} MB). Bitte PDF komprimieren – es wird automatisch der Text-Fallback verwendet.`,
+          },
+          { status: 413 },
+        );
+      }
+      try {
+        let extracted = "";
+        try {
+          extracted = await extractPdfTextFromBuffer(pdfBuf);
+        } catch (texErr) {
+          console.error("parse-menu extractPdfTextFromBuffer:", texErr);
+        }
+        const textNorm = extracted.replace(/\s+/g, " ").trim();
+        const isTextBased = textNorm.length >= MIN_TEXT_CHARS_TEXT_PATH;
+
+        let merged: ParsedMenuItemDto[] = [];
+        if (isTextBased) {
+          const chunks = splitTextIntoChunks(extracted, CHUNK_SIZE);
+          const allItemArrays = await Promise.all(chunks.map((chunk) => parseChunk(chunk, apiKey)));
+          merged = dedupeItems(allItemArrays.flat());
+        }
+
+        if (merged.length > 0) {
+          return NextResponse.json({ success: true, items: merged });
+        }
+
+        /** Gescannt / leere Text-Parse: Seiten als PNG an Anthropic. */
+        let pngs: string[] = [];
+        try {
+          pngs = await pdfBufferToPngBase64Pages(pdfBuf, 4);
+        } catch (renderErr) {
+          console.error("parse-menu pdfBufferToPngBase64Pages:", renderErr);
+        }
+
+        if (pngs.length > 0) {
+          const imageContent: AnthropicContentPart[] = [
+            ...pngs.map(
+              (data): AnthropicContentPart => ({
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/png",
+                  data,
+                },
+              }),
+            ),
+            { type: "text", text: PDF_IMPORT_PROMPT },
+          ];
+          const imgItems = await anthropicExtractMenuItems(imageContent, apiKey, {
+            usePdfBeta: false,
+            maxTokens: 8192,
+          });
+          if (imgItems.length > 0) {
+            return NextResponse.json({ success: true, items: imgItems });
+          }
+        }
+
+        /** Letzter Fallback: natives PDF an Anthropic (Beta). */
+        const pdfB64 = pdfBuf.toString("base64");
+        const docContent: AnthropicContentPart[] = [
+          {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: pdfB64,
+            },
+          },
+          { type: "text", text: PDF_IMPORT_PROMPT },
+        ];
+        const docItems = await anthropicExtractMenuItems(docContent, apiKey, {
+          usePdfBeta: true,
+          maxTokens: 8192,
+        });
+        if (docItems.length === 0) {
+          return NextResponse.json(
+            { success: false, error: "Keine Gerichte erkannt." },
+            { status: 422 },
+          );
+        }
+        return NextResponse.json({ success: true, items: docItems });
+      } catch (err) {
+        console.error("parse-menu pdfDocument:", err);
+        return NextResponse.json(
+          {
+            success: false,
+            error: err instanceof Error ? err.message : "Analyse fehlgeschlagen",
+          },
+          { status: 502 },
+        );
+      }
+    }
+
+    /** PDF: nur extrahierter Text — ohne PDF-Binary (große PDFs / Vercel-Limit). */
+    if (pdfTextOnly) {
+      const normalizedExtractedText = extractedTextStr?.trim() ?? "";
+      if (!normalizedExtractedText) {
+        return NextResponse.json(
+          { success: false, error: "Kein Text aus PDF übermittelt." },
+          { status: 422 },
+        );
+      }
+      if (normalizedExtractedText.length > MAX_EXTRACTED_TEXT_CHARS) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Extrahierter Text zu lang (max. ca. ${Math.floor(MAX_EXTRACTED_TEXT_CHARS / 1_000_000)} Mio. Zeichen).`,
+          },
+          { status: 413 },
+        );
+      }
+      const chunks = splitTextIntoChunks(normalizedExtractedText, CHUNK_SIZE);
+      const allItemArrays = await Promise.all(chunks.map((chunk) => parseChunk(chunk, apiKey)));
+      const merged = dedupeItems(allItemArrays.flat());
+      if (merged.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Keine Gerichte erkannt. Gescannte PDFs oft ohne Text: kleineres PDF hochladen (direkte PDF-Analyse bis ca. 2,5 MB) oder Speisekarte als JPG/PNG exportieren.",
+          },
+          { status: 422 },
+        );
+      }
+      return NextResponse.json({ success: true, items: merged });
+    }
+
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return NextResponse.json(
+        { success: false, error: "Keine Datei übermittelt." },
+        { status: 400 },
+      );
+    }
+
+    const buf = Buffer.from(await file.arrayBuffer());
+    if (buf.length === 0) {
+      return NextResponse.json({ success: false, error: "Leere Datei." }, { status: 400 });
+    }
+    if (buf.length > 32 * 1024 * 1024) {
+      return NextResponse.json(
+        { success: false, error: "Datei zu groß (max. 32 MB)." },
+        { status: 400 },
+      );
+    }
+
+    const base64 = buf.toString("base64");
+    const declaredMime = (file.type || "").toLowerCase();
+    const nameLower = file.name.toLowerCase();
+
+    const isPdf =
+      declaredMime === "application/pdf" || nameLower.endsWith(".pdf");
+    const isPng = declaredMime === "image/png" || nameLower.endsWith(".png");
+    const isJpeg =
+      declaredMime === "image/jpeg" ||
+      declaredMime === "image/jpg" ||
+      nameLower.endsWith(".jpg") ||
+      nameLower.endsWith(".jpeg");
+
+    if (isPdf) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "PDF-Anfrage ungültig: verwenden Sie pdfDocument (Datei ≤ ca. 2,5 MB) oder pdfTextOnly mit extrahiertem Text.",
+        },
+        { status: 400 },
+      );
+    }
+
+    let userContent: AnthropicContentPart[];
+
+    if (isPng) {
+      userContent = [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: "image/png",
+            data: base64,
+          },
+        },
+        { type: "text", text: PDF_IMPORT_PROMPT },
+      ];
+    } else if (isJpeg) {
+      userContent = [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: "image/jpeg",
+            data: base64,
+          },
+        },
+        { type: "text", text: PDF_IMPORT_PROMPT },
+      ];
+    } else {
+      return NextResponse.json(
+        { success: false, error: "Nur PDF oder JPG/PNG erlaubt." },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const imgItems = await anthropicExtractMenuItems(userContent, apiKey, {
+        usePdfBeta: false,
+        maxTokens: 4096,
+      });
+      if (imgItems.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "Keine Gerichte erkannt." },
+          { status: 422 },
+        );
+      }
+      return NextResponse.json({ success: true, items: imgItems });
+    } catch (err) {
+      console.error("parse-menu image:", err);
+      return NextResponse.json(
+        {
+          success: false,
+          error: err instanceof Error ? err.message : "Analyse fehlgeschlagen",
+        },
+        { status: 502 },
+      );
+    }
+  } catch (error) {
+    console.error("PDF Import Error:", error);
     return NextResponse.json(
-      { error: "KI-Antwort konnte nicht verarbeitet werden. Bitte erneut versuchen." },
-      { status: 422 },
+      { success: false, error: String(error) },
+      { status: 500 },
     );
   }
 }

@@ -51,8 +51,14 @@ body {
   to { opacity: 1; }
 }
 @keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 /* Dashboard: Tab-Wechsel (Prototyp) */
@@ -76,16 +82,99 @@ body {
     transform: translateX(0);
   }
 }
-/* Landing Hero: dominanter Teal → Orange Glow (rechts, Datagrid-inspiriert) */
-.qrave-hero-glow {
-  width: min(100vw, 600px);
-  height: min(100vw, 600px);
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: linear-gradient(168deg, #00c2ff 0%, #1a9fff 18%, #ff8c42 72%, #ff5c1a 100%);
-  filter: blur(60px);
-  opacity: 0.78;
+/* Landing Hero: organische animierte Gradient-Blobs (Datagrid-Style) */
+@keyframes qrave-blob-1 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.6;
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+    opacity: 0.9;
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+    opacity: 0.4;
+  }
+}
+
+@keyframes qrave-blob-2 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translate(-45px, 35px) scale(1.12);
+    opacity: 0.9;
+  }
+  75% {
+    transform: translate(28px, -40px) scale(0.88);
+    opacity: 0.4;
+  }
+}
+
+@keyframes qrave-blob-3 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.55;
+  }
+  35% {
+    transform: translate(55px, 25px) scale(0.88);
+    opacity: 0.4;
+  }
+  65% {
+    transform: translate(-15px, -55px) scale(1.08);
+    opacity: 0.9;
+  }
+}
+
+.qrave-hero-blobs {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(100vw, 920px);
+  height: min(85vh, 820px);
   pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: screen;
+  overflow: visible;
+}
+
+.qrave-hero-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform, opacity;
+}
+
+.qrave-hero-blob--1 {
+  width: min(600px, 92vw);
+  height: min(600px, 92vw);
+  top: -8%;
+  right: -12%;
+  background: radial-gradient(circle at 45% 45%, #00d4aa 0%, rgba(0, 212, 170, 0.35) 52%, transparent 68%);
+  animation: qrave-blob-1 8s ease-in-out infinite;
+}
+
+.qrave-hero-blob--2 {
+  width: min(400px, 70vw);
+  height: min(400px, 70vw);
+  top: 18%;
+  right: 8%;
+  background: radial-gradient(circle at 50% 50%, #1a0a2e 0%, rgba(26, 10, 46, 0.55) 48%, transparent 72%);
+  animation: qrave-blob-2 12s ease-in-out infinite;
+}
+
+.qrave-hero-blob--3 {
+  width: min(300px, 55vw);
+  height: min(300px, 55vw);
+  top: 42%;
+  right: -4%;
+  background: radial-gradient(circle at 40% 40%, #ff5c1a 0%, rgba(255, 92, 26, 0.4) 50%, transparent 68%);
+  animation: qrave-blob-3 15s ease-in-out infinite;
 }
 
 .dashboard-slR {
@@ -93,4 +182,235 @@ body {
 }
 .dashboard-slL {
   animation: dashboard-slL 0.28s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Founder redesign background + cards */
+@keyframes founder-blob-1 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.62;
+  }
+  40% {
+    transform: translate(36px, -30px) scale(1.08);
+    opacity: 0.9;
+  }
+  75% {
+    transform: translate(-24px, 18px) scale(0.92);
+    opacity: 0.4;
+  }
+}
+
+@keyframes founder-blob-2 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.48;
+  }
+  35% {
+    transform: translate(-26px, 32px) scale(1.1);
+    opacity: 0.86;
+  }
+  70% {
+    transform: translate(14px, -20px) scale(0.9);
+    opacity: 0.42;
+  }
+}
+
+@keyframes founder-blob-3 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.44;
+  }
+  45% {
+    transform: translate(20px, -26px) scale(1.08);
+    opacity: 0.78;
+  }
+  80% {
+    transform: translate(-18px, 10px) scale(0.94);
+    opacity: 0.4;
+  }
+}
+
+.founder-bg-blobs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: screen;
+}
+
+.founder-blob {
+  position: fixed;
+  border-radius: 50%;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+.founder-blob--1 {
+  width: 600px;
+  height: 600px;
+  top: -200px;
+  right: -150px;
+  background: rgba(0, 200, 160, 0.55);
+  filter: blur(70px);
+  animation: founder-blob-1 10s ease-in-out infinite;
+}
+
+.founder-blob--2 {
+  width: 380px;
+  height: 380px;
+  top: 80px;
+  right: 60px;
+  background: rgba(255, 80, 20, 0.5);
+  filter: blur(60px);
+  animation: founder-blob-2 14s ease-in-out infinite;
+}
+
+.founder-blob--3 {
+  width: 280px;
+  height: 280px;
+  top: -60px;
+  right: 280px;
+  background: rgba(80, 60, 200, 0.35);
+  filter: blur(80px);
+  animation: founder-blob-3 18s ease-in-out infinite;
+}
+
+.founder-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.founder-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 45%);
+  pointer-events: none;
+}
+
+/* Restaurant-Dashboard: animierte Blobs (fixed, screen blend) */
+@keyframes dashboard-bg-blob-1 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.45;
+  }
+  35% {
+    transform: translate(28px, -36px) scale(1.12);
+    opacity: 0.9;
+  }
+  70% {
+    transform: translate(-22px, 24px) scale(0.9);
+    opacity: 0.4;
+  }
+}
+
+@keyframes dashboard-bg-blob-2 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.42;
+  }
+  40% {
+    transform: translate(-32px, 28px) scale(1.1);
+    opacity: 0.88;
+  }
+  75% {
+    transform: translate(20px, -18px) scale(0.88);
+    opacity: 0.4;
+  }
+}
+
+@keyframes dashboard-bg-blob-3 {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translate(18px, 22px) scale(0.92);
+    opacity: 0.4;
+  }
+  65% {
+    transform: translate(-24px, -30px) scale(1.08);
+    opacity: 0.9;
+  }
+}
+
+.dashboard-bg-blobs {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.dashboard-blob {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.dashboard-blob--1 {
+  width: 500px;
+  height: 500px;
+  top: -150px;
+  right: -100px;
+  background: rgba(0, 200, 160, 0.45);
+  filter: blur(70px);
+  animation: dashboard-bg-blob-1 10s ease-in-out infinite;
+}
+
+.dashboard-blob--2 {
+  width: 350px;
+  height: 350px;
+  top: 100px;
+  right: 50px;
+  background: rgba(255, 80, 20, 0.4);
+  filter: blur(60px);
+  animation: dashboard-bg-blob-2 14s ease-in-out infinite;
+}
+
+.dashboard-blob--3 {
+  width: 250px;
+  height: 250px;
+  top: -50px;
+  right: 250px;
+  background: rgba(80, 60, 200, 0.3);
+  filter: blur(80px);
+  animation: dashboard-bg-blob-3 18s ease-in-out infinite;
+}
+
+/* Restaurant-Dashboard: Glass-Card + Shine */
+.dash-glass-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dash-glass-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 55%);
+}
+
+.dash-glass-card > * {
+  position: relative;
+  z-index: 1;
 }

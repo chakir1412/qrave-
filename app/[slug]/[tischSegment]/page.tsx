@@ -1,8 +1,9 @@
 import type { ComponentType } from "react";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { supabase } from "@/lib/supabase";
 import { loadPublicSpeisekarteBySlug } from "@/lib/load-public-speisekarte";
+import { loadSponsoredItems } from "@/lib/speisekarte-logic";
 import type { SpeisekarteProps } from "@/components/speisekarte";
 import BarSoleilTemplate from "@/components/templates/BarSoleil";
 import KioskNo7Template from "@/components/templates/KioskNo7";
@@ -47,7 +48,7 @@ export default async function TischSpeisekartePage({
 
   const { restaurant } = data;
 
-  const { data: tisch, error: tischError } = await supabase
+  const { data: tischLegacy, error: tischLegacyError } = await supabase
     .from("tables")
     .select("id, restaurant_id, tisch_nummer, aktiv")
     .eq("restaurant_id", data.restaurant.id)
@@ -55,17 +56,34 @@ export default async function TischSpeisekartePage({
     .eq("aktiv", true)
     .maybeSingle();
 
-  if (tischError || !tisch) {
-    console.log("Tisch redirect debug:", {
+  let tischExists = Boolean(tischLegacy);
+  if (!tischExists) {
+    const { data: tischNew, error: tischNewError } = await supabase
+      .from("restaurant_tables")
+      .select("id, restaurant_id, tisch_nummer")
+      .eq("restaurant_id", data.restaurant.id)
+      .eq("tisch_nummer", tischNr)
+      .maybeSingle();
+    tischExists = Boolean(tischNew);
+    if (tischNewError) {
+      console.error("Tisch lookup restaurant_tables:", tischNewError);
+    }
+  }
+
+  if (tischLegacyError) {
+    console.error("Tisch lookup tables:", tischLegacyError);
+  }
+
+  if (!tischExists) {
+    console.log("Tisch fallback debug:", {
       slug,
       tischSegment,
       tischNr,
       restaurantFound: !!restaurant,
       restaurantId: restaurant?.id,
-      tischFound: !!tisch,
-      tischAktiv: tisch?.aktiv,
+      tischFound: false,
+      mode: "continue_without_table_tracking",
     });
-    redirect(`/${slug}`);
   }
 
   const headersList = await headers();
@@ -96,11 +114,15 @@ export default async function TischSpeisekartePage({
     console.error("Tier-0 scan_events:", scanErr);
   }
 
-  const { error: rpcErr } = await supabase.rpc("increment_table_scan", {
-    table_id: tisch.id,
-  });
-  if (rpcErr) {
-    console.error("increment_table_scan:", rpcErr);
+  const sponsoredItems = await loadSponsoredItems(data.restaurant.id);
+
+  if (tischLegacy?.id) {
+    const { error: rpcErr } = await supabase.rpc("increment_table_scan", {
+      table_id: tischLegacy.id,
+    });
+    if (rpcErr) {
+      console.error("increment_table_scan:", rpcErr);
+    }
   }
 
   const templateProps: SpeisekarteProps = {
@@ -113,6 +135,7 @@ export default async function TischSpeisekartePage({
     dailyPush: data.dailyPush,
     restaurantId: data.restaurant.id,
     tischNummer: tischNr,
+    sponsoredItems,
   };
 
   const templateKey = (data.restaurant.template ?? "bar-soleil") as string;

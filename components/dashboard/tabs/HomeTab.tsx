@@ -8,7 +8,7 @@ import {
   formatDateLongDe,
   greetingLabel,
 } from "../utils";
-import { dash } from "../constants";
+import { DASH_GLASS_CARD_CLASS, dash } from "../constants";
 import type { DailyPush } from "@/lib/supabase";
 import type { PeakRow } from "../analytics";
 
@@ -81,11 +81,6 @@ export function HomeTab({
 
   const vt = viewsToday ?? 0;
   const animatedViews = useAnimatedCount(vt, 1000);
-
-  const pctVsYesterday = useMemo(() => {
-    if (viewsToday === null || viewsYesterday === null || viewsYesterday === 0) return null;
-    return Math.round(((viewsToday - viewsYesterday) / viewsYesterday) * 100);
-  }, [viewsToday, viewsYesterday]);
 
   const { line: lineD, fill: fillD } = useMemo(
     () => buildChartPath(weekSeries.length ? weekSeries : [0, 0, 0, 0, 0, 0, 0], 300, 100),
@@ -160,10 +155,10 @@ export function HomeTab({
 
   return (
     <div className={slideClass}>
-      <section className="px-5 pt-5">
-        <h1 className="text-[22px] font-black leading-tight tracking-tight">
+      <section className="px-0 pt-5">
+        <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-white">
           Guten {greetingLabel()},{" "}
-          <span style={{ color: dash.or }}>{userFirstName}</span>
+          <span style={{ color: dash.teal }}>{userFirstName}</span>
         </h1>
         <p className="mt-1 text-[13px]" style={{ color: dash.mu }}>
           {restaurantName}
@@ -173,101 +168,70 @@ export function HomeTab({
         </p>
       </section>
 
-      <section
-        className="relative mx-5 mt-4 overflow-hidden rounded-[20px] border px-[22px] py-5"
-        style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-      >
+      <div className="mt-4 flex flex-col space-y-3">
+      <section className="grid grid-cols-2 gap-3 px-0">
         <div
-          className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full"
-          style={{ background: "radial-gradient(circle,rgba(232,80,2,.18) 0%,transparent 70%)" }}
-        />
-        <div className="relative flex items-center justify-between">
+          className={`${DASH_GLASS_CARD_CLASS} col-span-2 flex min-h-[140px] flex-col justify-between p-4`}
+        >
+          <div className="text-[11px] font-medium uppercase tracking-widest" style={{ color: dash.kpiLabel }}>
+            Aufrufe heute
+          </div>
+          <div className="text-[36px] font-semibold leading-none text-white">{animatedViews}</div>
           <div>
+            <div className="text-[11px]" style={{ color: dash.kpiLabel }}>
+              vs. gestern ({viewsYesterday ?? "–"})
+            </div>
             <div
-              className="mb-1 text-[11px] font-medium uppercase tracking-wider"
-              style={{ color: dash.mu }}
-            >
-              Aufrufe heute
-            </div>
-            <div className="text-[64px] font-black leading-none tracking-tighter">
-              {animatedViews}
-            </div>
-          </div>
-          <div
-            className="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-2xl text-xl shadow-lg"
-            style={{
-              background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})`,
-              boxShadow: "0 8px 24px rgba(232,80,2,.35)",
-            }}
-          >
-            👁
-          </div>
-        </div>
-        <div className="relative mt-2 flex items-center gap-2">
-          {pctVsYesterday !== null && (
-            <span
-              className="rounded-md border px-2 py-0.5 text-xs font-bold"
+              className="mt-2 h-px w-full rounded-full"
               style={{
-                backgroundColor: dash.ord,
-                borderColor: dash.orm,
-                color: dash.or,
+                backgroundColor: "#00c8a0",
+                boxShadow: "0 0 10px rgba(0,200,160,0.45)",
               }}
-            >
-              {pctVsYesterday >= 0 ? "↑" : "↓"} {pctVsYesterday >= 0 ? "+" : ""}
-              {pctVsYesterday}% vs. gestern
-            </span>
-          )}
-          <span className="text-xs" style={{ color: dash.mu }}>
-            vs. gestern ({viewsYesterday ?? "–"})
-          </span>
-        </div>
-      </section>
-
-      <section className="mx-5 mt-2.5 grid grid-cols-2 gap-2.5">
-        <div
-          className="rounded-2xl border px-4 py-3.5"
-          style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-        >
-          <div className="mb-1.5 text-base">🔥</div>
-          <div className="text-[17px] font-bold tracking-tight">{topFood}</div>
-          <div className="text-[11px]" style={{ color: dash.mu }}>
-            Top Gericht
+            />
           </div>
         </div>
-        <div
-          className="rounded-2xl border px-4 py-3.5"
-          style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-        >
-          <div className="mb-1.5 text-base">🍹</div>
-          <div className="text-[17px] font-bold tracking-tight">{topDrink}</div>
-          <div className="text-[11px]" style={{ color: dash.mu }}>
-            Top Getränk
+
+        <div className={`${DASH_GLASS_CARD_CLASS} flex min-h-[100px] flex-col justify-between p-4`}>
+          <div className="text-[20px] leading-none">🔥</div>
+          <div>
+            <div className="line-clamp-2 text-[15px] font-semibold leading-tight text-white">{topFood}</div>
+            <div className="mt-1 text-[11px] uppercase tracking-widest" style={{ color: dash.kpiLabel }}>
+              Top Gericht
+            </div>
+          </div>
+        </div>
+
+        <div className={`${DASH_GLASS_CARD_CLASS} flex min-h-[100px] flex-col justify-between p-4`}>
+          <div className="text-[20px] leading-none">🥤</div>
+          <div>
+            <div className="line-clamp-2 text-[15px] font-semibold leading-tight text-white">{topDrink}</div>
+            <div className="mt-1 text-[11px] uppercase tracking-widest" style={{ color: dash.kpiLabel }}>
+              Top Getränk
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="px-5 pt-4">
+      <section className="px-0">
         <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-widest" style={{ color: dash.mu }}>
           Schnellzugriff
         </div>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => onGoKarte("heute")}
-            className="rounded-2xl border px-4 py-3.5 text-left transition active:scale-[0.98]"
-            style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+            className={`${DASH_GLASS_CARD_CLASS} min-h-0 px-4 py-3.5 text-left transition active:scale-[0.98]`}
           >
             <div className="mb-1.5 text-lg">⭐</div>
             <div className="text-[13px] font-bold">Tages-Special</div>
-            <div className="text-[11px] font-semibold" style={{ color: dailyPush ? dash.gr : dash.or }}>
+            <div className="text-[11px] font-semibold" style={{ color: dailyPush ? dash.gr : dash.teal }}>
               {dailyPush ? `${dailyPush.item_emoji} ${dailyPush.item_name}` : "Noch nicht gesetzt"}
             </div>
           </button>
           <button
             type="button"
             onClick={() => onGoKarte("notiz")}
-            className="rounded-2xl border px-4 py-3.5 text-left transition active:scale-[0.98]"
-            style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+            className={`${DASH_GLASS_CARD_CLASS} min-h-0 px-4 py-3.5 text-left transition active:scale-[0.98]`}
           >
             <div className="mb-1.5 text-lg">📝</div>
             <div className="text-[13px] font-bold">Gäste-Notiz</div>
@@ -278,28 +242,36 @@ export function HomeTab({
         </div>
       </section>
 
-      <section className="px-5 pt-4">
-        <div
-          className="rounded-[20px] border px-5 py-5"
-          style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-        >
-          <div className="mb-0.5 text-[15px] font-bold">Scans diese Woche</div>
+      <section className="px-0">
+        <div className={`${DASH_GLASS_CARD_CLASS} w-full px-5 py-5`}>
+          <div className="mb-0.5 text-[15px] font-semibold text-white">Scans diese Woche</div>
           <div className="mb-4 text-xs" style={{ color: dash.mu }}>
             Mo–So · Gesamt {weekTotal}
           </div>
-          <div className="relative mb-2 h-[110px] w-full">
+          <div className="relative z-[1] mb-2 h-[180px] w-full">
             <svg viewBox="0 0 300 100" className="h-full w-full overflow-visible" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#E85002" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#E85002" stopOpacity="0" />
+                  <stop offset="0%" stopColor="#00c8a0" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#00c8a0" stopOpacity="0" />
                 </linearGradient>
               </defs>
+              {[20, 40, 60, 80].map((y) => (
+                <line
+                  key={y}
+                  x1={8}
+                  y1={y}
+                  x2={292}
+                  y2={y}
+                  stroke={dash.chartGrid}
+                  strokeWidth={1}
+                />
+              ))}
               <path d={fillD} fill="url(#cg)" className={chartReady ? "opacity-100" : "opacity-0"} style={{ transition: "opacity 0.8s ease 0.3s" }} />
               <path
                 d={lineD}
                 fill="none"
-                stroke={dash.or}
+                stroke={dash.teal}
                 strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -321,8 +293,8 @@ export function HomeTab({
                     cx={x}
                     cy={y}
                     r={i === 6 ? 4.5 : 3.5}
-                    fill={i === 6 ? "#fff" : dash.or}
-                    stroke={i === 6 ? dash.or : dash.bg}
+                    fill={i === 6 ? "#ffffff" : dash.teal}
+                    stroke={i === 6 ? dash.teal : dash.bg}
                     strokeWidth={i === 6 ? 2.5 : 2}
                     className={chartReady ? "opacity-100" : "opacity-0"}
                     style={{ transition: `opacity 0.2s ease ${0.4 + i * 0.05}s` }}
@@ -331,12 +303,12 @@ export function HomeTab({
               })}
             </svg>
           </div>
-          <div className="flex justify-between px-0.5">
-            {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((d, i) => (
+          <div className="relative z-[1] flex justify-between px-0.5">
+            {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((d) => (
               <span
                 key={d}
                 className="flex-1 text-center text-[10px] font-medium"
-                style={{ color: i === 6 ? dash.or : dash.mu }}
+                style={{ color: dash.chartAxis }}
               >
                 {d}
               </span>
@@ -345,7 +317,7 @@ export function HomeTab({
         </div>
       </section>
 
-      <section className="px-5 pt-4">
+      <section className="px-0">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: dash.mu }}>
             {insightTitle}
@@ -362,11 +334,16 @@ export function HomeTab({
                 key={k}
                 type="button"
                 onClick={() => setInsightPeriod(k)}
-                className="rounded-lg border px-2.5 py-1 text-[11px] font-medium transition"
+                className="rounded-[10px] border px-2.5 py-1 text-[11px] font-medium transition"
                 style={
                   insightPeriod === k
-                    ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.or }
-                    : { backgroundColor: dash.s2, borderColor: dash.bo, color: dash.mu }
+                    ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.teal }
+                    : {
+                        backgroundColor: dash.secondaryBg,
+                        borderColor: dash.secondaryBorder,
+                        color: dash.secondaryFg,
+                        opacity: 0.85,
+                      }
                 }
               >
                 {label}
@@ -377,17 +354,17 @@ export function HomeTab({
         <div className="flex flex-col gap-2">
           {topItemsWeek[0] && (
             <div
-              className="flex gap-3 rounded-[14px] border border-transparent px-3.5 py-3"
-              style={{ backgroundColor: "rgba(76,175,125,0.07)", borderColor: "rgba(76,175,125,0.15)" }}
+              className="flex gap-3 rounded-[14px] border px-3.5 py-3"
+              style={{ backgroundColor: "rgba(52,232,158,0.08)", borderColor: "rgba(52,232,158,0.2)" }}
             >
               <div
                 className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg text-[15px]"
-                style={{ backgroundColor: "rgba(76,175,125,0.15)" }}
+                style={{ backgroundColor: "rgba(52,232,158,0.15)" }}
               >
                 🔥
               </div>
               <div>
-                <div className="text-[13px] font-semibold leading-snug" style={{ color: "#6fcf97" }}>
+                <div className="text-[13px] font-semibold leading-snug" style={{ color: dash.gr }}>
                   {topItemsWeek[0].name} — {topItemsWeek[0].count} Aufrufe
                 </div>
                 <div className="text-[11px] leading-snug" style={{ color: dash.mu }}>
@@ -396,10 +373,7 @@ export function HomeTab({
               </div>
             </div>
           )}
-          <div
-            className="flex gap-3 rounded-[14px] border border-transparent px-3.5 py-3"
-            style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-          >
+          <div className={`${DASH_GLASS_CARD_CLASS} flex gap-3 rounded-[14px] px-3.5 py-3`}>
             <div
               className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg text-[15px]"
               style={{ backgroundColor: dash.s2 }}
@@ -416,7 +390,7 @@ export function HomeTab({
         </div>
       </section>
 
-      <section className="px-5 pt-4">
+      <section className="px-0">
         <div className="mb-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: dash.mu }}>
           Top 3 dieser Woche
         </div>
@@ -427,8 +401,12 @@ export function HomeTab({
             className="flex-1 rounded-[10px] border py-2 text-center text-xs font-medium"
             style={
               top3Mode === "food"
-                ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.or }
-                : { backgroundColor: dash.s2, borderColor: dash.bo, color: dash.mu }
+                ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.teal }
+                : {
+                    backgroundColor: dash.secondaryBg,
+                    borderColor: dash.secondaryBorder,
+                    color: dash.mu,
+                  }
             }
           >
             🍽 Gerichte
@@ -439,8 +417,12 @@ export function HomeTab({
             className="flex-1 rounded-[10px] border py-2 text-center text-xs font-medium"
             style={
               top3Mode === "drink"
-                ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.or }
-                : { backgroundColor: dash.s2, borderColor: dash.bo, color: dash.mu }
+                ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.teal }
+                : {
+                    backgroundColor: dash.secondaryBg,
+                    borderColor: dash.secondaryBorder,
+                    color: dash.mu,
+                  }
             }
           >
             🍺 Getränke
@@ -457,25 +439,25 @@ export function HomeTab({
                 style={
                   rank === 0
                     ? {
-                        background: "linear-gradient(145deg,#2a1200,#1a0d00)",
-                        borderColor: "rgba(232,80,2,.35)",
-                        boxShadow: "0 8px 24px rgba(232,80,2,.15)",
+                        background: "linear-gradient(145deg,rgba(0,200,160,0.12),rgba(8,8,16,0.95))",
+                        borderColor: "rgba(0,200,160,0.35)",
+                        boxShadow: "0 8px 24px rgba(0,200,160,.12)",
                       }
                     : rank === 1
                       ? {
-                          background: "linear-gradient(145deg,#1e1e1e,#131313)",
-                          borderColor: "rgba(249,249,249,.1)",
+                          background: "linear-gradient(145deg,rgba(255,255,255,0.06),rgba(8,8,16,0.9))",
+                          borderColor: "rgba(255,255,255,0.1)",
                         }
                       : {
-                          background: "linear-gradient(145deg,#191919,#101010)",
-                          borderColor: "rgba(249,249,249,.07)",
+                          background: "linear-gradient(145deg,rgba(255,255,255,0.04),rgba(8,8,16,0.92))",
+                          borderColor: "rgba(255,255,255,0.07)",
                         }
                 }
               >
                 {rank === 0 && (
                   <div
                     className="pointer-events-none absolute -top-8 left-1/2 h-20 w-20 -translate-x-1/2 rounded-full"
-                    style={{ background: "radial-gradient(circle,rgba(232,80,2,.25),transparent 70%)" }}
+                    style={{ background: "radial-gradient(circle,rgba(0,200,160,.22),transparent 70%)" }}
                   />
                 )}
                 <span
@@ -483,19 +465,19 @@ export function HomeTab({
                   style={{
                     color:
                       rank === 0
-                        ? dash.or
+                        ? dash.teal
                         : rank === 1
-                          ? "rgba(249,249,249,.35)"
-                          : "rgba(249,249,249,.25)",
+                          ? "rgba(255,255,255,.35)"
+                          : "rgba(255,255,255,.25)",
                   }}
                 >
                   #{rank + 1}
                 </span>
                 <div>
                   <div
-                    className="text-[30px] font-black leading-none tracking-tight"
+                    className="text-[28px] font-black leading-none tracking-tight"
                     style={{
-                      color: rank === 0 ? dash.or : rank === 1 ? dash.tx : dash.mi,
+                      color: rank === 0 ? dash.teal : rank === 1 ? dash.tx : dash.mi,
                     }}
                   >
                     {row?.count ?? "–"}
@@ -503,14 +485,14 @@ export function HomeTab({
                   <div
                     className="mt-1 text-[10px] font-semibold leading-tight"
                     style={{
-                      color: rank === 0 ? "rgba(249,249,249,.85)" : dash.mi,
+                      color: rank === 0 ? "rgba(255,255,255,.9)" : dash.mi,
                     }}
                   >
                     {row?.name ?? "—"}
                   </div>
                   <div
                     className="mt-0.5 text-[9px]"
-                    style={{ color: rank === 0 ? "rgba(232,80,2,.55)" : dash.mu }}
+                    style={{ color: rank === 0 ? "rgba(0,200,160,.55)" : dash.mu }}
                   >
                     Aufrufe
                   </div>
@@ -521,7 +503,7 @@ export function HomeTab({
         </div>
       </section>
 
-      <section className="px-5 pt-4">
+      <section className="px-0">
         <div className="mb-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: dash.mu }}>
           Leute haben geschaut — bestellt?
         </div>
@@ -532,11 +514,7 @@ export function HomeTab({
             </p>
           )}
           {klickRows.map((r) => (
-            <div
-              key={r.name}
-              className="rounded-[14px] border px-3.5 py-3.5"
-              style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-            >
+            <div key={r.name} className={`${DASH_GLASS_CARD_CLASS} rounded-[14px] px-3.5 py-3.5`}>
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[13px] font-semibold">{r.name}</span>
                 <span className="text-[11px]" style={{ color: dash.mu }}>
@@ -550,9 +528,9 @@ export function HomeTab({
                     width: `${r.w}%`,
                     background:
                       r.level === "hi"
-                        ? `linear-gradient(90deg, ${dash.or}, ${dash.or2})`
+                        ? `linear-gradient(90deg, ${dash.teal}, ${dash.or2})`
                         : r.level === "md"
-                          ? dash.ye
+                          ? dash.yellow
                           : dash.re,
                   }}
                 />
@@ -565,16 +543,16 @@ export function HomeTab({
                   className="rounded-md border px-2 py-0.5 text-[10px] font-bold"
                   style={
                     r.level === "hi"
-                      ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.or }
+                      ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.teal }
                       : r.level === "md"
                         ? {
-                            backgroundColor: "rgba(240,180,41,0.1)",
-                            borderColor: "rgba(240,180,41,0.2)",
-                            color: dash.ye,
+                            backgroundColor: "rgba(255,212,38,0.12)",
+                            borderColor: "rgba(255,212,38,0.25)",
+                            color: dash.yellow,
                           }
                         : {
-                            backgroundColor: "rgba(224,92,92,0.1)",
-                            borderColor: "rgba(224,92,92,0.2)",
+                            backgroundColor: "rgba(255,75,110,0.12)",
+                            borderColor: "rgba(255,75,110,0.25)",
                             color: dash.re,
                           }
                   }
@@ -587,11 +565,8 @@ export function HomeTab({
         </div>
       </section>
 
-      <section className="px-5 py-4 pb-2">
-        <div
-          className="rounded-2xl border px-[18px] py-[18px]"
-          style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-        >
+      <section className="px-0 pb-2">
+        <div className={`${DASH_GLASS_CARD_CLASS} px-[18px] py-[18px]`}>
           <div
             className="mb-3 text-[10px] font-medium uppercase tracking-wider"
             style={{ color: dash.mu }}
@@ -608,7 +583,7 @@ export function HomeTab({
                   className="h-full rounded"
                   style={{
                     width: `${Math.round((p.count / peakMax) * 100)}%`,
-                    backgroundColor: dash.or,
+                    backgroundColor: dash.teal,
                   }}
                 />
               </div>
@@ -619,6 +594,7 @@ export function HomeTab({
           ))}
         </div>
       </section>
+      </div>
     </div>
   );
 }

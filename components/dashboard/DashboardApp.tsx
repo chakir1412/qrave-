@@ -47,6 +47,7 @@ type DailyForm = {
 
 type Props = {
   userFirstName: string;
+  userEmail: string;
   restaurant: DashboardRestaurant;
   initialMenuItems: MenuItem[];
   initialAnalytics: DashboardAnalytics;
@@ -55,6 +56,7 @@ type Props = {
 
 export function DashboardApp({
   userFirstName,
+  userEmail,
   restaurant: restaurantProp,
   initialMenuItems,
   initialAnalytics,
@@ -123,14 +125,6 @@ export function DashboardApp({
   const [extracting, setExtracting] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
   const [brandingMessage, setBrandingMessage] = useState<string | null>(null);
-
-  const currentLogoFilename = (() => {
-    const url = currentLogoUrl ?? "";
-    if (!url) return null;
-    const clean = url.split("?")[0] ?? url;
-    const parts = clean.split("/").filter(Boolean);
-    return parts[parts.length - 1] ?? clean;
-  })();
 
   useEffect(() => {
     setRestaurant(restaurantProp);
@@ -240,15 +234,55 @@ export function DashboardApp({
   async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setLogoFile(file);
+    await handleImmediateLogoUpload(file);
+    e.target.value = "";
+  }
+
+  async function handleImmediateLogoUpload(file: File) {
+    setLogoFile(null);
     setLogoPreview(URL.createObjectURL(file));
     setExtracting(true);
+    setBrandingMessage(null);
     try {
       const dominant = await extractDominantColor(file);
       if (dominant) {
         setExtractedColor(dominant);
         setColorInput(dominant);
       }
+      const mime = (file.type || "").toLowerCase();
+      const forcedExt =
+        mime === "image/png"
+          ? "png"
+          : mime === "image/jpeg"
+            ? "jpg"
+            : (file.name.split(".").pop() ?? "png").toLowerCase();
+      const path = `${restaurant.id}/logo.${forcedExt}`;
+      const { error: uploadErr } = await supabase.storage.from("restaurant-assets").upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type || undefined,
+      });
+      if (uploadErr) {
+        setBrandingMessage(`Logo-Upload fehlgeschlagen: ${uploadErr.message}`);
+        return;
+      }
+      const { data: publicUrlData } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
+      const publicUrl = publicUrlData.publicUrl ?? null;
+      const logoUrl = publicUrl ? `${publicUrl}?t=${Date.now()}` : null;
+      const { error: updateError } = await supabase
+        .from("restaurants")
+        .update({ logo_url: logoUrl })
+        .eq("id", restaurant.id);
+      if (updateError) {
+        setBrandingMessage(`Speichern fehlgeschlagen: ${updateError.message}`);
+        return;
+      }
+      if (logoUrl) {
+        setCurrentLogoUrl(logoUrl);
+        setLogoPreview(logoUrl);
+      }
+      setRestaurant((r) => ({ ...r, logo_url: logoUrl ?? r.logo_url }));
+      showToast("✓ Logo gespeichert");
     } finally {
       setExtracting(false);
     }
@@ -278,7 +312,7 @@ export function DashboardApp({
             : mime === "image/jpeg"
               ? "jpg"
               : (logoFile.name.split(".").pop() ?? "png").toLowerCase();
-        const path = `restaurants/${restaurant.slug}/logo.${forcedExt}`;
+        const path = `${restaurant.id}/logo.${forcedExt}`;
         const { error: uploadErr } = await supabase.storage
           .from("restaurant-assets")
           .upload(path, logoFile, {
@@ -355,8 +389,13 @@ export function DashboardApp({
   }
 
   return (
-    <div className="min-h-dvh pb-28" style={{ backgroundColor: dash.bg, color: dash.tx }}>
-      <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col">
+    <div className="relative min-h-dvh pb-28 font-sans" style={{ backgroundColor: dash.bg, color: dash.tx }}>
+      <div className="dashboard-bg-blobs" aria-hidden>
+        <div className="dashboard-blob dashboard-blob--1" />
+        <div className="dashboard-blob dashboard-blob--2" />
+        <div className="dashboard-blob dashboard-blob--3" />
+      </div>
+      <div className="relative z-[1] mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-4 md:max-w-[860px] md:px-6 md:py-10">
         <DashboardHeader onOpenSettings={() => setOverlays((o) => ({ ...o, settings: true }))} />
 
         <main className="flex-1">
@@ -434,6 +473,7 @@ export function DashboardApp({
         open={overlays.settings}
         onClose={() => setOverlays((o) => ({ ...o, settings: false }))}
         restaurant={restaurant}
+        userEmail={userEmail}
         savingTemplate={savingTemplate}
         onTemplateChange={(id) => void handleTemplateChange(id)}
         onOpenOeffnung={() => setOverlays((o) => ({ ...o, oeffnung: true }))}
@@ -441,6 +481,7 @@ export function DashboardApp({
         colorInput={colorInput}
         onColorPickerChange={handleColorPickerChange}
         onHexInputChange={handleHexInputChange}
+        setColorInput={setColorInput}
         logoPreview={logoPreview}
         onLogoFileChange={(e) => void handleLogoChange(e)}
         extracting={extracting}
@@ -448,7 +489,6 @@ export function DashboardApp({
         onSaveBranding={() => void handleSaveBranding()}
         brandingMessage={brandingMessage}
         currentLogoUrl={currentLogoUrl}
-        currentLogoFilename={currentLogoFilename}
         extractedColor={extractedColor}
       />
 

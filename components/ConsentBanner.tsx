@@ -116,16 +116,36 @@ export default function ConsentBanner({ onConsent }: ConsentBannerProps) {
               <button
                 type="button"
                 onClick={() => decide("declined")}
-                className="w-full rounded-2xl py-3 text-[0.8rem] font-extrabold"
-                style={{ border: "2px solid #111", color: "#111", backgroundColor: "transparent" }}
+                className="w-full"
+                style={{
+                  padding: "12px 0",
+                  flex: 1,
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  border: "1.5px solid #ccc",
+                  background: "transparent",
+                  color: "#333",
+                  cursor: "pointer",
+                }}
               >
                 Lieber nicht
               </button>
               <button
                 type="button"
                 onClick={() => decide("accepted")}
-                className="w-full rounded-2xl py-3 text-[0.8rem] font-extrabold"
-                style={{ backgroundColor: "#111", color: "#fff", border: "2px solid #111" }}
+                className="w-full"
+                style={{
+                  padding: "12px 0",
+                  flex: 1,
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  border: "1.5px solid #ccc",
+                  background: "transparent",
+                  color: "#333",
+                  cursor: "pointer",
+                }}
               >
                 Ja, ich helfe gerne 🙌
               </button>

@@ -11,14 +11,28 @@ import Wishlist from "@/components/speisekarte/Wishlist";
 import { DailyPushBanner, DailyPushPopup } from "@/components/speisekarte/DailyPush";
 import type { MenuItem } from "@/lib/supabase";
 import { getItemEmoji, getDisplayPrice } from "@/components/speisekarte/utils";
-import type { FilterKey } from "@/components/speisekarte/constants";
+import { BADGE_LABELS, BADGE_STYLES, type FilterKey } from "@/components/speisekarte/constants";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
+import {
+  buildSectionsForCategoryTab,
+  categoryTabLabel,
+  CATEGORY_TAB_ALLE_KEY,
+  deriveCategoryTabsFromItems,
+  type MainTabDef,
+} from "@/components/speisekarte/menu-layout";
 
 const KIOSK_TRACK_FILTER: FilterKey = "all";
 
 type Section = { kategorie: string; subtitle: string | null; items: MenuItem[] };
 
-type MainTab = "food" | "drinks" | "snacks" | "order" | "info";
+const KIOSK_ORDER = "__kiosk_order__";
+const KIOSK_INFO = "__kiosk_info__";
+
+function kioskTabTrackingLabel(tab: string): string {
+  if (tab === KIOSK_ORDER) return "Bestellung";
+  if (tab === KIOSK_INFO) return "Info";
+  return categoryTabLabel(tab);
+}
 
 const KIOSK_COLORS = {
   bg: "#0A0A0A",
@@ -53,11 +67,12 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     logoUrl,
     restaurantId,
     tischNummer,
+    sponsoredItems = [],
   } = props;
 
   const ACCENT = (accentColor ?? "#FFD600").trim() || "#FFD600";
 
-  const [mainTab, setMainTab] = useState<MainTab>("food");
+  const [activeTab, setActiveTab] = useState<string>(CATEGORY_TAB_ALLE_KEY);
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
   const [consentGiven, setConsentGiven] = useState(false);
 
@@ -72,6 +87,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     clearWishlist,
     openWishlist,
     closeWishlist,
+    isInWishlist,
   } = useWishlist();
 
   const {
@@ -98,46 +114,36 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     return undefined;
   }, [track, restaurantName, dailyPush, menuItems.length]);
 
-  const sectionsByMain = useMemo(() => {
-    const map = new Map<MainTab, Section[]>();
-    function keyFor(item: MenuItem): MainTab {
-      const raw = (item.main_tab ?? "").trim().toLowerCase();
-      if (raw === "getraenke") return "drinks";
-      if (raw === "snacks") return "snacks";
-      return "food";
-    }
-    for (const item of menuItems) {
-      const k = keyFor(item);
-      const cat = item.kategorie?.trim() || "Sonstiges";
-      let list = map.get(k);
-      if (!list) {
-        list = [];
-        map.set(k, list);
-      }
-      let sec = list.find((s) => s.kategorie === cat);
-      if (!sec) {
-        sec = { kategorie: cat, subtitle: item.section_subtitle ?? null, items: [] };
-        list.push(sec);
-      }
-      sec.items.push(item);
-    }
-    map.forEach((list) => list.sort((a, b) => a.kategorie.localeCompare(b.kategorie)));
-    return map;
+  const allTabs: MainTabDef[] = useMemo(() => {
+    const cats = deriveCategoryTabsFromItems(menuItems);
+    return [
+      ...cats,
+      { key: KIOSK_ORDER, label: "🛒 Bestellung" },
+      { key: KIOSK_INFO, label: "📍 Info" },
+    ];
   }, [menuItems]);
 
   const currentSections: Section[] = useMemo(() => {
-    if (mainTab === "order" || mainTab === "info") return [];
-    return sectionsByMain.get(mainTab) ?? [];
-  }, [sectionsByMain, mainTab]);
+    if (activeTab === KIOSK_ORDER || activeTab === KIOSK_INFO) return [];
+    return buildSectionsForCategoryTab(activeTab, menuItems);
+  }, [activeTab, menuItems]);
 
-  const { onCategorySectionRef, trackWishlistAdd, trackWishlistRemove } =
+  const { onCategorySectionRef, trackWishlistAdd, trackWishlistRemove, trackCategoryTabSelect } =
     useSpeisekarteTier1Tracking({
       restaurantId,
       tischNummer,
-      effectiveMainTab: mainTab,
+      effectiveMainTab: kioskTabTrackingLabel(activeTab),
       filter: KIOSK_TRACK_FILTER,
       modalItem,
     });
+
+  const selectTab = useCallback(
+    (key: string) => {
+      setActiveTab(key);
+      trackCategoryTabSelect(kioskTabTrackingLabel(key));
+    },
+    [trackCategoryTabSelect],
+  );
 
   const handleAddToWishlist = useCallback(
     (item: MenuItem) => {
@@ -163,13 +169,22 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     [removeFromWishlist, trackWishlistRemove],
   );
 
+  const handleToggleWishlist = useCallback(
+    (wishItem: MenuItem) => {
+      if (isInWishlist(wishItem.id)) {
+        handleRemoveFromWishlist(wishItem.id);
+      } else {
+        handleAddToWishlist(wishItem);
+      }
+    },
+    [isInWishlist, handleAddToWishlist, handleRemoveFromWishlist],
+  );
+
   const { main: heroMain, accent: heroAccent } = splitNameForHero(restaurantName || "KIOSK No. 7");
 
-  const showFood = mainTab === "food";
-  const showDrinks = mainTab === "drinks";
-  const showSnacks = mainTab === "snacks";
-  const showOrder = mainTab === "order";
-  const showInfo = mainTab === "info";
+  const showMenu = activeTab !== KIOSK_ORDER && activeTab !== KIOSK_INFO;
+  const showOrder = activeTab === KIOSK_ORDER;
+  const showInfo = activeTab === KIOSK_INFO;
 
   return (
     <div
@@ -312,41 +327,28 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
           padding: "0 16px",
         }}
       >
-        <div className="flex gap-1 py-1">
-          {(["food", "drinks", "snacks", "order", "info"] as MainTab[]).map((tab) => {
-            const label =
-              tab === "food"
-                ? "🍔 Food"
-                : tab === "drinks"
-                  ? "🥤 Drinks"
-                  : tab === "snacks"
-                    ? "🍟 Snacks"
-                    : tab === "order"
-                      ? "🛒 Bestellung"
-                      : "📍 Info";
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setMainTab(tab)}
-                className="pb-2.5 pt-3 px-2 text-[10px] font-extrabold uppercase tracking-[0.08em]"
-                style={{
-                  flex: 1,
-                  borderBottom: `3px solid ${mainTab === tab ? ACCENT : "transparent"}`,
-                  color: mainTab === tab ? ACCENT : KIOSK_COLORS.dim,
-                  textAlign: "center",
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+        <div className="flex gap-1 py-1 overflow-x-auto scrollbar-hide">
+          {allTabs.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => selectTab(key)}
+              className="pb-2.5 pt-3 px-2 text-[10px] font-extrabold uppercase tracking-[0.08em] flex-shrink-0 whitespace-nowrap"
+              style={{
+                borderBottom: `3px solid ${activeTab === key ? ACCENT : "transparent"}`,
+                color: activeTab === key ? ACCENT : KIOSK_COLORS.dim,
+                textAlign: "center",
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Content */}
       <main className="px-4 pt-2 pb-28">
-        {(showFood || showDrinks || showSnacks) && (
+        {showMenu && (
           <div>
             {currentSections.map((sec) => (
               <section
@@ -378,14 +380,15 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                     {sec.items.length} Items
                   </div>
                 </div>
+                <div className="flex flex-col gap-4 py-4">
                 {sec.items.map((item) => {
                   const emoji = getItemEmoji(item, sec.kategorie);
-                  const isFoodLayout = showFood;
-                  if (isFoodLayout) {
+                  const tags = (item.tags ?? []).map((t) => String(t).toLowerCase());
+                  const useBigCard = Boolean(item.bild_url);
+                  if (useBigCard) {
                     return (
                       <div
                         key={item.id}
-                        className="mb-3"
                         onClick={() => setModalItem(item)}
                         style={{
                           backgroundColor: KIOSK_COLORS.card,
@@ -425,30 +428,29 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                           )}
                         </div>
                         <div className="px-4 pt-3 pb-4">
-                          <div
-                            className="mb-1"
-                            style={{
-                              fontFamily: "'Bebas Neue', system-ui, sans-serif",
-                              fontSize: 24,
-                              letterSpacing: ".04em",
-                              lineHeight: 1,
-                            }}
-                          >
-                            {item.name.toUpperCase()}
-                          </div>
-                          {item.beschreibung && (
+                          <div className="mb-2 flex flex-wrap items-center gap-1.5">
                             <div
-                              className="mb-3"
                               style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                color: KIOSK_COLORS.muted,
-                                lineHeight: 1.5,
+                                fontFamily: "'Bebas Neue', system-ui, sans-serif",
+                                fontSize: 24,
+                                letterSpacing: ".04em",
+                                lineHeight: 1,
                               }}
                             >
-                              {item.beschreibung}
+                              {item.name.toUpperCase()}
                             </div>
-                          )}
+                            {tags.map(
+                              (t) =>
+                                BADGE_LABELS[t as keyof typeof BADGE_LABELS] && (
+                                  <span
+                                    key={t}
+                                    className={`text-[0.52rem] font-semibold px-1.5 py-0.5 rounded-full uppercase ${BADGE_STYLES[t as keyof typeof BADGE_STYLES]}`}
+                                  >
+                                    {BADGE_LABELS[t as keyof typeof BADGE_LABELS]}
+                                  </span>
+                                ),
+                            )}
+                          </div>
                           <div className="flex items-center justify-between">
                             <div
                               style={{
@@ -468,7 +470,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center gap-3 px-4 py-3 mb-[1px]"
+                      className="flex items-center gap-3 px-4 py-3"
                       style={{
                         backgroundColor: KIOSK_COLORS.card,
                         borderRadius: 14,
@@ -482,20 +484,25 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                       >
                         {emoji}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div
-                          className="mb-[2px]"
-                          style={{ fontSize: 15, fontWeight: 800, color: KIOSK_COLORS.text }}
-                        >
-                          {item.name}
-                        </div>
-                        {item.beschreibung && (
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <div
-                            style={{ fontSize: 11, fontWeight: 600, color: KIOSK_COLORS.muted }}
+                            style={{ fontSize: 15, fontWeight: 800, color: KIOSK_COLORS.text }}
                           >
-                            {item.beschreibung}
+                            {item.name}
                           </div>
-                        )}
+                          {tags.map(
+                            (t) =>
+                              BADGE_LABELS[t as keyof typeof BADGE_LABELS] && (
+                                <span
+                                  key={t}
+                                  className={`text-[0.52rem] font-semibold px-1.5 py-0.5 rounded-full uppercase ${BADGE_STYLES[t as keyof typeof BADGE_STYLES]}`}
+                                >
+                                  {BADGE_LABELS[t as keyof typeof BADGE_LABELS]}
+                                </span>
+                              ),
+                          )}
+                        </div>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <div
@@ -511,6 +518,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                     </div>
                   );
                 })}
+                </div>
               </section>
             ))}
           </div>
@@ -671,9 +679,13 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
       {modalItem && (
         <ItemModal
           item={modalItem}
-          allItems={menuItems}
+          menuItems={menuItems}
+          sponsoredItems={sponsoredItems}
+          restaurantId={restaurantId}
           onClose={() => setModalItem(null)}
-          onAddToCart={handleAddToWishlist}
+          onSelectItem={setModalItem}
+          isInWishlist={isInWishlist}
+          onToggleWishlist={handleToggleWishlist}
           theme="bar-soleil"
         />
       )}
@@ -721,7 +733,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
       >
         <button
           type="button"
-          onClick={() => setMainTab("food")}
+          onClick={() => selectTab(CATEGORY_TAB_ALLE_KEY)}
           style={{
             flex: 1,
             display: "flex",
@@ -731,7 +743,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
             padding: 7,
             borderRadius: 10,
             cursor: "pointer",
-            color: mainTab === "food" ? ACCENT : KIOSK_COLORS.dim,
+            color: showMenu ? ACCENT : KIOSK_COLORS.dim,
             fontSize: 10,
             fontWeight: 800,
             letterSpacing: ".06em",
@@ -746,7 +758,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
         <button
           type="button"
           onClick={() => {
-            setMainTab("order");
+            selectTab(KIOSK_ORDER);
             openWishlist();
           }}
           style={{
@@ -758,7 +770,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
             padding: 7,
             borderRadius: 10,
             cursor: "pointer",
-            color: mainTab === "order" ? ACCENT : KIOSK_COLORS.dim,
+            color: activeTab === KIOSK_ORDER ? ACCENT : KIOSK_COLORS.dim,
             fontSize: 10,
             fontWeight: 800,
             letterSpacing: ".06em",

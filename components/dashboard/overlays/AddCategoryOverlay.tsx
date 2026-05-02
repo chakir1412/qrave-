@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { dash } from "../constants";
+import { dash, dashPrimaryButtonStyle } from "../constants";
 
 type Props = {
   open: boolean;
@@ -44,7 +44,7 @@ export function AddCategoryOverlay({ open, onClose, onAdd }: Props) {
         onClick={onClose}
       />
       <div
-        className="relative z-10 max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-t-[24px] border-t px-5 pb-10 pt-4"
+        className="relative z-10 max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-t-[24px] border-t px-5 pb-10 pt-4 md:max-w-[860px]"
         style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -61,7 +61,7 @@ export function AddCategoryOverlay({ open, onClose, onAdd }: Props) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="z. B. 🥗 Vorspeisen"
-          className="mb-4 w-full rounded-[11px] border px-3.5 py-3 text-sm outline-none transition focus:border-[rgba(232,80,2,0.28)]"
+          className="mb-4 w-full rounded-[11px] border px-3.5 py-3 text-sm outline-none transition focus:border-[rgba(0,200,160,0.35)]"
           style={{
             backgroundColor: dash.s2,
             borderColor: dash.bo,
@@ -72,11 +72,8 @@ export function AddCategoryOverlay({ open, onClose, onAdd }: Props) {
           type="button"
           disabled={busy || !name.trim()}
           onClick={() => void handleSubmit()}
-          className="w-full rounded-[13px] py-3.5 text-[15px] font-bold text-white shadow-lg disabled:opacity-50"
-          style={{
-            background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})`,
-            boxShadow: "0 6px 20px rgba(232,80,2,0.3)",
-          }}
+          className="w-full rounded-[10px] py-3.5 text-[15px] font-bold disabled:opacity-50"
+          style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
         >
           {busy ? "Wird angelegt …" : "Kategorie anlegen"}
         </button>

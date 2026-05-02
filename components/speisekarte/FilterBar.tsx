@@ -84,13 +84,13 @@ export default function FilterBar({
   return (
     <>
       {/* Ebene 1: Haupt-Tabs — [ Speisen ] [ Getränke ] [ Snacks ] oder dynamisch aus mainTabs */}
-      <nav className="flex overflow-x-auto scrollbar-hide border-b -mb-px" style={{ borderColor: navBorder }}>
+      <nav className="flex overflow-x-auto scrollbar-hide border-b -mb-px gap-1" style={{ borderColor: navBorder }}>
         {mainTabs.map(({ key, label }) => (
           <button
             key={key}
             type="button"
             onClick={() => onMainTabChange(key)}
-            className="flex-shrink-0 flex-1 min-w-0 border-b-2 pb-2.5 pt-2 px-4 text-[0.74rem] font-medium uppercase tracking-wide whitespace-nowrap transition-all"
+            className="flex-shrink-0 border-b-2 pb-2.5 pt-2 px-4 text-[0.74rem] font-medium uppercase tracking-wide whitespace-nowrap transition-all"
             style={{
               borderColor: mainTab === key ? tabActive : "transparent",
               color: mainTab === key ? tabActive : tabInactive,

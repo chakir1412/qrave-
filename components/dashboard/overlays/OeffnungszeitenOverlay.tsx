@@ -7,7 +7,7 @@ import {
   type OpeningHoursDay,
   parseOpeningHours,
 } from "@/lib/supabase";
-import { dash } from "../constants";
+import { dash, dashPrimaryButtonStyle } from "../constants";
 
 type Props = {
   open: boolean;
@@ -94,7 +94,7 @@ export function OeffnungszeitenOverlay({
         onClick={onClose}
       />
       <div
-        className="relative z-10 max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-t-[24px] border-t px-5 pb-10 pt-4"
+        className="relative z-10 max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-t-[24px] border-t px-5 pb-10 pt-4 md:max-w-[860px]"
         style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -152,7 +152,7 @@ export function OeffnungszeitenOverlay({
                 onClick={() => updateRow(i, { closed: !row.closed })}
                 className="relative h-[22px] w-9 shrink-0 rounded-full transition-colors"
                 style={{
-                  backgroundColor: !row.closed ? dash.or : dash.s3,
+                  backgroundColor: !row.closed ? dash.teal : dash.s3,
                 }}
                 aria-label={row.closed ? `${row.day} geöffnet` : `${row.day} geschlossen`}
               >
@@ -169,11 +169,8 @@ export function OeffnungszeitenOverlay({
         <button
           type="button"
           onClick={onClose}
-          className="mt-5 w-full rounded-[13px] py-3.5 text-[15px] font-bold text-white shadow-lg"
-          style={{
-            background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})`,
-            boxShadow: "0 6px 20px rgba(232,80,2,0.3)",
-          }}
+          className="mt-5 w-full rounded-[10px] py-3.5 text-[15px] font-bold"
+          style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
         >
           Fertig
         </button>
