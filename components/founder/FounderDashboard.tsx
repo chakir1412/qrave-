@@ -20,6 +20,7 @@ import {
   BarChart3,
   FileSpreadsheet,
   LayoutDashboard,
+  Package,
   Store,
   Timer,
   TrendingUp,
@@ -32,6 +33,7 @@ import type { FounderDashboardData, FounderKpiDeltaLine, FounderScanEventRow } f
 import { RestaurantsTab } from "@/components/founder/tabs/RestaurantsTab";
 import { TodoTab } from "@/components/founder/tabs/TodoTab";
 import { KontakteTab } from "@/components/founder/tabs/KontakteTab";
+import { ProduktTab } from "@/components/founder/tabs/ProduktTab";
 
 ChartJS.register(
   LineElement,
@@ -64,7 +66,7 @@ type Props = {
   initialLoadError?: string | null;
 };
 
-type MainTab = "overview" | "analytics" | "restaurants" | "todo" | "kontakte";
+type MainTab = "overview" | "analytics" | "restaurants" | "todo" | "kontakte" | "produkte";
 type AnalyticsSubTab = "overview" | "restaurant" | "abtests" | "partners";
 
 type DailyAnalyticsRow = {
@@ -756,6 +758,14 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
             >
               <Users size={18} />
             </button>
+            <button
+              type="button"
+              style={sidebarBtn(mainTab === "produkte")}
+              aria-label="Produkt-Übersicht"
+              onClick={() => setMainTab("produkte")}
+            >
+              <Package size={18} />
+            </button>
           </nav>
           <button type="button" style={sidebarBtn(false)} aria-label="User">
             <User size={18} />
@@ -811,6 +821,9 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
               </button>
               <button type="button" onClick={() => setMainTab("kontakte")} style={mainTabBtn(mainTab === "kontakte", C.blue)}>
                 Pipeline
+              </button>
+              <button type="button" onClick={() => setMainTab("produkte")} style={mainTabBtn(mainTab === "produkte", C.teal)}>
+                Produkte
               </button>
             </div>
 
@@ -1149,6 +1162,12 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
             {mainTab === "kontakte" ? (
               <section>
                 <KontakteTab isMobile={Boolean(isMobile)} onRefresh={refreshAll} />
+              </section>
+            ) : null}
+
+            {mainTab === "produkte" ? (
+              <section>
+                <ProduktTab isMobile={Boolean(isMobile)} />
               </section>
             ) : null}
 
