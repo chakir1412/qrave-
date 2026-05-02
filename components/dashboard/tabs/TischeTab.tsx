@@ -74,7 +74,7 @@ export function TischeTab({
         >
           {loadError}
           <p className="mt-2 opacity-80" style={{ color: dash.mu }}>
-            Prüfe, ob die Tabelle <code className="text-[10px]">tables</code> existiert und die Migration
+            Prüfe, ob die Tabelle <code className="text-[10px]">restaurant_tables</code> existiert und die Migration
             ausgeführt wurde.
           </p>
         </div>

@@ -3,10 +3,10 @@ import { supabase, type RestaurantTable } from "@/lib/supabase";
 import type { Bereich, Tisch } from "@/components/dashboard/types";
 
 const TABLES_SELECT =
-  "id, restaurant_id, tisch_nummer, zone, qr_code_url, nfc_aktiv, aktiv, created_at";
+  "id, restaurant_id, tisch_nummer, bereich, qr_url, nfc_programmiert, nfc_installiert, sticker_angebracht, sticker_installiert, aktiv, created_at";
 
-function defaultEmojiForZone(zone: string): string {
-  const k = zone.trim().toLowerCase();
+function defaultEmojiForBereich(bereich: string): string {
+  const k = bereich.trim().toLowerCase();
   if (k.includes("terrasse")) return "☀️";
   if (k.includes("bar")) return "🍸";
   if (k.includes("garten")) return "🌿";
@@ -18,7 +18,7 @@ function tableRowToTisch(r: RestaurantTable): Tisch {
   return {
     id: r.id,
     nr: r.tisch_nummer,
-    /** Keine Scan-Spalten in der DB — UI nutzt 0 für Heatmap / „ohne Scan“. */
+    /** Keine Scan-Spalten in restaurant_tables — UI nutzt 0 für Heatmap / „ohne Scan“. */
     scans: 0,
     active: r.aktiv,
   };
@@ -26,23 +26,23 @@ function tableRowToTisch(r: RestaurantTable): Tisch {
 
 function rowsToBereiche(rows: RestaurantTable[]): Bereich[] {
   const order: string[] = [];
-  const byZone = new Map<string, RestaurantTable[]>();
+  const byBereich = new Map<string, RestaurantTable[]>();
   for (const r of rows) {
-    const zone = r.zone.trim() || "Bereich";
-    if (!byZone.has(zone)) {
-      order.push(zone);
-      byZone.set(zone, []);
+    const bereich = (r.bereich ?? "").trim() || "Bereich";
+    if (!byBereich.has(bereich)) {
+      order.push(bereich);
+      byBereich.set(bereich, []);
     }
-    byZone.get(zone)!.push(r);
+    byBereich.get(bereich)!.push(r);
   }
-  return order.map((zoneLabel, idx) => {
-    const list = byZone.get(zoneLabel)!;
+  return order.map((bereichLabel, idx) => {
+    const list = byBereich.get(bereichLabel)!;
     list.sort((a, b) => a.tisch_nummer - b.tisch_nummer);
-    const firstId = list[0]?.id ?? `zone-${idx}`;
+    const firstId = list[0]?.id ?? `bereich-${idx}`;
     return {
       key: firstId,
-      emoji: defaultEmojiForZone(zoneLabel),
-      label: zoneLabel,
+      emoji: defaultEmojiForBereich(bereichLabel),
+      label: bereichLabel,
       open: idx === 0,
       tische: list.map(tableRowToTisch),
     };
@@ -58,10 +58,10 @@ export function useRestaurantTables(restaurantId: string) {
     setLoading(true);
     setError(null);
     const { data, error: err } = await supabase
-      .from("tables")
+      .from("restaurant_tables")
       .select(TABLES_SELECT)
       .eq("restaurant_id", restaurantId)
-      .order("zone", { ascending: true })
+      .order("bereich", { ascending: true })
       .order("tisch_nummer", { ascending: true });
     if (err) {
       setError(err.message);

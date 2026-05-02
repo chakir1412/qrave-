@@ -112,6 +112,8 @@ export type MenuItem = {
   sort_order?: number;
   /** Allergene: gluten, milk, egg, nuts, shellfish, fish, soy (nicht in allen DB-Versionen) */
   allergen_ids?: string[] | null;
+  /** Freitext-Allergene & Zutaten (vom PDF-Import autom. vorbefuellt). */
+  allergens_text?: string | null;
   sponsored?: boolean;
   partner_name?: string | null;
   preis_volumen?: PreisVolumen | null;
@@ -147,19 +149,19 @@ export type DailyPush = {
   item_desc: string | null;
 };
 
-/** NFC / QR-Tischplatzierung (public.tables) */
+/** NFC / QR-Tischplatzierung (public.restaurant_tables) */
 export interface RestaurantTable {
   id: string;
   restaurant_id: string;
   tisch_nummer: number;
-  zone: string;
-  qr_code_url: string | null;
-  nfc_aktiv: boolean;
+  bereich: string | null;
+  qr_url: string | null;
+  nfc_programmiert: boolean;
+  nfc_installiert: boolean;
+  sticker_angebracht: boolean;
+  sticker_installiert: boolean;
   aktiv: boolean;
   created_at: string;
-  scans_total?: number;
-  scans_today?: number;
-  last_scan_at?: string | null;
 }
 
 /** Fetches today's daily_push for a restaurant. */

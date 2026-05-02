@@ -46,7 +46,10 @@ export function TischeConfigPage({
 
   const persistToggle = useCallback(
     async (tableId: string, nextActive: boolean) => {
-      const { error } = await supabase.from("tables").update({ aktiv: nextActive }).eq("id", tableId);
+      const { error } = await supabase
+        .from("restaurant_tables")
+        .update({ aktiv: nextActive })
+        .eq("id", tableId);
       if (error) {
         onToast(error.message ?? "Speichern fehlgeschlagen");
         onTablesUpdated();
@@ -61,13 +64,14 @@ export function TischeConfigPage({
     const raw = typeof window !== "undefined" ? window.prompt("Name des neuen Bereichs") : null;
     const name = raw?.trim();
     if (!name) return;
-    const { error } = await supabase.from("tables").insert({
+    const { error } = await supabase.from("restaurant_tables").insert({
       restaurant_id: restaurantId,
-      zone: name,
+      bereich: name,
       tisch_nummer: 1,
       aktiv: true,
-      nfc_aktiv: false,
-      qr_code_url: buildTableQrUrl(slug, 1),
+      nfc_programmiert: false,
+      sticker_angebracht: false,
+      qr_url: buildTableQrUrl(slug, 1),
     });
     if (error) {
       onToast(error.message ?? "Bereich konnte nicht angelegt werden");
@@ -81,13 +85,14 @@ export function TischeConfigPage({
     const block = local.find((b) => b.label === areaLabel);
     const maxNr = block ? Math.max(0, ...block.tische.map((t) => t.nr)) : 0;
     const nextNr = maxNr + 1;
-    const { error } = await supabase.from("tables").insert({
+    const { error } = await supabase.from("restaurant_tables").insert({
       restaurant_id: restaurantId,
-      zone: areaLabel,
+      bereich: areaLabel,
       tisch_nummer: nextNr,
       aktiv: true,
-      nfc_aktiv: false,
-      qr_code_url: buildTableQrUrl(slug, nextNr),
+      nfc_programmiert: false,
+      sticker_angebracht: false,
+      qr_url: buildTableQrUrl(slug, nextNr),
     });
     if (error) {
       onToast(error.message ?? "Tisch konnte nicht angelegt werden");
