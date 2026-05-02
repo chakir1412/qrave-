@@ -39,6 +39,7 @@ export function EditItemOverlay({
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [allergens, setAllergens] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [preisStr, setPreisStr] = useState("");
   const [kategorie, setKategorie] = useState("");
   const [busy, setBusy] = useState(false);
@@ -49,16 +50,22 @@ export function EditItemOverlay({
       setName(item.name);
       setDesc(item.beschreibung ?? "");
       setAllergens(item.allergens_text ?? "");
+      setTags(Array.isArray(item.tags) ? [...item.tags] : []);
       setPreisStr(formatPreisEUR(item.preis));
       setKategorie(item.kategorie || "Sonstiges");
     } else {
       setName("");
       setDesc("");
       setAllergens("");
+      setTags([]);
       setPreisStr("0");
       setKategorie(defaultCategory?.trim() || "Sonstiges");
     }
   }, [item, open, defaultCategory]);
+
+  function toggleTag(tag: string) {
+    setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
 
   if (!open) return null;
   const editing = item;
@@ -80,6 +87,7 @@ export function EditItemOverlay({
       name: name.trim(),
       beschreibung: desc.trim() || null,
       allergens_text: allergens.trim() || null,
+      tags,
       preis: p,
       kategorie: kat,
       sort_order: sortOrderIndexForKategorie(kat),
@@ -189,6 +197,42 @@ export function EditItemOverlay({
             color: dash.tx,
           }}
         />
+        <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
+          Diät / Eigenschaften
+        </label>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {[
+            { key: "vegan", label: "🌱 Vegan" },
+            { key: "veg", label: "🌿 Vegetarisch" },
+            { key: "gf", label: "🚫 Glutenfrei" },
+            { key: "spicy", label: "🌶 Scharf" },
+          ].map((chip) => {
+            const active = tags.includes(chip.key);
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => toggleTag(chip.key)}
+                className="rounded-full border px-3 py-1.5 text-xs font-medium transition active:scale-95"
+                style={
+                  active
+                    ? {
+                        borderColor: dash.teal,
+                        backgroundColor: "rgba(0,200,160,0.15)",
+                        color: dash.teal,
+                      }
+                    : {
+                        borderColor: dash.bo,
+                        backgroundColor: dash.s2,
+                        color: dash.mu,
+                      }
+                }
+              >
+                {chip.label}
+              </button>
+            );
+          })}
+        </div>
         <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
           Kategorie
         </label>
