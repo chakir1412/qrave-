@@ -2,11 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  serverExternalPackages: ["canvas", "pdfjs-dist"],
   images: {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "jpcwbajwjxtuvzomoozp.supabase.co",
+        hostname: "lkaxapfvkjwfchiqaiee.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
     ],

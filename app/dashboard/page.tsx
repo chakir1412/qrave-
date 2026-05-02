@@ -30,6 +30,7 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<Awaited<ReturnType<typeof fetchDashboardAnalytics>> | null>(
     null,
   );
+  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +53,7 @@ export default function DashboardPage() {
           session.user.email ?? null,
         ),
       );
+      setUserEmail(session.user.email ?? "");
 
       const { data, error } = await supabase
         .from("restaurants")
@@ -101,8 +103,8 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div
-        className="flex min-h-dvh items-center justify-center text-sm"
-        style={{ backgroundColor: "#0a0a0a", color: "rgba(249,249,249,0.38)" }}
+        className="flex min-h-dvh items-center justify-center font-sans text-sm"
+        style={{ backgroundColor: "#080810", color: "rgba(255,255,255,0.5)" }}
       >
         Dashboard wird geladen …
       </div>
@@ -112,8 +114,8 @@ export default function DashboardPage() {
   if (!restaurant || !analytics) {
     return (
       <div
-        className="flex min-h-dvh flex-col items-center justify-center gap-2 px-6 text-center text-sm"
-        style={{ backgroundColor: "#0a0a0a", color: "rgba(249,249,249,0.62)" }}
+        className="flex min-h-dvh flex-col items-center justify-center gap-2 px-6 text-center font-sans text-sm"
+        style={{ backgroundColor: "#080810", color: "rgba(255,255,255,0.65)" }}
       >
         <p>Kein Restaurant für deinen Account gefunden.</p>
         <p className="text-xs opacity-70">Bitte Support kontaktieren oder Demo-Zugang prüfen.</p>
@@ -124,6 +126,7 @@ export default function DashboardPage() {
   return (
     <DashboardApp
       userFirstName={userFirstName}
+      userEmail={userEmail}
       restaurant={restaurant}
       initialMenuItems={menuItems}
       initialAnalytics={analytics}

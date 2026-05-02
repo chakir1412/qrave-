@@ -38,9 +38,20 @@ export function PreviewPage({
         transform: open ? "translateX(0)" : "translateX(110%)",
       }}
     >
+      <div className="dashboard-bg-blobs" aria-hidden>
+        <div className="dashboard-blob dashboard-blob--1" />
+        <div className="dashboard-blob dashboard-blob--2" />
+        <div className="dashboard-blob dashboard-blob--3" />
+      </div>
+      <div className="relative z-[1] mx-auto flex min-h-0 w-full max-w-[480px] flex-1 flex-col md:max-w-[860px]">
       <div
         className="sticky top-0 z-10 flex items-center justify-between border-b px-4 py-3"
-        style={{ borderColor: dash.bo, backgroundColor: "rgba(10,10,10,0.95)" }}
+        style={{
+          borderColor: dash.navBorderTop,
+          backgroundColor: dash.navBg,
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+        }}
       >
         <button
           type="button"
@@ -58,7 +69,7 @@ export function PreviewPage({
         </span>
       </div>
 
-      <div className="flex flex-1 flex-col px-5 pb-8 pt-6">
+      <div className="flex flex-1 flex-col px-4 pb-8 pt-6 md:px-6">
         <div className="mb-4 flex flex-col items-center text-center">
           <div
             className="mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border"
@@ -134,7 +145,7 @@ export function PreviewPage({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div
-                    className={`font-semibold ${!m.aktiv ? "text-[rgba(249,249,249,0.38)] line-through" : ""}`}
+                    className={`font-semibold ${!m.aktiv ? "text-white/40 line-through" : ""}`}
                   >
                     {m.name}
                   </div>
@@ -166,6 +177,7 @@ export function PreviewPage({
         <p className="mt-8 text-center text-[11px]" style={{ color: dash.mu }}>
           Powered by Qrave
         </p>
+      </div>
       </div>
     </div>
   );

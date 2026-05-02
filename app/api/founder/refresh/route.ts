@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { loadFounderDashboardData } from "@/lib/load-founder-dashboard";
 
+const FOUNDER_USER_ID = "b48eeabc-0652-4b8c-8579-4286c0570d54";
+
 export async function GET() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -21,7 +23,7 @@ export async function GET() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || user.id !== process.env.FOUNDER_USER_ID) {
+  if (!user || user.id !== FOUNDER_USER_ID) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

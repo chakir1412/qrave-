@@ -14,9 +14,10 @@ import { DailyPushBanner, DailyPushPopup } from "@/components/speisekarte/DailyP
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
 import {
-  deriveMainTabsFromItems,
-  buildSectionsByMainTab,
-  UNIFIED_MAIN_TAB_KEY,
+  deriveCategoryTabsFromItems,
+  buildSectionsForCategoryTab,
+  categoryTabLabel,
+  CATEGORY_TAB_ALLE_KEY,
 } from "@/components/speisekarte/menu-layout";
 import type { MenuItem } from "@/lib/supabase";
 
@@ -63,11 +64,11 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
     dailyPush = null,
     restaurantId,
     tischNummer,
+    sponsoredItems = [],
   } = props;
 
   const [lang, setLang] = useState<"de" | "en">("de");
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
-  const [subCategory, setSubCategory] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
@@ -113,48 +114,34 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
     return undefined;
   }, [track, restaurantName, dailyPush, menuItems.length, categories.length]);
 
-  const { tabs: mainTabsRaw, unified } = useMemo(
-    () => deriveMainTabsFromItems(menuItems),
-    [menuItems],
-  );
-  const mainTabs: MainTabItem[] = mainTabsRaw;
-
-  const sectionsByMain = useMemo(
-    () => buildSectionsByMainTab(menuItems, unified),
-    [menuItems, unified],
-  );
+  const mainTabs: MainTabItem[] = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
 
   const mainTab = useMemo(() => {
     if (pickedMainTab && mainTabs.some((t) => t.key === pickedMainTab)) return pickedMainTab;
-    return mainTabs[0]?.key ?? UNIFIED_MAIN_TAB_KEY;
+    return mainTabs[0]?.key ?? CATEGORY_TAB_ALLE_KEY;
   }, [pickedMainTab, mainTabs]);
 
   const effectiveMainTab = useMemo(() => {
-    const firstKey = mainTabs[0]?.key ?? UNIFIED_MAIN_TAB_KEY;
-    if ((sectionsByMain.get(mainTab)?.length ?? 0) > 0) return mainTab;
+    const firstKey = mainTabs[0]?.key ?? CATEGORY_TAB_ALLE_KEY;
+    const sections = buildSectionsForCategoryTab(mainTab, menuItems);
+    if (sections.length > 0) return mainTab;
     return firstKey;
-  }, [mainTab, mainTabs, sectionsByMain]);
+  }, [mainTab, mainTabs, menuItems]);
 
   const currentSections = useMemo(
-    () => sectionsByMain.get(effectiveMainTab) ?? [],
-    [sectionsByMain, effectiveMainTab],
+    () => buildSectionsForCategoryTab(effectiveMainTab, menuItems),
+    [menuItems, effectiveMainTab],
   );
 
-  const subCategories = useMemo(() => {
-    if (currentSections.length <= 1) return [];
-    return currentSections.map((s) => s.kategorie);
-  }, [currentSections]);
+  const visibleSections = useMemo(() => currentSections, [currentSections]);
 
-  const visibleSections = useMemo(() => {
-    if (subCategory) return currentSections.filter((s) => s.kategorie === subCategory);
-    return currentSections;
-  }, [currentSections, subCategory]);
+  const activeCategoryLabel = useMemo(() => categoryTabLabel(effectiveMainTab), [effectiveMainTab]);
 
-  const { onCategorySectionRef, trackWishlistAdd, trackWishlistRemove } =
+  const { onCategorySectionRef, trackWishlistAdd, trackWishlistRemove, trackCategoryTabSelect } =
     useSpeisekarteTier1Tracking({
       restaurantId,
       tischNummer,
-      effectiveMainTab,
+      effectiveMainTab: activeCategoryLabel,
       filter,
       modalItem,
     });
@@ -210,8 +197,19 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
     [removeFromWishlist, trackWishlistRemove],
   );
 
+  const handleToggleWishlist = useCallback(
+    (wishItem: MenuItem) => {
+      if (isInWishlist(wishItem.id)) {
+        handleRemoveFromWishlist(wishItem.id);
+      } else {
+        handleAddToWishlist(wishItem);
+      }
+    },
+    [isInWishlist, handleAddToWishlist, handleRemoveFromWishlist],
+  );
+
   const showHighlightSlider =
-    effectiveMainTab === "speisen" && highlights.length > 0 && !subCategory;
+    effectiveMainTab === CATEGORY_TAB_ALLE_KEY && highlights.length > 0;
 
   const { main: nameMain, accent: nameAccent } = splitRestaurantName(restaurantName);
   const ACCENT = (accentColor ?? "#C8894E").trim() || "#C8894E";
@@ -315,12 +313,12 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
             mainTab={effectiveMainTab}
             onMainTabChange={(key) => {
               setPickedMainTab(key);
-              setSubCategory(null);
               setFilter("all");
+              trackCategoryTabSelect(categoryTabLabel(key));
             }}
-            subCategories={subCategories}
-            subCategory={subCategory}
-            onSubCategoryChange={setSubCategory}
+            subCategories={[]}
+            subCategory={null}
+            onSubCategoryChange={() => {}}
             filter={filter}
             onFilterChange={setFilter}
             activeAllergenCount={activeAllergens.size}
@@ -350,10 +348,13 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
       {modalItem && (
         <ItemModal
           item={modalItem}
-          allItems={menuItems}
+          menuItems={menuItems}
+          sponsoredItems={sponsoredItems}
+          restaurantId={restaurantId}
           onClose={() => setModalItem(null)}
-          onAddToCart={handleAddToWishlist}
+          onSelectItem={setModalItem}
           isInWishlist={isInWishlist}
+          onToggleWishlist={handleToggleWishlist}
           theme="bar-soleil"
         />
       )}

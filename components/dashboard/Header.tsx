@@ -8,44 +8,31 @@ type Props = {
 
 export function DashboardHeader({ onOpenSettings }: Props) {
   return (
-    <header
-      className="sticky top-0 z-50 flex items-center justify-between border-b px-5 pt-4 pb-3.5"
-      style={{
-        backgroundColor: "rgba(10,10,10,0.85)",
-        borderColor: "rgba(255,255,255,0.04)",
-        backdropFilter: "blur(30px) saturate(160%)",
-        WebkitBackdropFilter: "blur(30px) saturate(160%)",
-      }}
-    >
-      <div
-        className="text-[22px] font-black tracking-tight"
-        style={{ color: dash.tx }}
-      >
-        Qr<span style={{ color: dash.or }}>a</span>ve
-      </div>
+    <header className="sticky top-0 z-50 flex items-center justify-between px-0 pt-4 pb-3.5">
+      <div className="text-[22px] font-semibold tracking-tight text-white md:text-[26px]">Qrave</div>
       <div className="flex items-center gap-2.5">
         <div
-          className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+          className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold md:text-xs"
           style={{
-            backgroundColor: "rgba(76,175,125,0.12)",
-            borderColor: "rgba(76,175,125,0.2)",
-            color: dash.gr,
+            backgroundColor: dash.onlineBg,
+            borderColor: dash.onlineBorder,
+            color: dash.onlineFg,
           }}
         >
           <span
             className="h-[5px] w-[5px] shrink-0 rounded-full animate-pulse"
-            style={{ backgroundColor: dash.gr }}
+            style={{ backgroundColor: dash.onlineFg }}
           />
           Online
         </div>
         <button
           type="button"
           onClick={onOpenSettings}
-          className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] border transition active:scale-95"
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] transition active:scale-95"
           style={{
-            backgroundColor: dash.s1,
-            borderColor: dash.bo,
-            color: dash.mi,
+            backgroundColor: dash.secondaryBg,
+            border: `1px solid ${dash.secondaryBorder}`,
+            color: dash.secondaryFg,
           }}
           aria-label="Einstellungen"
         >

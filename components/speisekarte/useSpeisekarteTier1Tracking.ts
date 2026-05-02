@@ -241,9 +241,22 @@ export function useSpeisekarteTier1Tracking({
     [safeTrack],
   );
 
+  /** Expliziter Klick auf einen Kategorie-Tab (nicht nur Scroll-Sichtbarkeit). */
+  const trackCategoryTabSelect = useCallback(
+    (kategorie: string) => {
+      void safeTrack({
+        eventType: "category_enter",
+        kategorie,
+        mainTab: kategorie,
+      });
+    },
+    [safeTrack],
+  );
+
   return {
     onCategorySectionRef,
     trackWishlistAdd,
     trackWishlistRemove,
+    trackCategoryTabSelect,
   };
 }

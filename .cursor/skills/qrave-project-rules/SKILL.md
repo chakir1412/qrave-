@@ -132,7 +132,7 @@ Nutzen, sobald:
 
 - **Wichtige Konstanten**
   - Demo-Restaurant Slug: `qrave-demo`
-  - Supabase Projekt-ID: `jpcwbajwjxtuvzomoozp`
+  - Supabase Projekt-ID: `lkaxapfvkjwfchiqaiee`
   - Admin E-Mail: `chakir.elhaji@gmail.com`
 
 - **Allergene**

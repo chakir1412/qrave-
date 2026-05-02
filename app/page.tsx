@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   BarChart2,
   Check,
@@ -11,7 +12,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 
 const CYAN = "#00C2FF";
 const ORANGE = "#FF5C1A";
@@ -58,25 +59,9 @@ const STATS = [
   { value: "3min", label: "Bis deine Karte online ist" },
 ] as const;
 
-const TRUST_BRANDS = ["Heineken", "Red Bull", "Coca-Cola"] as const;
-
 export default function Home() {
-  const [navSolid, setNavSolid] = useState(false);
   const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [formError, setFormError] = useState("");
-
-  const onScroll = useCallback(() => {
-    setNavSolid(window.scrollY > 12);
-  }, []);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => onScroll());
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      cancelAnimationFrame(id);
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, [onScroll]);
 
   async function onSubmitContact(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -111,18 +96,23 @@ export default function Home() {
 
   return (
     <div className="relative isolate min-h-screen overflow-x-hidden text-white" style={{ backgroundColor: BG }}>
+      <div className="qrave-hero-blobs" aria-hidden>
+        <div className="qrave-hero-blob qrave-hero-blob--1" />
+        <div className="qrave-hero-blob qrave-hero-blob--2" />
+        <div className="qrave-hero-blob qrave-hero-blob--3" />
+      </div>
       <div className="relative z-10">
-        <header
-          className={`sticky top-0 z-50 border-b transition-[background-color,backdrop-filter,border-color] duration-300 ${
-            navSolid
-              ? "border-white/10 bg-[#050508]/85 backdrop-blur-xl"
-              : "border-transparent bg-[#050508]/40 backdrop-blur-md"
-          }`}
-        >
+        <header className="sticky top-0 z-50 bg-transparent">
           <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
             <Link href="/" className="flex items-center gap-0.5 text-xl font-extrabold tracking-tight">
-              <span className="text-white">q</span>
-              <span style={{ color: CYAN }}>rave</span>
+              <Image
+                src="/logo.png"
+                alt="Qrave"
+                width={320}
+                height={64}
+                className="h-16 w-auto"
+                priority
+              />
             </Link>
             <a
               href="#kontakt"
@@ -135,9 +125,9 @@ export default function Home() {
 
         <main className="text-left">
           {/* HERO */}
-          <section className="relative overflow-hidden px-4 pb-24 pt-12 sm:px-6 sm:pb-28 sm:pt-16 md:pb-32 md:pt-20">
-            <div className="relative mx-auto flex max-w-6xl flex-col gap-12 lg:flex-row lg:items-center lg:gap-8">
-              <div className="relative z-10 max-w-2xl lg:max-w-[min(100%,36rem)] lg:flex-1">
+          <section className="relative z-10 overflow-hidden px-4 pb-24 pt-12 sm:px-6 sm:pb-28 sm:pt-16 md:pb-32 md:pt-20">
+            <div className="relative z-10 mx-auto max-w-6xl">
+              <div className="relative z-10 max-w-2xl">
                 <p
                   className="mb-6 inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-teal-300/90 sm:text-xs"
                   style={{
@@ -180,22 +170,6 @@ export default function Home() {
                     Beispiel ansehen
                   </a>
                 </div>
-
-                <div
-                  className="mt-14 flex flex-wrap items-center gap-x-8 gap-y-2 border-t border-white/10 pt-10 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:gap-x-12 sm:text-xs"
-                  aria-label="Bekannte Marken"
-                >
-                  {TRUST_BRANDS.map((name) => (
-                    <span key={name}>{name}</span>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                className="pointer-events-none relative min-h-[260px] flex-1 sm:min-h-[320px] lg:min-h-[min(520px,50vh)]"
-                aria-hidden
-              >
-                <div className="qrave-hero-glow absolute left-1/2 top-1/2 -translate-x-[20%] -translate-y-1/2 sm:-translate-x-[10%] lg:left-auto lg:right-[-12%] lg:translate-x-0 xl:right-[-4%]" />
               </div>
             </div>
           </section>

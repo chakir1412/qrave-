@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
-  deriveMainTabsFromItems,
-  buildSectionsByMainTab,
-  UNIFIED_MAIN_TAB_KEY,
+  deriveCategoryTabsFromItems,
+  buildSectionsForCategoryTab,
+  categoryTabLabel,
+  CATEGORY_TAB_ALLE_KEY,
 } from "./menu-layout";
-import type { MenuItem, DailyPush } from "@/lib/supabase";
+import type { MenuItem, DailyPush, SponsoredItem } from "@/lib/supabase";
 import { useWishlist } from "../shared/useWishlist";
 import { useDailyPush } from "../shared/useDailyPush";
 import { useAnalytics } from "../shared/useAnalytics";
@@ -31,6 +32,8 @@ export type SpeisekarteProps = {
   /** Öffentliche Restaurant-ID für Tier-1-Tracking */
   restaurantId?: string;
   tischNummer?: number;
+  /** Gesponserte Partner-Items (lib/speisekarte-logic) */
+  sponsoredItems?: SponsoredItem[];
 };
 
 export default function Speisekarte({
@@ -41,10 +44,10 @@ export default function Speisekarte({
   dailyPush = null,
   restaurantId,
   tischNummer,
+  sponsoredItems = [],
 }: SpeisekarteProps) {
   const [lang, setLang] = useState<"de" | "en">("de");
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
-  const [subCategory, setSubCategory] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
@@ -87,49 +90,34 @@ export default function Speisekarte({
     return undefined;
   }, [track, restaurantName, dailyPush, menuItems.length]);
 
-  const { tabs: mainTabsRaw, unified } = useMemo(
-    () => deriveMainTabsFromItems(menuItems),
-    [menuItems],
-  );
-  const mainTabs: MainTabItem[] = mainTabsRaw;
-
-  const sectionsByMain = useMemo(
-    () => buildSectionsByMainTab(menuItems, unified),
-    [menuItems, unified],
-  );
+  const mainTabs: MainTabItem[] = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
 
   const mainTab = useMemo(() => {
     if (pickedMainTab && mainTabs.some((t) => t.key === pickedMainTab)) return pickedMainTab;
-    return mainTabs[0]?.key ?? UNIFIED_MAIN_TAB_KEY;
+    return mainTabs[0]?.key ?? CATEGORY_TAB_ALLE_KEY;
   }, [pickedMainTab, mainTabs]);
 
-  // Erster Tab mit Inhalt, damit beim Laden sofort Sektionen sichtbar sind
   const effectiveMainTab = useMemo(() => {
-    const firstKey = mainTabs[0]?.key ?? UNIFIED_MAIN_TAB_KEY;
-    if ((sectionsByMain.get(mainTab)?.length ?? 0) > 0) return mainTab;
+    const firstKey = mainTabs[0]?.key ?? CATEGORY_TAB_ALLE_KEY;
+    const sections = buildSectionsForCategoryTab(mainTab, menuItems);
+    if (sections.length > 0) return mainTab;
     return firstKey;
-  }, [mainTab, mainTabs, sectionsByMain]);
+  }, [mainTab, mainTabs, menuItems]);
 
   const currentSections = useMemo(
-    () => sectionsByMain.get(effectiveMainTab) ?? [],
-    [sectionsByMain, effectiveMainTab]
+    () => buildSectionsForCategoryTab(effectiveMainTab, menuItems),
+    [menuItems, effectiveMainTab],
   );
 
-  const subCategories = useMemo(() => {
-    if (currentSections.length <= 1) return [];
-    return currentSections.map((s) => s.kategorie);
-  }, [currentSections]);
+  const visibleSections = useMemo(() => currentSections, [currentSections]);
 
-  const visibleSections = useMemo(() => {
-    if (subCategory) return currentSections.filter((s) => s.kategorie === subCategory);
-    return currentSections;
-  }, [currentSections, subCategory]);
+  const activeCategoryLabel = useMemo(() => categoryTabLabel(effectiveMainTab), [effectiveMainTab]);
 
-  const { onCategorySectionRef, trackWishlistAdd, trackWishlistRemove } =
+  const { onCategorySectionRef, trackWishlistAdd, trackWishlistRemove, trackCategoryTabSelect } =
     useSpeisekarteTier1Tracking({
       restaurantId,
       tischNummer,
-      effectiveMainTab,
+      effectiveMainTab: activeCategoryLabel,
       filter,
       modalItem,
     });
@@ -156,6 +144,17 @@ export default function Speisekarte({
       }
     },
     [removeFromWishlist, trackWishlistRemove],
+  );
+
+  const handleToggleWishlist = useCallback(
+    (wishItem: MenuItem) => {
+      if (isInWishlist(wishItem.id)) {
+        handleRemoveFromWishlist(wishItem.id);
+      } else {
+        handleAddToWishlist(wishItem);
+      }
+    },
+    [isInWishlist, handleAddToWishlist, handleRemoveFromWishlist],
   );
 
   const toggleAllergen = useCallback((id: string) => {
@@ -185,7 +184,8 @@ export default function Speisekarte({
     [filter, activeAllergens]
   );
 
-  const showHighlightSlider = effectiveMainTab === "speisen" && highlights.length > 0 && !subCategory;
+  const showHighlightSlider =
+    effectiveMainTab === CATEGORY_TAB_ALLE_KEY && highlights.length > 0;
 
   return (
     <div className="min-h-screen text-[#1a1916] speisekarte-template" style={{ backgroundColor: "var(--bg, #fafaf8)" }}>
@@ -210,12 +210,12 @@ export default function Speisekarte({
             mainTab={effectiveMainTab}
             onMainTabChange={(key) => {
               setPickedMainTab(key);
-              setSubCategory(null);
               setFilter("all");
+              trackCategoryTabSelect(categoryTabLabel(key));
             }}
-            subCategories={subCategories}
-            subCategory={subCategory}
-            onSubCategoryChange={setSubCategory}
+            subCategories={[]}
+            subCategory={null}
+            onSubCategoryChange={() => {}}
             filter={filter}
             onFilterChange={setFilter}
             activeAllergenCount={activeAllergens.size}
@@ -236,7 +236,7 @@ export default function Speisekarte({
           isInWishlist={isInWishlist}
           onCategorySectionRef={onCategorySectionRef}
           bannerSlot={
-            dailyPush && effectiveMainTab === "speisen" ? (
+            dailyPush && effectiveMainTab === CATEGORY_TAB_ALLE_KEY ? (
               <DailyPushBanner dailyPush={dailyPush} onOpenPopup={openDailyPopup} />
             ) : null
           }
@@ -246,10 +246,13 @@ export default function Speisekarte({
       {modalItem && (
         <ItemModal
           item={modalItem}
-          allItems={menuItems}
+          menuItems={menuItems}
+          sponsoredItems={sponsoredItems}
+          restaurantId={restaurantId}
           onClose={() => setModalItem(null)}
-          onAddToCart={handleAddToWishlist}
+          onSelectItem={setModalItem}
           isInWishlist={isInWishlist}
+          onToggleWishlist={handleToggleWishlist}
           theme="light"
         />
       )}

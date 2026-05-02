@@ -1,6 +1,7 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { loadPublicSpeisekarteBySlug } from "@/lib/load-public-speisekarte";
+import { loadSponsoredItems } from "@/lib/speisekarte-logic";
 import type { SpeisekarteProps } from "@/components/speisekarte";
 import BarSoleilTemplate from "@/components/templates/BarSoleil";
 import KioskNo7Template from "@/components/templates/KioskNo7";
@@ -30,6 +31,8 @@ export default async function SpeisekartePage({
     notFound();
   }
 
+  const sponsoredItems = await loadSponsoredItems(data.restaurant.id);
+
   const templateProps: SpeisekarteProps = {
     categories: data.categories,
     menuItems: data.menuItems,
@@ -39,6 +42,7 @@ export default async function SpeisekartePage({
     highlights: data.highlights,
     dailyPush: data.dailyPush,
     restaurantId: data.restaurant.id,
+    sponsoredItems,
   };
 
   const templateKey = (data.restaurant.template ?? "bar-soleil") as string;

@@ -1,6 +1,6 @@
 import { supabase, fetchDailyPush } from "@/lib/supabase";
-import { compareKategorieOrder } from "@/lib/category-sort-order";
 import type { Restaurant, MenuItem } from "@/lib/supabase";
+import { orderedCategoriesFromItems } from "@/components/speisekarte/menu-layout";
 
 const RESTAURANT_SELECT_PUBLIC =
   "id, slug, name, template, accent_color, logo_url";
@@ -9,7 +9,7 @@ const MENU_EXTENDED_SELECT =
   "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, allergen_ids, sponsored, partner_name, preis_volumen, sort_order, is_highlight, main_tab, section_subtitle, zutaten, geschmacksprofil, story_text";
 
 const MENU_BASE_SELECT =
-  "id, restaurant_id, name, beschreibung, preis, kategorie, main_tab, bild_url, aktiv, tags, zutaten, geschmacksprofil, story_text";
+  "id, restaurant_id, name, beschreibung, preis, kategorie, main_tab, bild_url, aktiv, tags, zutaten, geschmacksprofil, story_text, sort_order";
 
 export type PublicSpeisekarteRestaurant = Restaurant & {
   accent_color?: string | null;
@@ -47,7 +47,8 @@ export async function loadPublicSpeisekarteBySlug(
     .select(MENU_EXTENDED_SELECT)
     .eq("restaurant_id", restaurant.id)
     .eq("aktiv", true)
-    .order("sort_order", { ascending: true })
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("kategorie", { ascending: true })
     .order("name", { ascending: true });
   itemsData = res.data;
   itemsError = res.error;
@@ -58,6 +59,8 @@ export async function loadPublicSpeisekarteBySlug(
       .select(MENU_BASE_SELECT)
       .eq("restaurant_id", restaurant.id)
       .eq("aktiv", true)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("kategorie", { ascending: true })
       .order("name", { ascending: true });
     itemsData = fallback.data;
     itemsError = fallback.error;
@@ -70,9 +73,7 @@ export async function loadPublicSpeisekarteBySlug(
 
   const menuItems = (itemsData ?? []) as MenuItem[];
 
-  const categories = [
-    ...new Set(menuItems.map((item) => item.kategorie?.trim() || "Sonstiges")),
-  ].sort(compareKategorieOrder);
+  const categories = orderedCategoriesFromItems(menuItems);
 
   const highlights = menuItems.filter((item) => item.is_highlight === true);
   const dailyPush = await fetchDailyPush(restaurant.id);

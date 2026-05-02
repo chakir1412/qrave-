@@ -62,8 +62,6 @@ export default function MenuGrid({
     itemDesc: dark ? barSoleil.muted : "#9a948a",
     price: dark ? barSoleil.copper : "#b8966a",
     empty: dark ? barSoleil.muted : "#9a948a",
-    rowBorder: dark ? barSoleil.border : "#f0ece5",
-    rowHover: dark ? "rgba(255,255,255,0.04)" : "rgba(184,150,106,0.04)",
     thumbBorder: dark ? barSoleil.border : "#e8e4dc",
     legendBg: dark ? barSoleil.card : "white",
     legendBorder: dark ? barSoleil.border : "#e8e4dc",
@@ -98,8 +96,7 @@ export default function MenuGrid({
                   </div>
                   <div className="p-3">
                     <div className="text-[0.56rem] uppercase tracking-wider font-semibold mb-0.5" style={{ color: barSoleil.copper }}>{h.partner_name || "Partner"}</div>
-                    <div className="font-serif text-[1.06rem] mb-1" style={{ color: cl.itemName }}>{h.name}</div>
-                    <div className="text-[0.68rem] leading-snug mb-2 line-clamp-2" style={{ color: cl.itemDesc }}>{h.beschreibung}</div>
+                    <div className="font-serif text-[1.06rem] mb-2" style={{ color: cl.itemName }}>{h.name}</div>
                     <div className="flex items-center justify-between">
                       <span className="font-serif text-[1rem] font-medium" style={{ color: cl.price }}>{getDisplayPrice(h)}</span>
                       <button
@@ -141,7 +138,7 @@ export default function MenuGrid({
                 </h2>
                 {sec.subtitle && <span className="text-[0.72rem] italic" style={{ color: cl.secSub }}>{sec.subtitle}</span>}
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col gap-4 py-4">
                 {filtered.length === 0 ? (
                   <p className="text-center py-9 text-sm italic" style={{ color: cl.empty }}>Keine Gerichte für diesen Filter.</p>
                 ) : (
@@ -154,12 +151,7 @@ export default function MenuGrid({
                         key={item.id}
                         type="button"
                         onClick={() => !allergenWarn && onItemClick(item)}
-                        className={`w-full flex items-center gap-3 py-3.5 text-left transition-all -mx-4 px-4 last:border-0 ${item.sponsored && !dark ? "bg-[rgba(184,150,106,0.02)]" : ""} ${allergenWarn ? "opacity-30 pointer-events-none" : ""}`}
-                        style={{
-                          borderBottomWidth: 1,
-                          borderBottomStyle: "solid",
-                          borderColor: cl.rowBorder,
-                        }}
+                        className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-all active:opacity-90 ${item.sponsored && !dark ? "bg-[rgba(184,150,106,0.02)]" : ""} ${allergenWarn ? "opacity-30 pointer-events-none" : ""} ${dark ? "hover:bg-white/[0.05]" : "hover:bg-[rgba(184,150,106,0.06)]"}`}
                       >
                         <div className="flex-shrink-0 w-[68px] h-[68px] rounded-[10px] overflow-hidden flex items-center justify-center" style={{ borderWidth: 1, borderStyle: "solid", borderColor: cl.thumbBorder, background: emojiGradient(emoji) }}>
                           {item.bild_url ? (
@@ -172,11 +164,10 @@ export default function MenuGrid({
                           {item.sponsored && item.partner_name && (
                             <div className="text-[0.55rem] uppercase tracking-wider font-medium mb-0.5" style={{ color: barSoleil.copper2 }}>★ Empfohlen von {item.partner_name}</div>
                           )}
-                          <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <span className="font-serif text-[1.06rem]" style={{ color: cl.itemName }}>{item.name}</span>
                             {tags.map((t) => BADGE_LABELS[t] && <span key={t} className={`text-[0.52rem] font-semibold px-1.5 py-0.5 rounded-full uppercase ${BADGE_STYLES[t]}`}>{BADGE_LABELS[t]}</span>)}
                           </div>
-                          {item.beschreibung && <p className="text-[0.71rem] italic leading-snug line-clamp-2" style={{ color: cl.itemDesc }}>{item.beschreibung}</p>}
                         </div>
                         <div className="flex-shrink-0 text-right">
                           {item.preis_volumen && typeof item.preis_volumen === "object" && Object.keys(item.preis_volumen).length > 0 ? (

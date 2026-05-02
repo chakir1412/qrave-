@@ -16,7 +16,7 @@ import {
   type ParsedMenuItemDto,
 } from "@/lib/parse-menu";
 import type { KarteSub } from "../types";
-import { dash } from "../constants";
+import { dash, dashPrimaryButtonStyle } from "../constants";
 import { formatPreisEUR, todayIsoDate } from "../utils";
 import {
   compareKategorieOrder,
@@ -525,13 +525,28 @@ export function KarteTab({
     const isPdf =
       file.type.toLowerCase() === "application/pdf" ||
       file.name.toLowerCase().endsWith(".pdf");
-    fd.append("file", file);
     fd.append("restaurantId", restaurantId);
 
+    /** Kleine PDFs: Binary direkt an API (Anthropic PDF) — oft besser als pdf.js-Text. Große PDFs: nur Text (Vercel-Limit). */
+    const MAX_PDF_DIRECT_BYTES = 2_500_000;
     if (isPdf) {
-      const extractedText = await extractTextFromPdf(file);
-      console.log("Extracted text length:", extractedText.length);
-      fd.append("extractedText", extractedText);
+      if (file.size <= MAX_PDF_DIRECT_BYTES) {
+        fd.append("file", file);
+        fd.append("pdfDocument", "1");
+      } else {
+        const extractedText = await extractTextFromPdf(file);
+        console.log("Extracted text length:", extractedText.length);
+        const MAX_TEXT = 3_500_000;
+        if (extractedText.length > MAX_TEXT) {
+          throw new Error(
+            `Extrahierter Text zu lang (${extractedText.length} Zeichen). Bitte PDF teilen oder komprimieren.`,
+          );
+        }
+        fd.append("extractedText", extractedText);
+        fd.append("pdfTextOnly", "1");
+      }
+    } else {
+      fd.append("file", file);
     }
 
     try {
@@ -539,10 +554,17 @@ export function KarteTab({
         method: "POST",
         body: fd,
       });
-      const body = (await res.json()) as {
-        items?: ParsedMenuItemDto[];
-        error?: string;
-      };
+      const raw = await res.text();
+      let body: { items?: ParsedMenuItemDto[]; error?: string; success?: boolean };
+      try {
+        body = raw ? (JSON.parse(raw) as typeof body) : {};
+      } catch {
+        const hint =
+          res.status === 413 || raw.includes("Request Entity Too Large")
+            ? "Upload zu groß (Server-Limit). Bei PDFs nur Text wird gesendet — bitte Seite neu laden oder kleinere Datei."
+            : raw.slice(0, 200);
+        throw new Error(hint || `Analyse fehlgeschlagen (${res.status})`);
+      }
 
       if (!res.ok) {
         throw new Error(body.error ?? `Analyse fehlgeschlagen (${res.status})`);
@@ -744,7 +766,7 @@ export function KarteTab({
       />
 
       <div
-        className="px-5 pt-3.5"
+        className="px-0 pt-3.5"
         style={{
           display: "grid",
           gridTemplateColumns: "1fr auto",
@@ -759,11 +781,11 @@ export function KarteTab({
             className="w-full transition active:scale-[0.99]"
             style={{
               background:
-                activeSub === "heute" ? dash.ord : "rgba(232,80,2,0.08)",
+                activeSub === "heute" ? dash.ord : "rgba(0,200,160,0.08)",
               border:
                 activeSub === "heute"
                   ? `1px solid ${dash.orm}`
-                  : "1px solid rgba(232,80,2,0.25)",
+                  : "1px solid rgba(0,200,160,0.25)",
               borderRadius: 14,
               padding: "14px 16px",
               display: "flex",
@@ -826,7 +848,7 @@ export function KarteTab({
       {activeSub === "menu" && (
         <div className="animate-in fade-in duration-200">
           {importPhase === "review" && (
-            <div className="mx-5 mt-3.5 flex flex-col pb-[20rem]">
+            <div className="mx-0 mt-3.5 flex flex-col pb-[20rem]">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="text-[15px] font-bold" style={{ color: dash.gr }}>
                   ✅ {reviewRows.length} Gerichte erkannt
@@ -868,9 +890,9 @@ export function KarteTab({
                           padding: "6px 14px",
                           borderRadius: 20,
                           border: isActive
-                            ? "1px solid rgba(232,80,2,0.3)"
+                            ? "1px solid rgba(0,200,160,0.3)"
                             : `1px solid ${dash.bo}`,
-                          backgroundColor: isActive ? "rgba(232,80,2,0.1)" : "transparent",
+                          backgroundColor: isActive ? "rgba(0,200,160,0.1)" : "transparent",
                           color: isActive ? dash.or : dash.mu,
                           fontSize: 12,
                           fontWeight: 600,
@@ -977,14 +999,14 @@ export function KarteTab({
             activeSub === "menu" &&
             createPortal(
               <div
-                className="pointer-events-auto fixed inset-x-0 bottom-0 z-[110] border-t px-5 pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.45)]"
+                className="pointer-events-auto fixed inset-x-0 bottom-0 z-[110] border-t px-4 pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.45)] md:px-6"
                 style={{
                   backgroundColor: dash.bg,
-                  borderColor: "rgba(249,249,249,0.08)",
+                  borderColor: "rgba(255,255,255,0.08)",
                   paddingBottom: "calc(5.75rem + env(safe-area-inset-bottom, 0px))",
                 }}
               >
-                <div className="mx-auto w-full max-w-[430px]">
+                <div className="mx-auto w-full max-w-[480px] md:max-w-[860px]">
                   {!menuIsEmpty && (
                     <div
                       className="mb-3 rounded-[16px] border p-3"
@@ -1010,7 +1032,7 @@ export function KarteTab({
                             borderColor: importMode === "replace" ? dash.orm : dash.bo,
                             boxShadow:
                               importMode === "replace"
-                                ? "0 4px 16px rgba(232,80,2,0.15)"
+                                ? "0 4px 16px rgba(0,200,160,0.15)"
                                 : undefined,
                           }}
                         >
@@ -1032,7 +1054,7 @@ export function KarteTab({
                             borderColor: importMode === "add" ? dash.orm : dash.bo,
                             boxShadow:
                               importMode === "add"
-                                ? "0 4px 16px rgba(232,80,2,0.15)"
+                                ? "0 4px 16px rgba(0,200,160,0.15)"
                                 : undefined,
                           }}
                         >
@@ -1055,15 +1077,14 @@ export function KarteTab({
                       (!menuIsEmpty && importMode === null)
                     }
                     onClick={() => void confirmImport()}
-                    className="w-full rounded-[13px] py-3.5 text-[15px] font-bold shadow-lg transition-colors disabled:cursor-not-allowed"
+                    className="w-full rounded-[10px] py-3.5 text-[15px] font-bold transition-colors disabled:cursor-not-allowed"
                     style={
                       (menuIsEmpty || importMode !== null) &&
                       selectedCount > 0 &&
                       !submittingImport
                         ? {
-                            background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})`,
-                            color: "#fff",
-                            boxShadow: "0 6px 20px rgba(232,80,2,0.3)",
+                            ...dashPrimaryButtonStyle,
+                            borderRadius: 10,
                             opacity: 1,
                           }
                         : {
@@ -1080,6 +1101,23 @@ export function KarteTab({
                         ? "Zuerst Ersetzen oder Hinzufügen wählen"
                         : `${selectedCount} ${selectedCount === 1 ? "Gericht" : "Gerichte"} importieren`}
                   </button>
+                  <button
+                    type="button"
+                    onClick={cancelReview}
+                    disabled={submittingImport}
+                    style={{
+                      background: "transparent",
+                      color: "rgba(255,255,255,0.4)",
+                      border: "none",
+                      fontSize: 14,
+                      padding: 12,
+                      width: "100%",
+                      cursor: submittingImport ? "not-allowed" : "pointer",
+                      opacity: submittingImport ? 0.6 : 1,
+                    }}
+                  >
+                    Abbrechen
+                  </button>
                 </div>
               </div>,
               document.body,
@@ -1087,8 +1125,8 @@ export function KarteTab({
 
           {importPhase === "error" && (
             <div
-              className="mx-5 mt-3.5 rounded-[20px] border px-5 py-5"
-              style={{ backgroundColor: dash.s1, borderColor: "rgba(224,92,92,0.25)" }}
+              className="mx-0 mt-3.5 rounded-[20px] border px-5 py-5"
+              style={{ backgroundColor: dash.s1, borderColor: "rgba(255,75,110,0.28)" }}
             >
               <div className="mb-2 text-[15px] font-bold" style={{ color: dash.re }}>
                 Analyse fehlgeschlagen
@@ -1115,8 +1153,8 @@ export function KarteTab({
                     if (f) void runImportFile(f);
                     else openFilePicker();
                   }}
-                  className="flex-1 rounded-[11px] py-2.5 text-sm font-bold text-white"
-                  style={{ background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})` }}
+                  className="flex-1 rounded-[10px] py-2.5 text-sm font-bold"
+                  style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
                 >
                   Erneut versuchen
                 </button>
@@ -1140,7 +1178,7 @@ export function KarteTab({
                   onClick={() => closeImportOverlay()}
                 />
                 <div
-                  className="relative z-10 max-h-[85vh] w-full max-w-[430px] overflow-y-auto rounded-t-[24px] border-t px-5 pb-8 pt-4"
+                  className="relative z-10 max-h-[85vh] w-full max-w-[480px] overflow-y-auto rounded-t-[24px] border-t px-5 pb-8 pt-4 md:max-w-[860px]"
                   style={{
                     backgroundColor: dash.s1,
                     borderColor: dash.bo,
@@ -1197,7 +1235,7 @@ export function KarteTab({
 
           {isBusyImport && (
             <div
-              className="mx-5 mt-3.5 flex flex-col items-center gap-3 rounded-[20px] border px-5 py-6"
+              className="mx-0 mt-3.5 flex flex-col items-center gap-3 rounded-[20px] border px-5 py-6"
               style={{ backgroundColor: dash.s1, borderColor: dash.orm }}
             >
               <div
@@ -1214,7 +1252,7 @@ export function KarteTab({
           )}
 
           {importPhase !== "review" && (
-            <div className="mt-3.5 px-5">
+            <div className="mt-3.5 px-0">
               <div
                 className="flex items-center justify-between"
                 style={{
@@ -1280,9 +1318,9 @@ export function KarteTab({
                           padding: "6px 14px",
                           borderRadius: 20,
                           border: isActive
-                            ? "1px solid rgba(232,80,2,0.3)"
+                            ? "1px solid rgba(0,200,160,0.3)"
                             : `1px solid ${dash.bo}`,
-                          backgroundColor: isActive ? "rgba(232,80,2,0.1)" : "transparent",
+                          backgroundColor: isActive ? "rgba(0,200,160,0.1)" : "transparent",
                           color: isActive ? dash.or : dash.mu,
                           fontSize: 12,
                           fontWeight: 600,
@@ -1408,7 +1446,7 @@ export function KarteTab({
                             className="min-w-0 flex-1 text-left"
                           >
                             <div
-                              className={`truncate text-sm font-semibold ${!m.aktiv ? "text-[rgba(249,249,249,0.38)] line-through" : ""}`}
+                              className={`truncate text-sm font-semibold ${!m.aktiv ? "text-white/40 line-through" : ""}`}
                             >
                               {m.name}
                             </div>
@@ -1438,7 +1476,7 @@ export function KarteTab({
                               type="button"
                               onClick={() => void deleteItem(m.id)}
                               className="ml-1 rounded-lg border px-2 py-1 text-[11px] font-bold"
-                              style={{ borderColor: "rgba(224,92,92,.25)", color: dash.re, backgroundColor: "rgba(224,92,92,.08)" }}
+                              style={{ borderColor: "rgba(255,75,110,.28)", color: dash.re, backgroundColor: "rgba(255,75,110,.12)" }}
                             >
                               Löschen
                             </button>
@@ -1467,7 +1505,7 @@ export function KarteTab({
                     className="flex w-full items-center justify-center gap-1.5 rounded-[13px] border border-dashed py-3 text-[13px] font-semibold"
                     style={{
                       backgroundColor: dash.s1,
-                      borderColor: "rgba(232,80,2,0.3)",
+                      borderColor: "rgba(0,200,160,0.3)",
                       color: dash.or,
                     }}
                   >
@@ -1510,7 +1548,7 @@ export function KarteTab({
                   className="w-full rounded-[11px] border py-2.5 text-[12px] font-medium transition active:opacity-80"
                   style={{
                     borderColor: dash.bo,
-                    color: "rgba(249,249,249,0.42)",
+                    color: dash.mt,
                     backgroundColor: "transparent",
                   }}
                 >
@@ -1568,7 +1606,7 @@ export function KarteTab({
                   className="flex-1 rounded-[12px] py-3 text-[14px] font-bold text-white transition disabled:opacity-60"
                   style={{
                     backgroundColor: dash.re,
-                    boxShadow: "0 4px 14px rgba(224,92,92,0.25)",
+                    boxShadow: "0 4px 14px rgba(255,75,110,0.28)",
                   }}
                 >
                   {deletingMenu ? "Löscht …" : "Alles löschen"}
@@ -1580,7 +1618,7 @@ export function KarteTab({
         )}
 
       {activeSub === "heute" && (
-        <div className="px-5 pt-3.5 animate-in fade-in duration-200">
+        <div className="px-0 pt-3.5 animate-in fade-in duration-200">
           {!dailyPush ? (
             <div
               className="rounded-[20px] border px-5 py-5"
@@ -1597,8 +1635,16 @@ export function KarteTab({
                   className="flex-1 rounded-full border py-1.5 text-xs font-semibold"
                   style={
                     dailyForm.mode === "select"
-                      ? { backgroundColor: dash.or, borderColor: dash.or, color: "#fff" }
-                      : { borderColor: dash.bo, color: dash.mu }
+                      ? {
+                          backgroundColor: dash.primaryBg,
+                          borderColor: dash.primaryBg,
+                          color: dash.primaryFg,
+                        }
+                      : {
+                          backgroundColor: dash.secondaryBg,
+                          borderColor: dash.secondaryBorder,
+                          color: dash.mu,
+                        }
                   }
                 >
                   Aus Karte
@@ -1609,8 +1655,16 @@ export function KarteTab({
                   className="flex-1 rounded-full border py-1.5 text-xs font-semibold"
                   style={
                     dailyForm.mode === "manual"
-                      ? { backgroundColor: dash.or, borderColor: dash.or, color: "#fff" }
-                      : { borderColor: dash.bo, color: dash.mu }
+                      ? {
+                          backgroundColor: dash.primaryBg,
+                          borderColor: dash.primaryBg,
+                          color: dash.primaryFg,
+                        }
+                      : {
+                          backgroundColor: dash.secondaryBg,
+                          borderColor: dash.secondaryBorder,
+                          color: dash.mu,
+                        }
                   }
                 >
                   Manuell
@@ -1663,11 +1717,8 @@ export function KarteTab({
                 type="button"
                 disabled={savingDaily}
                 onClick={() => void onSaveDaily()}
-                className="w-full rounded-[11px] py-3.5 text-sm font-bold text-white shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})`,
-                  boxShadow: "0 6px 20px rgba(232,80,2,0.25)",
-                }}
+                className="w-full rounded-[10px] py-3.5 text-sm font-bold"
+                style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
               >
                 {savingDaily ? "Speichert …" : "Special setzen (Speisekarten-Flow)"}
               </button>
@@ -1691,8 +1742,8 @@ export function KarteTab({
               <button
                 type="button"
                 onClick={() => void setSpecialFromForm()}
-                className="mt-2 w-full rounded-[11px] py-3 text-sm font-bold text-white"
-                style={{ background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})` }}
+                className="mt-2 w-full rounded-[10px] py-3 text-sm font-bold"
+                style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
               >
                 Special setzen
               </button>
@@ -1720,7 +1771,7 @@ export function KarteTab({
                 onClick={() => void removeSpecial()}
                 className="rounded-lg border px-2.5 py-1.5 text-[11px] font-bold"
                 style={{
-                  backgroundColor: "rgba(232,80,2,0.15)",
+                  backgroundColor: "rgba(0,200,160,0.15)",
                   borderColor: dash.orm,
                   color: dash.or,
                 }}
@@ -1734,7 +1785,7 @@ export function KarteTab({
 
       {activeSub === "notiz" && (
         <div
-          className="mx-5 mt-3.5 rounded-2xl border px-4 py-4 animate-in fade-in duration-200"
+          className="mx-0 mt-3.5 rounded-2xl border px-4 py-4 animate-in fade-in duration-200"
           style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
         >
           <div className="mb-0.5 text-base font-extrabold">Gäste-Notiz</div>
@@ -1752,8 +1803,8 @@ export function KarteTab({
           <button
             type="button"
             onClick={saveNotiz}
-            className="w-full rounded-[11px] py-3.5 text-sm font-bold text-white"
-            style={{ background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})` }}
+            className="w-full rounded-[10px] py-3.5 text-sm font-bold"
+            style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
           >
             Notiz speichern
           </button>

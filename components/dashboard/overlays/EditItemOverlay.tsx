@@ -5,7 +5,7 @@ import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
 import { formatPreisEUR } from "../utils";
-import { dash } from "../constants";
+import { dash, dashPrimaryButtonStyle } from "../constants";
 
 type Props = {
   item: MenuItem | null;
@@ -132,7 +132,7 @@ export function EditItemOverlay({
         onClick={onClose}
       />
       <div
-        className="relative z-10 max-h-[92vh] w-full max-w-[430px] overflow-y-auto rounded-t-[24px] border-t px-5 pb-10 pt-4"
+        className="relative z-10 max-h-[92vh] w-full max-w-[480px] overflow-y-auto rounded-t-[24px] border-t px-5 pb-10 pt-4 md:max-w-[860px]"
         style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -200,11 +200,8 @@ export function EditItemOverlay({
           type="button"
           disabled={busy}
           onClick={() => void handleSave()}
-          className="w-full rounded-[13px] py-3.5 text-[15px] font-bold text-white shadow-lg"
-          style={{
-            background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})`,
-            boxShadow: "0 6px 20px rgba(232,80,2,0.3)",
-          }}
+          className="w-full rounded-[10px] py-3.5 text-[15px] font-bold"
+          style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
         >
           {busy ? "Speichert …" : "Speichern"}
         </button>
@@ -215,9 +212,9 @@ export function EditItemOverlay({
             onClick={() => void handleDelete()}
             className="mt-2 w-full rounded-[11px] border py-3 text-sm font-bold"
             style={{
-              borderColor: "rgba(224,92,92,0.25)",
+              borderColor: "rgba(255,75,110,0.28)",
               color: dash.re,
-              backgroundColor: "rgba(224,92,92,0.08)",
+              backgroundColor: "rgba(255,75,110,0.12)",
             }}
           >
             🗑️ Löschen

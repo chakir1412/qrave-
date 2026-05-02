@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { buildTableQrUrl } from "@/lib/table-links";
 import type { Bereich, Tisch } from "../types";
-import { dash } from "../constants";
+import { dash, dashPrimaryButtonStyle } from "../constants";
 
 function cloneBereiche(src: Bereich[]): Bereich[] {
   return src.map((b) => ({
@@ -122,12 +122,19 @@ export function TischeConfigPage({
         transform: open ? "translateX(0)" : "translateX(110%)",
       }}
     >
+      <div className="dashboard-bg-blobs" aria-hidden>
+        <div className="dashboard-blob dashboard-blob--1" />
+        <div className="dashboard-blob dashboard-blob--2" />
+        <div className="dashboard-blob dashboard-blob--3" />
+      </div>
+      <div className="relative z-[1] mx-auto w-full max-w-[480px] md:max-w-[860px]">
       <div
-        className="sticky top-0 z-10 flex items-center gap-3.5 border-b px-5 py-3"
+        className="sticky top-0 z-10 flex items-center gap-3.5 border-b px-4 py-3 md:px-6"
         style={{
-          borderColor: dash.bo,
-          backgroundColor: "rgba(10,10,10,0.97)",
+          borderColor: dash.navBorderTop,
+          backgroundColor: dash.navBg,
           backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
         }}
       >
         <button
@@ -142,7 +149,7 @@ export function TischeConfigPage({
             height="16"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="rgba(249,249,249,0.6)"
+            stroke="rgba(255,255,255,0.55)"
             strokeWidth="2"
             strokeLinecap="round"
           >
@@ -152,7 +159,7 @@ export function TischeConfigPage({
         <div className="text-lg font-bold">Tische konfigurieren</div>
       </div>
 
-      <div className="px-5 pb-28 pt-4">
+      <div className="px-4 pb-28 pt-4 md:px-6">
         <div
           className="mb-3 flex items-center justify-between rounded-2xl border px-4 py-4"
           style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
@@ -176,9 +183,9 @@ export function TischeConfigPage({
           onClick={() => void handleAddArea()}
           className="mb-4 flex w-full items-center justify-center gap-1.5 rounded-[13px] border border-dashed py-3 text-[13px] font-semibold"
           style={{
-            borderColor: "rgba(232,80,2,0.3)",
+            borderColor: "rgba(0,200,160,0.35)",
             backgroundColor: dash.s1,
-            color: dash.or,
+            color: dash.teal,
           }}
         >
           + Neuen Bereich hinzufügen
@@ -226,8 +233,8 @@ export function TischeConfigPage({
                               color: dash.or,
                             }
                           : {
-                              backgroundColor: "rgba(224,92,92,0.07)",
-                              borderColor: "rgba(224,92,92,0.15)",
+                              backgroundColor: "rgba(255,75,110,0.12)",
+                              borderColor: "rgba(255,75,110,0.22)",
                               color: dash.re,
                             }
                       }
@@ -256,22 +263,21 @@ export function TischeConfigPage({
       <div
         className="fixed bottom-0 left-0 right-0 z-20 border-t p-4"
         style={{
-          borderColor: dash.bo,
-          backgroundColor: "rgba(10,10,10,0.95)",
-          backdropFilter: "blur(12px)",
+          borderColor: dash.navBorderTop,
+          backgroundColor: dash.navBg,
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
         }}
       >
         <button
           type="button"
           onClick={onClose}
-          className="w-full rounded-[13px] py-3.5 text-[15px] font-bold text-white"
-          style={{
-            background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})`,
-            boxShadow: "0 6px 20px rgba(232,80,2,0.3)",
-          }}
+          className="w-full rounded-[10px] py-3.5 text-[15px] font-bold"
+          style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
         >
           Fertig
         </button>
+      </div>
       </div>
     </div>
   );

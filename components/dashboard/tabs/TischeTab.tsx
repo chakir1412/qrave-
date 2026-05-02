@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Bereich } from "../types";
 import { heatFromScans } from "../types";
-import { dash } from "../constants";
+import { DASH_GLASS_CARD_CLASS, dash, dashPrimaryButtonStyle } from "../constants";
 
 type Props = {
   slideClass: string;
@@ -52,7 +52,7 @@ export function TischeTab({
     return (
       <div className={slideClass}>
         <div
-          className="mx-5 mt-10 rounded-[20px] border px-5 py-8 text-center text-sm"
+          className="mx-0 mt-10 rounded-[20px] border px-5 py-8 text-center text-sm"
           style={{ backgroundColor: dash.s1, borderColor: dash.bo, color: dash.mu }}
         >
           Tische werden geladen …
@@ -65,11 +65,11 @@ export function TischeTab({
     <div className={slideClass}>
       {loadError ? (
         <div
-          className="mx-5 mt-3.5 rounded-[14px] border px-4 py-3 text-xs leading-relaxed"
+          className="mx-0 mt-3.5 rounded-[14px] border px-4 py-3 text-xs leading-relaxed"
           style={{
-            backgroundColor: "rgba(224,92,92,0.08)",
-            borderColor: "rgba(224,92,92,0.25)",
-            color: dash.re,
+            backgroundColor: dash.offlineBg,
+            borderColor: "rgba(255,75,110,0.28)",
+            color: dash.offlineFg,
           }}
         >
           {loadError}
@@ -81,10 +81,7 @@ export function TischeTab({
       ) : null}
 
       {!loadError && initial.length === 0 ? (
-        <section
-          className="mx-5 mt-6 flex flex-col items-center gap-3 rounded-[20px] border px-5 py-10 text-center"
-          style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-        >
+        <section className={`${DASH_GLASS_CARD_CLASS} mx-0 mt-6 flex flex-col items-center gap-3 px-5 py-10 text-center`}>
           <span className="text-3xl">🪑</span>
           <p className="text-[15px] font-bold" style={{ color: dash.tx }}>
             Noch keine Tische
@@ -95,11 +92,8 @@ export function TischeTab({
           <button
             type="button"
             onClick={onOpenConfig}
-            className="mt-1 rounded-[13px] px-5 py-3 text-[13px] font-bold text-white"
-            style={{
-              background: `linear-gradient(135deg, ${dash.or}, ${dash.or2})`,
-              boxShadow: "0 6px 20px rgba(232,80,2,0.25)",
-            }}
+            className="mt-1 rounded-[10px] px-5 py-3 text-[13px] font-bold"
+            style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
           >
             Jetzt konfigurieren
           </button>
@@ -108,26 +102,23 @@ export function TischeTab({
 
       {!loadError && initial.length > 0 ? (
         <>
-          <section
-            className="mx-5 mt-3.5 flex items-center justify-between rounded-[20px] border px-5 py-4"
-            style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-          >
+          <section className={`${DASH_GLASS_CARD_CLASS} mx-0 mt-3.5 flex items-center justify-between px-5 py-4`}>
             <div>
               <div
-                className="mb-1 text-[11px] font-medium uppercase tracking-wider"
+                className="mb-1 text-[11px] font-medium uppercase tracking-wider md:text-xs"
                 style={{ color: dash.mu }}
               >
                 Aktive Tische heute
               </div>
-              <div className="text-[36px] font-black tracking-tight">{stats.active}</div>
+              <div className="text-[28px] font-black tracking-tight md:text-[32px]">{stats.active}</div>
             </div>
             <div className="flex flex-col items-end gap-1.5">
               <span
                 className="rounded-md border px-2 py-0.5 text-[11px]"
                 style={{
-                  backgroundColor: "rgba(76,175,125,0.12)",
-                  borderColor: "rgba(76,175,125,0.2)",
-                  color: dash.gr,
+                  backgroundColor: dash.onlineBg,
+                  borderColor: dash.onlineBorder,
+                  color: dash.onlineFg,
                 }}
               >
                 ● {stats.areas} Bereiche aktiv
@@ -135,9 +126,9 @@ export function TischeTab({
               <span
                 className="rounded-md border px-2 py-0.5 text-[11px]"
                 style={{
-                  backgroundColor: "rgba(224,92,92,0.1)",
-                  borderColor: "rgba(224,92,92,0.2)",
-                  color: dash.re,
+                  backgroundColor: dash.offlineBg,
+                  borderColor: "rgba(255,75,110,0.28)",
+                  color: dash.offlineFg,
                 }}
               >
                 ● {stats.dead} ohne Scan
@@ -146,11 +137,7 @@ export function TischeTab({
           </section>
 
           {bereiche.map((b) => (
-        <section
-          key={b.key}
-          className="mx-5 mt-3 overflow-hidden rounded-[18px] border"
-          style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
-        >
+        <section key={b.key} className={`${DASH_GLASS_CARD_CLASS} mx-0 mt-3 overflow-hidden rounded-[18px]`}>
           <button
             type="button"
             onClick={() => toggleBereich(b.key)}
@@ -184,17 +171,17 @@ export function TischeTab({
                   const base =
                     h === "hot"
                       ? {
-                          backgroundColor: "rgba(232,80,2,0.18)",
-                          borderColor: "rgba(232,80,2,0.35)",
-                          color: dash.or,
-                          boxShadow: "0 0 12px rgba(232,80,2,0.2)",
+                          backgroundColor: "rgba(255,92,26,0.18)",
+                          borderColor: "rgba(255,92,26,0.35)",
+                          color: dash.orange,
+                          boxShadow: "0 0 12px rgba(255,92,26,0.2)",
                         }
                       : h === "warm"
                         ? {
-                            backgroundColor: "rgba(232,80,2,0.07)",
-                            borderColor: "rgba(232,80,2,0.15)",
-                            color: "rgba(232,80,2,0.6)",
-                            boxShadow: "0 0 8px rgba(232,80,2,0.08)",
+                            backgroundColor: "rgba(255,92,26,0.08)",
+                            borderColor: "rgba(255,92,26,0.2)",
+                            color: "rgba(255,92,26,0.75)",
+                            boxShadow: "0 0 8px rgba(255,92,26,0.08)",
                           }
                         : h === "cold"
                           ? {
@@ -203,9 +190,9 @@ export function TischeTab({
                               color: dash.mu,
                             }
                           : {
-                              backgroundColor: "rgba(224,92,92,0.07)",
-                              borderColor: "rgba(224,92,92,0.15)",
-                              color: "rgba(224,92,92,0.5)",
+                              backgroundColor: "rgba(255,75,110,0.1)",
+                              borderColor: "rgba(255,75,110,0.22)",
+                              color: "rgba(255,75,110,0.65)",
                             };
                   return (
                     <div
@@ -223,8 +210,8 @@ export function TischeTab({
                 <div
                   className="mb-3 flex items-center justify-between rounded-[10px] border px-3 py-2.5"
                   style={{
-                    backgroundColor: "rgba(224,92,92,0.07)",
-                    borderColor: "rgba(224,92,92,0.15)",
+                    backgroundColor: "rgba(255,75,110,0.1)",
+                    borderColor: "rgba(255,75,110,0.2)",
                   }}
                 >
                   <span className="text-xs" style={{ color: dash.re }}>
@@ -235,8 +222,8 @@ export function TischeTab({
                     onClick={() => onToast("Anfrage gesendet — neuer Sticker kommt 📦")}
                     className="rounded-lg border px-2.5 py-1 text-[11px] font-bold"
                     style={{
-                      backgroundColor: "rgba(224,92,92,0.1)",
-                      borderColor: "rgba(224,92,92,0.2)",
+                      backgroundColor: "rgba(255,75,110,0.12)",
+                      borderColor: "rgba(255,75,110,0.28)",
                       color: dash.re,
                     }}
                   >
@@ -245,10 +232,10 @@ export function TischeTab({
                 </div>
               )}
               <div className="flex flex-wrap gap-3">
-                <Legend color="rgba(232,80,2,0.5)" label="Aktiv" />
-                <Legend color="rgba(232,80,2,0.2)" label="Mittel" />
+                <Legend color="rgba(255,92,26,0.55)" label="Aktiv" />
+                <Legend color="rgba(255,92,26,0.22)" label="Mittel" />
                 <Legend color={dash.s2} border={dash.bo} label="Wenig" />
-                <Legend color="rgba(224,92,92,0.3)" label="Kein Scan" />
+                <Legend color="rgba(255,75,110,0.35)" label="Kein Scan" />
               </div>
             </div>
           )}
@@ -260,8 +247,12 @@ export function TischeTab({
       <button
         type="button"
         onClick={onOpenConfig}
-        className="mx-5 mb-4 mt-3 flex w-[calc(100%-2.5rem)] items-center justify-center gap-1.5 rounded-[13px] border py-3 text-[13px] font-semibold transition active:bg-white/5"
-        style={{ backgroundColor: dash.s1, borderColor: dash.bo, color: dash.mi }}
+        className="mx-0 mb-4 mt-3 flex w-full items-center justify-center gap-1.5 rounded-[10px] border py-3 text-[13px] font-semibold transition active:opacity-90"
+        style={{
+          backgroundColor: dash.secondaryBg,
+          borderColor: dash.secondaryBorder,
+          color: dash.secondaryFg,
+        }}
       >
         ⚙️ Tische &amp; Bereiche konfigurieren
       </button>

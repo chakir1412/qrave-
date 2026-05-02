@@ -7,6 +7,7 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-dm-sans",
   display: "swap",
+  weight: ["300", "400", "500", "600"],
 });
 const geistSans = Geist({
   variable: "--font-geist-sans",

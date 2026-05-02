@@ -622,7 +622,7 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
                     <div className="min-w-0">
                       <div className="font-bold text-white">{p.name}</div>
                       <div className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
-                        {p.stage ?? "—"} {p.area ? `· ${p.area}` : ""}
+                        {p.stage ?? "—"} {p.bezirk ? `· ${p.bezirk}` : ""}
                       </div>
                     </div>
                     <div className="text-right text-sm font-bold tabular-nums" style={{ color: "rgba(255,255,255,0.35)" }}>

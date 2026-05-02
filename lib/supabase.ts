@@ -117,6 +117,25 @@ export type MenuItem = {
   preis_volumen?: PreisVolumen | null;
   is_highlight?: boolean;
   section_subtitle?: string | null;
+  /** Scan-Events (z. B. pro Woche), für Stat-Pills im Item-Modal */
+  scan_count?: number | null;
+};
+
+/** Partner-Einträge für gesponserte „Dazu passend“-Karten (Tabelle sponsored_items) */
+export type SponsoredItem = {
+  id: string;
+  partner_name: string;
+  item_name: string;
+  beschreibung?: string | null;
+  bild_url?: string | null;
+  preis: number | null;
+  kategorie: string;
+  trigger_kategorien: string[];
+  restaurant_ids: string[];
+  aktiv: boolean;
+  created_at?: string;
+  /** Nur gesetzt, wenn die Zeile als Karte im Modal gerendert wird */
+  isSponsored?: true;
 };
 
 export type DailyPush = {

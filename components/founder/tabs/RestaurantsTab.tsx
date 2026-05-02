@@ -475,6 +475,7 @@ export function RestaurantsTab({
   onRefresh,
 }: Props) {
   const router = useRouter();
+  const [restaurantItems, setRestaurantItems] = useState<FounderRestaurantRow[]>(restaurants);
   const [search, setSearch] = useState("");
   const [filterBezirk, setFilterBezirk] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("scans");
@@ -492,33 +493,50 @@ export function RestaurantsTab({
   const [modalCount, setModalCount] = useState(0);
   const [modalPaid, setModalPaid] = useState(false);
   const [addRestaurantOpen, setAddRestaurantOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<FounderRestaurantRow | null>(null);
+  const [deleteCountdown, setDeleteCountdown] = useState(2);
+
+  useEffect(() => {
+    setRestaurantItems(restaurants);
+  }, [restaurants]);
+
+  useEffect(() => {
+    if (!deleteTarget) return;
+    setDeleteCountdown(2);
+    const t1 = window.setTimeout(() => setDeleteCountdown(1), 1000);
+    const t2 = window.setTimeout(() => setDeleteCountdown(0), 2000);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [deleteTarget]);
 
   const bezirke = useMemo(() => {
     const s = new Set<string>();
-    for (const r of restaurants) {
+    for (const r of restaurantItems) {
       if (r.stadt?.trim()) s.add(r.stadt.trim());
     }
     return [...s].sort((a, b) => a.localeCompare(b, "de"));
-  }, [restaurants]);
+  }, [restaurantItems]);
 
   const sessionsByRestaurant = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of restaurants) {
+    for (const r of restaurantItems) {
       m.set(r.id, uniqueSessionsCountForRestaurant(scanEvents, r.id));
     }
     return m;
-  }, [restaurants, scanEvents]);
+  }, [restaurantItems, scanEvents]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return restaurants.filter((r) => {
+    return restaurantItems.filter((r) => {
       if (filterBezirk && (r.stadt?.trim() ?? "") !== filterBezirk) return false;
       if (!q) return true;
       const name = r.name.toLowerCase();
       const stadt = (r.stadt ?? "").toLowerCase();
       return name.includes(q) || stadt.includes(q);
     });
-  }, [restaurants, search, filterBezirk]);
+  }, [restaurantItems, search, filterBezirk]);
 
   const sortedList = useMemo(() => {
     const copy = [...filtered];
@@ -583,9 +601,9 @@ export function RestaurantsTab({
     setModalTier((ex?.sticker_tier ?? "starter").toLowerCase() || "starter");
     setModalCount(ex?.sticker_count ?? r?.sticker_anzahl ?? 0);
     setModalPaid(ex?.sticker_paid ?? false);
-  }, [stickerModalFor, restaurantExtras, restaurants]);
+  }, [stickerModalFor, restaurantExtras, restaurantItems]);
 
-  const subRestaurant = subView ? restaurants.find((r) => r.id === subView.restaurantId) : undefined;
+  const subRestaurant = subView ? restaurantItems.find((r) => r.id === subView.restaurantId) : undefined;
   const tablesForSub = useMemo(() => {
     if (!subView) return [];
     return restaurantTables
@@ -773,6 +791,47 @@ export function RestaurantsTab({
             >
               {qrPrintBusy ? "Erstellt…" : "Alle als PDF exportieren"}
             </button>
+            <label
+              className="mt-3 flex w-full cursor-pointer items-center justify-center"
+              style={{
+                ...glassBtn,
+                marginTop: 12,
+                width: "100%",
+                border: "1px solid rgba(255,255,255,0.18)",
+              }}
+            >
+              Logo hochladen
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  void (async () => {
+                    setPending(true);
+                    setSupabaseError(null);
+                    const path = `${subRestaurant.id}/logo.png`;
+                    const { error } = await supabase.storage
+                      .from("restaurant-assets")
+                      .upload(path, file, { upsert: true, contentType: file.type || undefined });
+                    if (error) {
+                      console.error("Logo Upload Fehler:", error);
+                      setSupabaseError(error.message);
+                      setPending(false);
+                      return;
+                    }
+                    const { data } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
+                    setRestaurantItems((prev) =>
+                      prev.map((r) =>
+                        r.id === subRestaurant.id ? { ...r, logo_url: data?.publicUrl ?? r.logo_url } : r,
+                      ),
+                    );
+                    setPending(false);
+                  })();
+                }}
+              />
+            </label>
             <div className="mt-6 flex flex-col gap-3">
               {tablesForSub.length === 0 ? (
                 <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>Keine Tische angelegt.</p>
@@ -805,6 +864,7 @@ export function RestaurantsTab({
                       <RestaurantTableQrPreview
                         menuUrl={tb.qr_url}
                         logoUrl={subRestaurant.logo_url ?? null}
+                        restaurantId={subRestaurant.id}
                         downloadFilenameBase={`qrave-${filenameSafeSlug(subRestaurant.slug)}-tisch-${tb.tisch_nummer}`}
                         orange={ORANGE}
                       />
@@ -920,6 +980,28 @@ export function RestaurantsTab({
             router.push(`/founder/restaurants/${r.id}/analytics?from=${fromYmd}&to=${toYmd}`);
           }}
           onOpenStickerModal={() => setStickerModalFor(r.id)}
+          onDeleteRestaurant={() => setDeleteTarget(r)}
+          onLogoUpload={async (file) => {
+            setPending(true);
+            setSupabaseError(null);
+            const path = `${r.id}/logo.png`;
+            const { error } = await supabase.storage
+              .from("restaurant-assets")
+              .upload(path, file, { upsert: true, contentType: file.type || undefined });
+            if (error) {
+              console.error("Logo Upload Fehler:", error);
+              setSupabaseError(error.message);
+              setPending(false);
+              return null;
+            }
+            const { data } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
+            const publicUrl = data?.publicUrl ?? null;
+            setRestaurantItems((prev) =>
+              prev.map((x) => (x.id === r.id ? { ...x, logo_url: publicUrl ?? x.logo_url } : x)),
+            );
+            setPending(false);
+            return publicUrl;
+          }}
         />
       ))}
 
@@ -959,6 +1041,33 @@ export function RestaurantsTab({
                 { onConflict: "restaurant_id" },
               ),
             ).then(() => setStickerModalFor(null));
+          }}
+        />
+      ) : null}
+      {deleteTarget ? (
+        <DeleteRestaurantModal
+          restaurant={deleteTarget}
+          pending={pending}
+          countdown={deleteCountdown}
+          onClose={() => setDeleteTarget(null)}
+          onDelete={() => {
+            if (deleteCountdown > 0) return;
+            void (async () => {
+              setPending(true);
+              setSupabaseError(null);
+              const { error } = await supabase.from("restaurants").delete().eq("id", deleteTarget.id);
+              if (error) {
+                console.error("Restaurant DELETE Fehler:", error);
+                window.alert(`Löschen fehlgeschlagen: ${error.message}`);
+                setSupabaseError(`Fehler: ${error.message}`);
+                setPending(false);
+                return;
+              }
+              setRestaurantItems((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+              setDeleteTarget(null);
+              setPending(false);
+              void onRefresh();
+            })();
           }}
         />
       ) : null}
@@ -1043,6 +1152,31 @@ function IconSticker() {
   );
 }
 
+function IconTrash() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <g stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6h18" />
+        <path d="M8 6V4h8v2" />
+        <path d="M6 6l1 14h10l1-14" />
+        <path d="M10 10v6M14 10v6" />
+      </g>
+    </svg>
+  );
+}
+
+function IconUpload() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <g stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 16V4" />
+        <path d="M8 8l4-4 4 4" />
+        <path d="M4 20h16" />
+      </g>
+    </svg>
+  );
+}
+
 function FilterChip({
   active,
   label,
@@ -1109,6 +1243,8 @@ function RestaurantCard({
   onOpenQrNfc,
   onOpenAnalytics,
   onOpenStickerModal,
+  onDeleteRestaurant,
+  onLogoUpload,
 }: {
   restaurant: FounderRestaurantRow;
   ext: FounderRestaurantExtRow | undefined;
@@ -1123,11 +1259,53 @@ function RestaurantCard({
   onOpenQrNfc: () => void;
   onOpenAnalytics: () => void;
   onOpenStickerModal: () => void;
+  onDeleteRestaurant: () => void;
+  onLogoUpload: (file: File) => Promise<string | null>;
 }) {
   const st = restaurantUiStatus(r);
   const pill = statusPillStyle(st);
   const consent = consentForRestaurant(scanEvents, r.id);
   const byBereich = useMemo(() => groupTablesByBereich(tables), [tables]);
+  const [hasLogo, setHasLogo] = useState(false);
+  const [logoChecking, setLogoChecking] = useState(true);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [localLogoPreview, setLocalLogoPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLogoChecking(true);
+    const explicit = r.logo_url?.trim() || null;
+    const candidate =
+      explicit ??
+      supabase.storage.from("restaurant-assets").getPublicUrl(`${r.id}/logo.png`).data?.publicUrl ??
+      null;
+    if (!candidate) {
+      setHasLogo(false);
+      setLogoChecking(false);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      setHasLogo(true);
+      setLogoChecking(false);
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      setHasLogo(false);
+      setLogoChecking(false);
+    };
+    img.src = candidate;
+    return () => {
+      cancelled = true;
+    };
+  }, [r.id, r.logo_url]);
+
+  useEffect(() => {
+    return () => {
+      if (localLogoPreview?.startsWith("blob:")) URL.revokeObjectURL(localLogoPreview);
+    };
+  }, [localLogoPreview]);
 
   return (
     <div style={{ ...cardBase, overflow: "hidden" }}>
@@ -1374,6 +1552,88 @@ function RestaurantCard({
               </span>
               <span>Sticker</span>
             </button>
+            <label
+              className="cursor-pointer"
+              style={{
+                ...glassActionBtn,
+                border: hasLogo
+                  ? "1px solid rgba(52,232,158,0.45)"
+                  : "1px solid rgba(255,255,255,0.12)",
+                background: hasLogo ? "rgba(52,232,158,0.15)" : "rgba(255,255,255,0.06)",
+                color: hasLogo ? "#34e89e" : "rgba(255,255,255,0.88)",
+                opacity: logoUploading ? 0.8 : 1,
+              }}
+            >
+              <span style={{ ...actionIconWrap, color: hasLogo ? "#34e89e" : actionIconWrap.color }}>
+                <IconUpload />
+              </span>
+              <span>
+                {logoUploading
+                  ? "Wird hochgeladen..."
+                  : logoChecking
+                    ? "Logo prüfen..."
+                    : hasLogo
+                      ? "Logo hochgeladen ✓"
+                      : "Logo hochladen"}
+              </span>
+              {hasLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element -- local blob/public preview
+                <img
+                  src={localLogoPreview ?? r.logo_url ?? ""}
+                  alt=""
+                  width={40}
+                  height={40}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 8,
+                    objectFit: "cover",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    marginTop: 2,
+                  }}
+                />
+              ) : null}
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const blobUrl = URL.createObjectURL(file);
+                  setLocalLogoPreview((prev) => {
+                    if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+                    return blobUrl;
+                  });
+                  setLogoUploading(true);
+                  void onLogoUpload(file)
+                    .then((publicUrl) => {
+                      if (publicUrl) setLocalLogoPreview(publicUrl);
+                      setHasLogo(true);
+                    })
+                    .finally(() => {
+                      setLogoUploading(false);
+                    });
+                  e.currentTarget.value = "";
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={onDeleteRestaurant}
+              style={{
+                ...glassActionBtn,
+                border: "1px solid rgba(255,75,110,0.4)",
+                background: "rgba(255,75,110,0.14)",
+                color: "#ff4b6e",
+              }}
+            >
+              <span style={{ ...actionIconWrap, color: "#ff4b6e" }}>
+                <IconTrash />
+              </span>
+              <span>Restaurant löschen</span>
+            </button>
           </div>
         </div>
       ) : null}
@@ -1399,6 +1659,92 @@ function VisitBlock({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#fff" }}>{value}</p>
+    </div>
+  );
+}
+
+function DeleteRestaurantModal({
+  restaurant,
+  pending,
+  countdown,
+  onClose,
+  onDelete,
+}: {
+  restaurant: FounderRestaurantRow;
+  pending: boolean;
+  countdown: number;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  const deleteLabel =
+    countdown > 0 ? `Löschen (${countdown})...` : pending ? "Löscht..." : "Endgültig löschen";
+  return (
+    <div
+      className="fixed inset-0 z-[130] flex items-end justify-center p-4 sm:items-center"
+      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal
+        aria-labelledby="delete-restaurant-title"
+        className="w-full"
+        style={{
+          maxWidth: 420,
+          background: "#0f0f1a",
+          border: "1px solid rgba(255,75,110,0.3)",
+          borderRadius: 16,
+          padding: 24,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ fontSize: 26, marginBottom: 8 }}>⚠️</div>
+        <h3 id="delete-restaurant-title" style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#fff" }}>
+          Restaurant löschen?
+        </h3>
+        <p style={{ margin: "10px 0 0", color: "rgba(255,255,255,0.72)", fontSize: 14, lineHeight: 1.5 }}>
+          Bist du sicher, dass du <strong style={{ color: "#fff" }}>{restaurant.name}</strong> löschen möchtest?
+          Diese Aktion kann nicht rückgängig gemacht werden.
+        </p>
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={pending}
+            style={{
+              flex: 1,
+              border: "1px solid rgba(255,255,255,0.14)",
+              background: "rgba(255,255,255,0.05)",
+              color: "rgba(255,255,255,0.8)",
+              borderRadius: 12,
+              padding: "11px 12px",
+              fontWeight: 700,
+              cursor: pending ? "not-allowed" : "pointer",
+            }}
+          >
+            Abbrechen
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={pending || countdown > 0}
+            style={{
+              flex: 1,
+              border: "none",
+              background: "#ff4b6e",
+              color: "#fff",
+              borderRadius: 12,
+              padding: "11px 12px",
+              fontWeight: 800,
+              cursor: pending || countdown > 0 ? "not-allowed" : "pointer",
+              opacity: pending || countdown > 0 ? 0.7 : 1,
+            }}
+          >
+            {deleteLabel}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
