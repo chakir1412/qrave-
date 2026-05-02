@@ -9,15 +9,15 @@ import { fetchDashboardAnalytics } from "@/hooks/useAnalytics";
 import { DashboardApp } from "@/components/dashboard/DashboardApp";
 import type { DashboardRestaurant } from "@/components/dashboard/types";
 
-function firstNameFromSession(meta: Record<string, unknown> | undefined, email: string | null): string {
+function firstNameFromSession(
+  meta: Record<string, unknown> | undefined,
+  fallback: string,
+): string {
   const raw = meta?.full_name ?? meta?.name;
   if (typeof raw === "string" && raw.trim()) {
-    return raw.trim().split(/\s+/)[0] ?? "Gast";
+    return raw.trim().split(/\s+/)[0] ?? fallback;
   }
-  if (email) {
-    return email.split("@")[0] ?? "Gast";
-  }
-  return "Gast";
+  return fallback;
 }
 
 export default function DashboardPage() {
@@ -45,14 +45,6 @@ export default function DashboardPage() {
         return;
       }
 
-      console.log("SESSION USER ID:", session.user.id);
-
-      setUserFirstName(
-        firstNameFromSession(
-          session.user.user_metadata as Record<string, unknown> | undefined,
-          session.user.email ?? null,
-        ),
-      );
       setUserEmail(session.user.email ?? "");
 
       const { data, error } = await supabase
@@ -60,10 +52,6 @@ export default function DashboardPage() {
         .select("*")
         .eq("auth_user_id", session.user.id)
         .single();
-
-      console.log("session user id:", session.user.id);
-      console.log("restaurant data:", data);
-      console.log("error:", error);
 
       if (cancelled) return;
 
@@ -74,15 +62,21 @@ export default function DashboardPage() {
 
       const restRow = data as unknown as DashboardRestaurant;
       setRestaurant(restRow);
+      setUserFirstName(
+        firstNameFromSession(
+          session.user.user_metadata as Record<string, unknown> | undefined,
+          restRow.name,
+        ),
+      );
 
-      const today = new Date().toISOString().slice(0, 10);
       const [items, pushRes, dashAnalytics] = await Promise.all([
         fetchMenuItemsForDashboard(restRow.id),
         supabase
           .from("daily_push")
           .select("id, restaurant_id, active_date, item_emoji, item_name, item_desc")
           .eq("restaurant_id", restRow.id)
-          .eq("active_date", today)
+          .order("active_date", { ascending: false })
+          .limit(1)
           .maybeSingle(),
         fetchDashboardAnalytics(restRow.id),
       ]);

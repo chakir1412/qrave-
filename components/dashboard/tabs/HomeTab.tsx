@@ -7,7 +7,14 @@ import { isLikelyDrinkCategory } from "../analytics";
 import {
   formatDateLongDe,
   greetingLabel,
+  todayIsoDate,
 } from "../utils";
+
+function formatActiveDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}.${m}.${y.slice(2)}`;
+}
 import { DASH_GLASS_CARD_CLASS, dash } from "../constants";
 import type { DailyPush } from "@/lib/supabase";
 import type { PeakRow } from "../analytics";
@@ -224,9 +231,22 @@ export function HomeTab({
           >
             <div className="mb-1.5 text-lg">⭐</div>
             <div className="text-[13px] font-bold">Tages-Special</div>
-            <div className="text-[11px] font-semibold" style={{ color: dailyPush ? dash.gr : dash.teal }}>
-              {dailyPush ? `${dailyPush.item_emoji} ${dailyPush.item_name}` : "Noch nicht gesetzt"}
-            </div>
+            {dailyPush ? (
+              <>
+                <div className="text-[11px] font-semibold" style={{ color: dash.gr }}>
+                  {dailyPush.item_emoji} {dailyPush.item_name}
+                </div>
+                <div className="text-[10px]" style={{ color: dash.mu }}>
+                  {dailyPush.active_date === todayIsoDate()
+                    ? "Aktiv heute"
+                    : `Vom ${formatActiveDate(dailyPush.active_date)}`}
+                </div>
+              </>
+            ) : (
+              <div className="text-[11px] font-semibold" style={{ color: dash.teal }}>
+                Noch nicht gesetzt
+              </div>
+            )}
           </button>
           <button
             type="button"
