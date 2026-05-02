@@ -12,6 +12,7 @@ export type DashboardRestaurant = Pick<
   | "opening_hours"
   | "adresse"
   | "stadt"
+  | "telefon"
   | "email"
 > & {
   accent_color?: string | null;
@@ -44,7 +45,6 @@ export type OverlaysState = {
   settings: boolean;
   editItem: boolean;
   addCat: boolean;
-  oeffnung: boolean;
 };
 
 export type PagesState = {

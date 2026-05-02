@@ -3,7 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DailyPush } from "@/lib/supabase";
+import type { DailyPush, OpeningHours } from "@/lib/supabase";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
@@ -17,7 +17,6 @@ import { KarteTab } from "./tabs/KarteTab";
 import { TischeTab } from "./tabs/TischeTab";
 import { SettingsOverlay } from "./overlays/SettingsOverlay";
 import { EditItemOverlay } from "./overlays/EditItemOverlay";
-import { OeffnungszeitenOverlay } from "./overlays/OeffnungszeitenOverlay";
 import { AddCategoryOverlay } from "./overlays/AddCategoryOverlay";
 import { TischeConfigPage } from "./pages/TischeConfigPage";
 import { PreviewPage } from "./pages/PreviewPage";
@@ -29,7 +28,7 @@ import type {
   PagesState,
 } from "./types";
 import { dash } from "./constants";
-import { extractDominantColor, todayIsoDate } from "./utils";
+import { todayIsoDate } from "./utils";
 
 const TAB_ORDER: Record<DashboardTab, number> = {
   karte: 0,
@@ -85,7 +84,6 @@ export function DashboardApp({
     settings: false,
     editItem: false,
     addCat: false,
-    oeffnung: false,
   });
   const [pages, setPages] = useState<PagesState>({
     tischeConfig: false,
@@ -100,7 +98,6 @@ export function DashboardApp({
 
   const [guestNotiz, setGuestNotiz] = useState("");
 
-  const [savingTemplate, setSavingTemplate] = useState(false);
   const [dailyForm, setDailyForm] = useState<DailyForm>({
     mode: "select",
     itemId: null,
@@ -111,19 +108,13 @@ export function DashboardApp({
   const [savingDaily, setSavingDaily] = useState(false);
   const [dailyError, setDailyError] = useState<string | null>(null);
 
-  const [colorInput, setColorInput] = useState(
-    restaurantProp.accent_color ?? "#111111",
-  );
   const [logoPreview, setLogoPreview] = useState<string | null>(
     restaurantProp.logo_url ?? null,
   );
   const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(
     restaurantProp.logo_url ?? null,
   );
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [extractedColor, setExtractedColor] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
-  const [savingBranding, setSavingBranding] = useState(false);
   const [brandingMessage, setBrandingMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -172,13 +163,25 @@ export function DashboardApp({
     showToast("✓ Notiz gespeichert");
   }
 
-  async function handleTemplateChange(templateId: string) {
-    setSavingTemplate(true);
-    await supabase.from("restaurants").update({ template: templateId }).eq("id", restaurant.id);
-    setRestaurant({ ...restaurant, template: templateId });
-    setSavingTemplate(false);
-    showToast("✓ Template gespeichert");
-  }
+  const handlePatchRestaurant = useCallback(
+    async (patch: {
+      adresse?: string | null;
+      telefon?: string | null;
+      opening_hours?: OpeningHours;
+    }) => {
+      const { error } = await supabase
+        .from("restaurants")
+        .update(patch)
+        .eq("id", restaurant.id);
+      if (error) {
+        showToast(error.message ?? "Speichern fehlgeschlagen");
+        return;
+      }
+      setRestaurant((r) => ({ ...r, ...patch }));
+      showToast("✓ Gespeichert");
+    },
+    [restaurant.id, showToast],
+  );
 
   async function handleDailyPushSave() {
     setSavingDaily(true);
@@ -239,16 +242,10 @@ export function DashboardApp({
   }
 
   async function handleImmediateLogoUpload(file: File) {
-    setLogoFile(null);
     setLogoPreview(URL.createObjectURL(file));
     setExtracting(true);
     setBrandingMessage(null);
     try {
-      const dominant = await extractDominantColor(file);
-      if (dominant) {
-        setExtractedColor(dominant);
-        setColorInput(dominant);
-      }
       const mime = (file.type || "").toLowerCase();
       const forcedExt =
         mime === "image/png"
@@ -285,76 +282,6 @@ export function DashboardApp({
       showToast("✓ Logo gespeichert");
     } finally {
       setExtracting(false);
-    }
-  }
-
-  function handleColorPickerChange(e: ChangeEvent<HTMLInputElement>) {
-    setColorInput(e.target.value);
-  }
-
-  function handleHexInputChange(e: ChangeEvent<HTMLInputElement>) {
-    let value = e.target.value;
-    if (!value.startsWith("#")) value = `#${value}`;
-    setColorInput(value);
-  }
-
-  async function handleSaveBranding() {
-    setBrandingMessage(null);
-    setSavingBranding(true);
-    try {
-      let logoUrl: string | null = restaurant.logo_url ?? null;
-
-      if (logoFile) {
-        const mime = (logoFile.type || "").toLowerCase();
-        const forcedExt =
-          mime === "image/png"
-            ? "png"
-            : mime === "image/jpeg"
-              ? "jpg"
-              : (logoFile.name.split(".").pop() ?? "png").toLowerCase();
-        const path = `${restaurant.id}/logo.${forcedExt}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("restaurant-assets")
-          .upload(path, logoFile, {
-            cacheControl: "3600",
-            upsert: true,
-            contentType: logoFile.type || undefined,
-          });
-        if (uploadErr) {
-          setBrandingMessage(`Logo-Upload fehlgeschlagen: ${uploadErr.message}`);
-          return;
-        }
-        const { data: publicUrlData } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
-        const publicUrl = publicUrlData.publicUrl ?? null;
-        logoUrl = publicUrl ? `${publicUrl}?t=${Date.now()}` : null;
-      }
-
-      const { error: updateError } = await supabase
-        .from("restaurants")
-        .update({
-          accent_color: colorInput,
-          logo_url: logoUrl,
-        })
-        .eq("id", restaurant.id);
-
-      if (updateError) {
-        setBrandingMessage(`Speichern fehlgeschlagen: ${updateError.message}`);
-        return;
-      }
-
-      if (logoUrl) {
-        setCurrentLogoUrl(logoUrl);
-        setLogoPreview(logoUrl);
-      }
-      setRestaurant({
-        ...restaurant,
-        accent_color: colorInput,
-        logo_url: logoUrl ?? restaurant.logo_url,
-      });
-      setBrandingMessage("✓ Gespeichert");
-      showToast("✓ Logo & Farbe gespeichert");
-    } finally {
-      setSavingBranding(false);
     }
   }
 
@@ -474,33 +401,13 @@ export function DashboardApp({
         onClose={() => setOverlays((o) => ({ ...o, settings: false }))}
         restaurant={restaurant}
         userEmail={userEmail}
-        savingTemplate={savingTemplate}
-        onTemplateChange={(id) => void handleTemplateChange(id)}
-        onOpenOeffnung={() => setOverlays((o) => ({ ...o, oeffnung: true }))}
         onLogout={() => void handleLogout()}
-        colorInput={colorInput}
-        onColorPickerChange={handleColorPickerChange}
-        onHexInputChange={handleHexInputChange}
-        setColorInput={setColorInput}
         logoPreview={logoPreview}
         onLogoFileChange={(e) => void handleLogoChange(e)}
         extracting={extracting}
-        savingBranding={savingBranding}
-        onSaveBranding={() => void handleSaveBranding()}
         brandingMessage={brandingMessage}
         currentLogoUrl={currentLogoUrl}
-        extractedColor={extractedColor}
-      />
-
-      <OeffnungszeitenOverlay
-        open={overlays.oeffnung}
-        onClose={() => setOverlays((o) => ({ ...o, oeffnung: false }))}
-        restaurantId={restaurant.id}
-        openingHoursFromDb={restaurant.opening_hours ?? null}
-        onOpeningHoursSaved={(hours) =>
-          setRestaurant((r) => ({ ...r, opening_hours: hours }))
-        }
-        onToast={showToast}
+        onPatchRestaurant={handlePatchRestaurant}
       />
 
       <EditItemOverlay
