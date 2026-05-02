@@ -6,7 +6,8 @@ type GuestNoteBannerProps = {
   theme?: "light" | "dark";
 };
 
-/** Dezenter Banner für `restaurants.guest_note`, Stil orientiert sich am Tages-Special-Banner. */
+/** Auffälliger Banner für `restaurants.guest_note`, gleiches visuelles Gewicht
+ *  wie `DailyPushBanner` (Tages-Special) — größere Padding, Serif-Headline. */
 export default function GuestNoteBanner({ note, theme = "light" }: GuestNoteBannerProps) {
   const trimmed = note.trim();
   if (!trimmed) return null;
@@ -15,18 +16,29 @@ export default function GuestNoteBanner({ note, theme = "light" }: GuestNoteBann
     return (
       <div
         role="note"
-        className="mb-4 flex items-start gap-3 rounded-2xl border px-4 py-3"
+        className="mb-6 flex items-center gap-3 rounded-2xl border p-4"
         style={{
           borderColor: "rgba(184,150,106,0.25)",
-          background: "linear-gradient(135deg, rgba(184,150,106,0.12), rgba(15,13,10,0.85))",
-          color: "#F0EBE3",
+          background:
+            "linear-gradient(135deg, rgba(184,150,106,0.18), rgba(15,13,10,0.95))",
         }}
       >
-        <span aria-hidden style={{ fontSize: "1.4rem" }}>
+        <span aria-hidden style={{ fontSize: "2.2rem", lineHeight: 1 }}>
           ✨
         </span>
-        <div className="min-w-0 text-[0.78rem] leading-snug" style={{ color: "#F0EBE3" }}>
-          {trimmed}
+        <div className="min-w-0 flex-1">
+          <div
+            className="mb-0.5 text-[0.58rem] font-semibold uppercase tracking-widest"
+            style={{ color: "#C8894E" }}
+          >
+            Hinweis für Gäste
+          </div>
+          <div
+            className="font-serif text-[1.05rem] leading-snug"
+            style={{ color: "#F0EBE3", fontWeight: 400 }}
+          >
+            {trimmed}
+          </div>
         </div>
       </div>
     );
@@ -35,17 +47,30 @@ export default function GuestNoteBanner({ note, theme = "light" }: GuestNoteBann
   return (
     <div
       role="note"
-      className="mb-4 flex items-start gap-3 rounded-2xl border px-4 py-3"
+      className="mb-6 flex items-center gap-3 rounded-2xl border p-4"
       style={{
         borderColor: "rgba(184,150,106,0.25)",
-        background: "linear-gradient(135deg, rgba(184,150,106,0.08), rgba(255,255,255,0.6))",
-        color: "#1a1916",
+        background:
+          "linear-gradient(135deg, rgba(184,150,106,0.12), rgba(255,255,255,0.7))",
       }}
     >
-      <span aria-hidden style={{ fontSize: "1.4rem" }}>
+      <span aria-hidden style={{ fontSize: "2.2rem", lineHeight: 1 }}>
         ✨
       </span>
-      <div className="min-w-0 text-[0.82rem] leading-snug">{trimmed}</div>
+      <div className="min-w-0 flex-1">
+        <div
+          className="mb-0.5 text-[0.58rem] font-semibold uppercase tracking-widest"
+          style={{ color: "#b8966a" }}
+        >
+          Hinweis für Gäste
+        </div>
+        <div
+          className="font-serif text-[1.05rem] leading-snug"
+          style={{ color: "#1a1916", fontWeight: 400 }}
+        >
+          {trimmed}
+        </div>
+      </div>
     </div>
   );
 }

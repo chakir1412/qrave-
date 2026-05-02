@@ -351,7 +351,7 @@ export default function ItemModal({
     }
   }, [item.tags]);
 
-  const muted = "rgba(255,255,255,0.55)";
+  const muted = "rgba(255,255,255,0.85)";
   const scanCount = item.scan_count;
   const showPopularity =
     typeof scanCount === "number" && !Number.isNaN(scanCount) && scanCount > 5;
@@ -512,11 +512,12 @@ export default function ItemModal({
               <div>
                 <div
                   style={{
-                    fontSize: 9,
+                    fontSize: 10,
                     textTransform: "uppercase",
                     letterSpacing: "0.1em",
-                    color: "rgba(255,255,255,0.35)",
+                    color: "rgba(255,255,255,0.85)",
                     marginBottom: 8,
+                    fontWeight: 600,
                   }}
                 >
                   Zutaten
@@ -526,12 +527,12 @@ export default function ItemModal({
                     <span
                       key={`${z}-${i}`}
                       style={{
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.08)",
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(255,255,255,0.18)",
                         borderRadius: 20,
                         padding: "3px 8px",
-                        fontSize: 11,
-                        color: "rgba(255,255,255,0.6)",
+                        fontSize: 12,
+                        color: "rgba(255,255,255,0.95)",
                       }}
                     >
                       {z}
@@ -544,7 +545,7 @@ export default function ItemModal({
             {storyText ? (
               <div
                 style={{
-                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                  borderTop: "1px solid rgba(255,255,255,0.12)",
                   marginTop: zutatenPillLabels.length > 0 ? 16 : 0,
                   marginBottom: 16,
                   paddingTop: 16,
@@ -553,13 +554,13 @@ export default function ItemModal({
                 <p
                   className="italic"
                   style={{
-                    fontSize: 13,
-                    color: "rgba(255,255,255,0.45)",
+                    fontSize: 14,
+                    color: "rgba(255,255,255,0.85)",
                     lineHeight: 1.6,
                     margin: 0,
                   }}
                 >
-                  „{storyText}“
+                  „{storyText}"
                 </p>
               </div>
             ) : null}
@@ -570,30 +571,32 @@ export default function ItemModal({
                   zutatenPillLabels.length > 0 && !storyText
                     ? 16
                     : 0,
-                borderRadius: 8,
-                padding: "10px 12px",
-                background: "rgba(255,255,255,0.03)",
+                borderRadius: 12,
+                padding: "14px 16px",
+                background: "rgba(255,212,38,0.08)",
+                border: "1px solid rgba(255,212,38,0.25)",
               }}
             >
               {item.allergens_text && item.allergens_text.trim() ? (
                 <>
                   <div
                     style={{
-                      fontSize: 9,
+                      fontSize: 10,
                       textTransform: "uppercase",
                       letterSpacing: "0.1em",
-                      color: "rgba(255,255,255,0.45)",
+                      color: "#ffd426",
                       marginBottom: 6,
+                      fontWeight: 700,
                     }}
                   >
                     Allergene & Zutaten
                   </div>
                   <p
                     style={{
-                      fontSize: 12,
+                      fontSize: 13,
                       lineHeight: 1.5,
-                      color: "rgba(255,255,255,0.7)",
-                      margin: "0 0 8px",
+                      color: "rgba(255,255,255,0.95)",
+                      margin: "0 0 10px",
                     }}
                   >
                     {item.allergens_text}
@@ -602,10 +605,11 @@ export default function ItemModal({
               ) : null}
               <p
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   lineHeight: 1.5,
-                  color: "rgba(255,255,255,0.3)",
+                  color: "rgba(255,255,255,0.95)",
                   margin: 0,
+                  fontWeight: 500,
                 }}
               >
                 <span aria-hidden className="mr-1.5 inline-block">
@@ -619,16 +623,16 @@ export default function ItemModal({
               <div
                 style={{
                   marginTop: 16,
-                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                  borderTop: "1px solid rgba(255,255,255,0.12)",
                   paddingTop: 14,
                 }}
               >
                 <div
                   style={{
-                    fontSize: 12,
-                    color: "rgba(255,255,255,0.45)",
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.95)",
                     marginBottom: 10,
-                    fontWeight: 400,
+                    fontWeight: 600,
                   }}
                 >
                   🍺 Oft zusammen bestellt
