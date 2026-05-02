@@ -24,7 +24,7 @@ import {
 } from "@/lib/category-sort-order";
 
 const DASHBOARD_MENU_ITEM_SELECT =
-  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order";
+  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text";
 
 function menuItemKategorieLabel(m: MenuItem): string {
   return m.kategorie?.trim() || "Sonstiges";
@@ -99,6 +99,7 @@ type ReviewRow = {
   id: string;
   name: string;
   beschreibung: string;
+  allergens_text: string;
   preis: number;
   kategorie: string;
   main_tab: ParsedMenuItemDto["main_tab"];
@@ -484,6 +485,7 @@ export function KarteTab({
       id: newReviewId(),
       name: it.name,
       beschreibung: it.beschreibung,
+      allergens_text: it.allergens_text ?? "",
       preis: it.preis,
       kategorie: it.kategorie,
       main_tab: it.main_tab,
@@ -651,6 +653,7 @@ export function KarteTab({
           restaurant_id: restaurantId,
           name: r.name.trim(),
           beschreibung: r.beschreibung.trim() || null,
+          allergens_text: r.allergens_text.trim() || null,
           preis: Number.isFinite(r.preis) && r.preis >= 0 ? r.preis : 0,
           kategorie: kat,
           aktiv: true,

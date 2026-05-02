@@ -38,6 +38,7 @@ export function EditItemOverlay({
 }: Props) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
+  const [allergens, setAllergens] = useState("");
   const [preisStr, setPreisStr] = useState("");
   const [kategorie, setKategorie] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,11 +48,13 @@ export function EditItemOverlay({
     if (item) {
       setName(item.name);
       setDesc(item.beschreibung ?? "");
+      setAllergens(item.allergens_text ?? "");
       setPreisStr(formatPreisEUR(item.preis));
       setKategorie(item.kategorie || "Sonstiges");
     } else {
       setName("");
       setDesc("");
+      setAllergens("");
       setPreisStr("0");
       setKategorie(defaultCategory?.trim() || "Sonstiges");
     }
@@ -76,6 +79,7 @@ export function EditItemOverlay({
     const payload = {
       name: name.trim(),
       beschreibung: desc.trim() || null,
+      allergens_text: allergens.trim() || null,
       preis: p,
       kategorie: kat,
       sort_order: sortOrderIndexForKategorie(kat),
@@ -85,7 +89,7 @@ export function EditItemOverlay({
       : supabase.from("menu_items").update(payload).eq("id", editing.id);
     const { data, error } = await query
       .select(
-        "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order",
+        "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text",
       )
       .single();
 
@@ -163,6 +167,21 @@ export function EditItemOverlay({
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           rows={3}
+          className="mb-3 w-full resize-none rounded-[11px] border px-3.5 py-3 text-sm outline-none"
+          style={{
+            backgroundColor: dash.s2,
+            borderColor: dash.bo,
+            color: dash.tx,
+          }}
+        />
+        <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
+          Allergene & Zutaten
+        </label>
+        <textarea
+          value={allergens}
+          onChange={(e) => setAllergens(e.target.value)}
+          rows={2}
+          placeholder="z. B. enthält Gluten, Milch, Sellerie"
           className="mb-3 w-full resize-none rounded-[11px] border px-3.5 py-3 text-sm outline-none"
           style={{
             backgroundColor: dash.s2,

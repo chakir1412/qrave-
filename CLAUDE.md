@@ -83,7 +83,7 @@ Server endpoints that legitimately need to bypass RLS use `createServiceRoleClie
 
 - Demo restaurant slug is `qrave-demo`. Supabase project ID is `lkaxapfvkjwfchiqaiee`. Admin email: `chakir.elhaji@gmail.com`.
 - **Light mode only** — no dark mode toggles or `dark:` Tailwind variants unless the user explicitly asks for a design extension.
-- **Allergens** are intentionally surfaced only as a disclaimer ("ask staff"). Do not build UI that suggests a structured allergen database, even if `MenuItem.allergen_ids` exists in the type.
+- **Allergens** are surfaced as a free-text field on each menu item (`allergens_text`). The PDF/URL import pipeline auto-extracts allergen mentions from the source description into that field. The "ask staff" disclaimer is also shown in the item modal and allergen filter as an additional safety hint — both can coexist.
 - **No `alert()`** — use toasts/banners/inline UI states instead.
 
 ## Workflow

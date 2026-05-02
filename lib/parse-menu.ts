@@ -2,6 +2,8 @@
 export type ParsedMenuItemDto = {
   name: string;
   beschreibung: string;
+  /** Aus der Beschreibung extrahierte Allergene & Zutaten (Freitext). */
+  allergens_text: string;
   preis: number;
   kategorie: string;
   main_tab: "speisen" | "getraenke" | "snacks";
@@ -138,6 +140,12 @@ function normalizeOne(raw: unknown): ParsedMenuItemDto | null {
       : typeof o.desc === "string"
         ? o.desc.trim()
         : "";
+  const allergens_text =
+    typeof o.allergens_text === "string"
+      ? o.allergens_text.trim()
+      : typeof o.allergene === "string"
+        ? o.allergene.trim()
+        : "";
   const kategorie =
     typeof o.kategorie === "string" && o.kategorie.trim()
       ? o.kategorie.trim()
@@ -145,6 +153,7 @@ function normalizeOne(raw: unknown): ParsedMenuItemDto | null {
   return {
     name,
     beschreibung,
+    allergens_text,
     preis: toNumberPreis(o.preis),
     kategorie,
     main_tab: normalizeMainTab(o.main_tab),

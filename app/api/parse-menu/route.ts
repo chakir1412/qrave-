@@ -23,7 +23,7 @@ const CHUNK_MAX_TOKENS = 4000;
 const CHUNK_RETRY_SPLIT_MIN_LENGTH = 1000;
 const PDF_IMPORT_PROMPT = `Du bist ein Experte für Restaurantspeisekarten. Extrahiere alle Menüpunkte aus der Speisekarte.
 Antworte NUR mit einem JSON Array, ohne Markdown, ohne Erklärung, ohne Codeblöcke:
-[{"name":"...","beschreibung":"...","preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
+[{"name":"...","beschreibung":"...","allergens_text":"...","preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
 KATEGORIEN:
 
 Burger, Sandwiches, Wraps -> "Burger"
@@ -50,8 +50,14 @@ NAMEN:
 
 Kurz und klar - keine Variantenbeschreibungen im Namen
 "Fritz-Kola Original | Super Zero" -> name: "Fritz-Kola", beschreibung: "Original | Super Zero, 0,33l"
-Allergenkennzeichnungen (A1, C, G, J etc.) entfernen
+Allergenkennzeichnungen (A1, C, G, J etc.) NICHT in der Beschreibung lassen, sondern auflösen und in "allergens_text" verschieben
 Mengenangaben (0,33l) in die beschreibung
+
+ALLERGENS_TEXT:
+
+Erkenne Allergen-Hinweise aus der Original-Beschreibung (z. B. Buchstaben-/Zahlen-Codes wie "A,B,C,D,E,F,G" oder "1,2,3,4", oder explizit genannte Stoffe wie "enthält Gluten, Milch") und gib sie in "allergens_text" als kurze deutsche Klartext-Auflistung zurück, z. B.:
+"enthält Gluten, Milch, Sellerie"
+Wenn keine Allergen-Hinweise erkennbar sind: leerer String "".
 
 VARIANTEN:
 

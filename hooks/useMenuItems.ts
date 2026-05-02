@@ -3,7 +3,7 @@ import type { MenuItem } from "@/lib/supabase";
 
 /** Exakt die Spalten der produktiven `menu_items`-Tabelle (keine Extras). */
 const MENU_SELECT =
-  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, tags, aktiv, verfuegbar_von, verfuegbar_bis, verfuegbar_tage, ist_mittagsmenu, mittagsmenu_preis, reihenfolge, created_at, main_tab, zutaten, geschmacksprofil, story_text, emoji, sort_order";
+  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, tags, aktiv, verfuegbar_von, verfuegbar_bis, verfuegbar_tage, ist_mittagsmenu, mittagsmenu_preis, reihenfolge, created_at, main_tab, zutaten, geschmacksprofil, story_text, emoji, sort_order, allergens_text";
 
 /** Lädt alle Menüzeilen für die Bearbeitung (inkl. inaktiver). */
 export async function fetchMenuItemsForDashboard(
