@@ -8,9 +8,10 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
-import type { DailyPush } from "@/lib/supabase";
+import type { DailyPush, LunchOffer } from "@/lib/supabase";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
+import { LUNCH_WEEKDAY_KEYS } from "@/lib/supabase";
 import {
   inferMainTabFromCategoryName,
   type ParsedMenuItemDto,
@@ -76,13 +77,16 @@ type Props = {
   onOpenCreateItem: (category: string) => void;
   onOpenAddCat: () => void;
   onOpenPreview: () => void;
-  dailyPush: DailyPush | null;
-  onDailyPushUpdated: (p: DailyPush | null) => void;
+  dailyPushes: DailyPush[];
+  onDailyPushDelete: (id: string) => Promise<void>;
+  maxDailyPushes: number;
   dailyForm: DailyForm;
   setDailyForm: (f: DailyForm) => void;
   savingDaily: boolean;
   dailyError: string | null;
   onSaveDaily: () => Promise<void>;
+  lunchOffers: LunchOffer[];
+  onLunchOffersChange: (next: LunchOffer[]) => void;
   onToast: (msg: string) => void;
   guestNotiz: string;
   onGuestNotizChange: (v: string) => void;
@@ -215,13 +219,16 @@ export function KarteTab({
   onOpenCreateItem,
   onOpenAddCat,
   onOpenPreview,
-  dailyPush,
-  onDailyPushUpdated,
+  dailyPushes,
+  onDailyPushDelete,
+  maxDailyPushes,
   dailyForm,
   setDailyForm,
   savingDaily,
   dailyError,
   onSaveDaily,
+  lunchOffers,
+  onLunchOffersChange,
   onToast,
   guestNotiz,
   onGuestNotizChange,
@@ -248,8 +255,18 @@ export function KarteTab({
   const [swipeOpenItemId, setSwipeOpenItemId] = useState<string | null>(null);
   const itemTouchStartXRef = useRef<Record<string, number>>({});
 
-  const [specialName, setSpecialName] = useState("");
-  const [specialPrice, setSpecialPrice] = useState("");
+  type LunchForm = { time_from: string; time_to: string; weekdays: string[] };
+  const [lunchForm, setLunchForm] = useState<LunchForm>(() => {
+    const first = lunchOffers[0];
+    return first
+      ? {
+          time_from: (first.time_from ?? "11:30").slice(0, 5),
+          time_to: (first.time_to ?? "14:30").slice(0, 5),
+          weekdays: [...first.weekdays],
+        }
+      : { time_from: "11:30", time_to: "14:30", weekdays: ["mo", "di", "mi", "do", "fr"] };
+  });
+  const [lunchSelectId, setLunchSelectId] = useState("");
 
   const [portalReady, setPortalReady] = useState(false);
   const [deleteMenuConfirmOpen, setDeleteMenuConfirmOpen] = useState(false);
@@ -268,11 +285,17 @@ export function KarteTab({
   }, [activeSub]);
 
   useEffect(() => {
-    if (dailyPush) {
-      setSpecialName(dailyPush.item_name);
-      setSpecialPrice("");
-    }
-  }, [dailyPush]);
+    if (lunchOffers.length === 0) return;
+    const first = lunchOffers[0];
+    setLunchForm({
+      time_from: (first.time_from ?? "11:30").slice(0, 5),
+      time_to: (first.time_to ?? "14:30").slice(0, 5),
+      weekdays: [...first.weekdays],
+    });
+    // Wir initialisieren die Form aus dem ersten Eintrag, damit das Zeitfenster
+    // sich beim Öffnen des Tabs realistisch darstellt; weitere Änderungen
+    // gehen über applyLunchTimingToAll.
+  }, [lunchOffers]);
 
   const filteredMenuItems = useMemo(() => {
     if (activeMainTab === "alle") return menuItems;
@@ -694,43 +717,69 @@ export function KarteTab({
     }
   }
 
-  async function setSpecialFromForm() {
-    const name = specialName.trim();
-    const price = specialPrice.trim();
-    if (!name) {
-      onToast("Name für Special eingeben");
+  async function addLunchItem(itemId: string) {
+    const item = menuItems.find((m) => m.id === itemId);
+    if (!item) return;
+    const { data, error } = await supabase
+      .from("lunch_offers")
+      .insert({
+        restaurant_id: restaurantId,
+        item_id: itemId,
+        lunch_price: null,
+        time_from: lunchForm.time_from,
+        time_to: lunchForm.time_to,
+        weekdays: lunchForm.weekdays,
+        aktiv: true,
+      })
+      .select("id, restaurant_id, item_id, lunch_price, time_from, time_to, weekdays, aktiv, created_at")
+      .single();
+    if (error || !data) {
+      onToast(error?.message ?? "Mittagsangebot konnte nicht angelegt werden");
       return;
     }
-    const today = todayIsoDate();
+    onLunchOffersChange([...lunchOffers, data as LunchOffer]);
+    onToast(`✓ ${item.name} ins Mittagsangebot`);
+  }
+
+  async function removeLunchItem(id: string) {
+    const { error } = await supabase.from("lunch_offers").delete().eq("id", id);
+    if (error) {
+      onToast(error.message ?? "Konnte nicht entfernt werden");
+      return;
+    }
+    onLunchOffersChange(lunchOffers.filter((o) => o.id !== id));
+    onToast("✓ Aus Mittagsangebot entfernt");
+  }
+
+  async function patchLunchOffer(id: string, patch: Partial<LunchOffer>) {
     const { data, error } = await supabase
-      .from("daily_push")
-      .upsert(
-        {
-          restaurant_id: restaurantId,
-          active_date: today,
-          item_name: name,
-          item_desc: price || null,
-          item_emoji: "⭐",
-        },
-        { onConflict: "restaurant_id,active_date" },
-      )
-      .select("id, restaurant_id, active_date, item_emoji, item_name, item_desc")
+      .from("lunch_offers")
+      .update(patch)
+      .eq("id", id)
+      .select("id, restaurant_id, item_id, lunch_price, time_from, time_to, weekdays, aktiv, created_at")
       .single();
     if (error || !data) {
       onToast(error?.message ?? "Speichern fehlgeschlagen");
       return;
     }
-    onDailyPushUpdated(data as DailyPush);
-    onToast("✓ Tages-Special gesetzt");
+    const next = data as LunchOffer;
+    onLunchOffersChange(lunchOffers.map((o) => (o.id === id ? next : o)));
   }
 
-  async function removeSpecial() {
-    const today = todayIsoDate();
-    await supabase.from("daily_push").delete().eq("restaurant_id", restaurantId).eq("active_date", today);
-    onDailyPushUpdated(null);
-    setSpecialName("");
-    setSpecialPrice("");
-    onToast("Special entfernt");
+  async function applyLunchTimingToAll(time_from: string, time_to: string, weekdays: string[]) {
+    if (lunchOffers.length === 0) return;
+    const { error } = await supabase
+      .from("lunch_offers")
+      .update({ time_from, time_to, weekdays })
+      .eq("restaurant_id", restaurantId);
+    if (error) {
+      onToast(error.message ?? "Übernehmen fehlgeschlagen");
+      return;
+    }
+    onLunchOffersChange(
+      lunchOffers.map((o) => ({ ...o, time_from, time_to, weekdays })),
+    );
+    onToast("✓ Zeitfenster für alle übernommen");
   }
 
   function saveNotiz() {
@@ -801,6 +850,29 @@ export function KarteTab({
               ⭐
             </span>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Tages-Special</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSubChange("lunch")}
+            className="w-full transition active:scale-[0.99]"
+            style={{
+              backgroundColor: activeSub === "lunch" ? dash.ord : "rgba(255,212,38,0.08)",
+              border:
+                activeSub === "lunch"
+                  ? `1px solid ${dash.orm}`
+                  : "1px solid rgba(255,212,38,0.25)",
+              borderRadius: 14,
+              padding: "14px 16px",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              color: dash.tx,
+            }}
+          >
+            <span style={{ fontSize: 20 }} aria-hidden>
+              🍽️
+            </span>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>Mittagsangebot</span>
           </button>
           <button
             type="button"
@@ -1622,14 +1694,57 @@ export function KarteTab({
 
       {activeSub === "heute" && (
         <div className="px-0 pt-3.5 animate-in fade-in duration-200">
-          {!dailyPush ? (
+          {dailyPushes.length > 0 ? (
+            <div className="mb-3 flex flex-col gap-2">
+              {dailyPushes.map((dp) => (
+                <div
+                  key={dp.id}
+                  className="flex items-center justify-between rounded-2xl border px-4 py-4"
+                  style={{ backgroundColor: dash.ord, borderColor: dash.orm }}
+                >
+                  <div className="min-w-0">
+                    <div
+                      className="text-[10px] font-bold uppercase tracking-wider"
+                      style={{ color: dash.or }}
+                    >
+                      Aktiv heute
+                    </div>
+                    <div className="truncate text-[17px] font-extrabold">
+                      {dp.item_emoji} {dp.item_name}
+                    </div>
+                    {dp.item_desc && (
+                      <div className="mt-0.5 truncate text-xs" style={{ color: dash.mi }}>
+                        {dp.item_desc}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void onDailyPushDelete(dp.id)}
+                    className="ml-3 shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold"
+                    style={{
+                      backgroundColor: "rgba(255,75,110,0.12)",
+                      borderColor: "rgba(255,75,110,0.28)",
+                      color: dash.re,
+                    }}
+                  >
+                    Entfernen
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {dailyPushes.length < maxDailyPushes ? (
             <div
               className="rounded-[20px] border px-5 py-5"
               style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
             >
-              <div className="mb-0.5 text-base font-extrabold">Tages-Special</div>
+              <div className="mb-0.5 text-base font-extrabold">
+                Tages-Special hinzufügen
+              </div>
               <div className="mb-3.5 text-xs" style={{ color: dash.mu }}>
-                Wird oben in der Speisekarte angezeigt
+                Bis zu {maxDailyPushes} gleichzeitig — {dailyPushes.length}/{maxDailyPushes} aktiv
               </div>
               <div className="mb-2 flex gap-2">
                 <button
@@ -1723,64 +1838,207 @@ export function KarteTab({
                 className="w-full rounded-[10px] py-3.5 text-sm font-bold"
                 style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
               >
-                {savingDaily ? "Speichert …" : "Special setzen (Speisekarten-Flow)"}
-              </button>
-              <p className="mt-2 text-[10px]" style={{ color: dash.mu }}>
-                Oder kurz Name + Preis unten (Banner-Text).
-              </p>
-              <input
-                className="mt-2 w-full rounded-[11px] border px-3.5 py-3 text-sm outline-none"
-                style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
-                placeholder="Name (Kurzform)"
-                value={specialName}
-                onChange={(e) => setSpecialName(e.target.value)}
-              />
-              <input
-                className="mt-2 w-full rounded-[11px] border px-3.5 py-3 text-sm outline-none"
-                style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
-                placeholder="Preis (z. B. 38,50 €)"
-                value={specialPrice}
-                onChange={(e) => setSpecialPrice(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => void setSpecialFromForm()}
-                className="mt-2 w-full rounded-[10px] py-3 text-sm font-bold"
-                style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
-              >
-                Special setzen
+                {savingDaily ? "Speichert …" : "Special hinzufügen"}
               </button>
             </div>
           ) : (
-            <div
-              className="flex items-center justify-between rounded-2xl border px-4 py-4"
-              style={{ backgroundColor: dash.ord, borderColor: dash.orm }}
+            <p className="text-center text-xs" style={{ color: dash.mu }}>
+              Maximum {maxDailyPushes} Specials erreicht. Bestehendes entfernen, um ein neues hinzuzufügen.
+            </p>
+          )}
+        </div>
+      )}
+
+      {activeSub === "lunch" && (
+        <div className="px-0 pt-3.5 animate-in fade-in duration-200">
+          <div
+            className="mb-3 rounded-[20px] border px-5 py-5"
+            style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+          >
+            <div className="mb-0.5 text-base font-extrabold">Mittagsangebot</div>
+            <div className="mb-3.5 text-xs" style={{ color: dash.mu }}>
+              Zeitfenster + Wochentage gelten für alle Mittags-Items.
+            </div>
+            <div className="mb-3 flex items-center gap-2">
+              <input
+                type="time"
+                value={lunchForm.time_from}
+                onChange={(e) =>
+                  setLunchForm((f) => ({ ...f, time_from: e.target.value }))
+                }
+                className="rounded-[11px] border px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
+              />
+              <span className="text-xs" style={{ color: dash.mu }}>
+                bis
+              </span>
+              <input
+                type="time"
+                value={lunchForm.time_to}
+                onChange={(e) =>
+                  setLunchForm((f) => ({ ...f, time_to: e.target.value }))
+                }
+                className="rounded-[11px] border px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
+              />
+            </div>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {LUNCH_WEEKDAY_KEYS.map((d) => {
+                const active = lunchForm.weekdays.includes(d);
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() =>
+                      setLunchForm((f) => ({
+                        ...f,
+                        weekdays: active
+                          ? f.weekdays.filter((x) => x !== d)
+                          : [...f.weekdays, d],
+                      }))
+                    }
+                    className="rounded-full border px-3 py-1 text-xs font-medium uppercase"
+                    style={
+                      active
+                        ? {
+                            borderColor: dash.teal,
+                            backgroundColor: "rgba(0,200,160,0.15)",
+                            color: dash.teal,
+                          }
+                        : {
+                            borderColor: dash.bo,
+                            backgroundColor: dash.s2,
+                            color: dash.mu,
+                          }
+                    }
+                  >
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                void applyLunchTimingToAll(
+                  lunchForm.time_from,
+                  lunchForm.time_to,
+                  lunchForm.weekdays,
+                )
+              }
+              disabled={lunchOffers.length === 0}
+              className="w-full rounded-[10px] py-2.5 text-xs font-semibold disabled:opacity-50"
+              style={{
+                backgroundColor: dash.secondaryBg,
+                borderColor: dash.secondaryBorder,
+                color: dash.secondaryFg,
+                border: `1px solid ${dash.secondaryBorder}`,
+              }}
             >
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: dash.or }}>
-                  Aktiv heute
-                </div>
-                <div className="text-[17px] font-extrabold">
-                  {dailyPush.item_emoji} {dailyPush.item_name}
-                </div>
-                {dailyPush.item_desc && (
-                  <div className="mt-0.5 text-xs" style={{ color: dash.mi }}>
-                    {dailyPush.item_desc}
-                  </div>
-                )}
-              </div>
+              Zeitfenster auf alle Items übernehmen
+            </button>
+          </div>
+
+          <div
+            className="mb-3 rounded-[20px] border px-5 py-5"
+            style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+          >
+            <div className="mb-2 text-sm font-extrabold">Item hinzufügen</div>
+            <div className="flex gap-2">
+              <select
+                value={lunchSelectId}
+                onChange={(e) => setLunchSelectId(e.target.value)}
+                className="flex-1 rounded-[11px] border px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
+              >
+                <option value="">Aus Karte wählen …</option>
+                {menuItems
+                  .filter((m) => m.aktiv && !lunchOffers.some((o) => o.item_id === m.id))
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+              </select>
               <button
                 type="button"
-                onClick={() => void removeSpecial()}
-                className="rounded-lg border px-2.5 py-1.5 text-[11px] font-bold"
-                style={{
-                  backgroundColor: "rgba(0,200,160,0.15)",
-                  borderColor: dash.orm,
-                  color: dash.or,
+                onClick={() => {
+                  if (!lunchSelectId) return;
+                  const id = lunchSelectId;
+                  setLunchSelectId("");
+                  void addLunchItem(id);
                 }}
+                disabled={!lunchSelectId}
+                className="rounded-[10px] px-4 text-sm font-bold disabled:opacity-50"
+                style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
               >
-                Entfernen
+                + Hinzufügen
               </button>
+            </div>
+          </div>
+
+          {lunchOffers.length === 0 ? (
+            <p className="text-center text-xs" style={{ color: dash.mu }}>
+              Noch keine Items im Mittagsangebot.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {lunchOffers.map((o) => {
+                const item = menuItems.find((m) => m.id === o.item_id);
+                return (
+                  <div
+                    key={o.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+                    style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold">
+                        {item?.name ?? "(gelöschtes Gericht)"}
+                      </div>
+                      <div className="text-[11px]" style={{ color: dash.mu }}>
+                        regulärer Preis: {item ? `${item.preis.toFixed(2)} €` : "—"}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-[11px]" style={{ color: dash.mu }}>
+                          Mittagspreis (€)
+                        </span>
+                        <input
+                          type="number"
+                          step="0.10"
+                          min={0}
+                          value={o.lunch_price ?? ""}
+                          placeholder="optional"
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const v = raw === "" ? null : Number.parseFloat(raw);
+                            void patchLunchOffer(o.id, {
+                              lunch_price: v == null || Number.isNaN(v) ? null : v,
+                            });
+                          }}
+                          className="w-24 rounded-md border px-2 py-1 text-xs outline-none"
+                          style={{
+                            backgroundColor: dash.s2,
+                            borderColor: dash.bo,
+                            color: dash.tx,
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void removeLunchItem(o.id)}
+                      className="shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold"
+                      style={{
+                        backgroundColor: "rgba(255,75,110,0.12)",
+                        borderColor: "rgba(255,75,110,0.28)",
+                        color: dash.re,
+                      }}
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
