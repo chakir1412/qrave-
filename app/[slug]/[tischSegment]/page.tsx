@@ -136,6 +136,7 @@ export default async function TischSpeisekartePage({
     restaurantId: data.restaurant.id,
     tischNummer: tischNr,
     sponsoredItems,
+    guestNote: data.restaurant.guest_note ?? null,
   };
 
   const templateKey = (data.restaurant.template ?? "bar-soleil") as string;

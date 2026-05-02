@@ -43,6 +43,7 @@ export default async function SpeisekartePage({
     dailyPush: data.dailyPush,
     restaurantId: data.restaurant.id,
     sponsoredItems,
+    guestNote: data.restaurant.guest_note ?? null,
   };
 
   const templateKey = (data.restaurant.template ?? "bar-soleil") as string;

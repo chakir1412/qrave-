@@ -192,7 +192,11 @@ export function AllergenSheet({
     <div className="fixed inset-0 z-[600] flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-[480px] bg-white rounded-t-3xl p-5 pb-10 border border-[#e8e4dc] border-b-0 animate-[slideUp_0.28s_ease]" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-serif text-[1.45rem] font-normal mb-0.5">Allergene filtern</h3>
-        <p className="text-[0.76rem] text-[#9a948a] mb-4 leading-snug">Gerichte mit diesen Zutaten werden ausgeblendet.</p>
+        <p className="text-[0.76rem] text-[#9a948a] mb-3 leading-snug">Gerichte mit diesen Zutaten werden ausgeblendet.</p>
+        <div className="mb-4 flex items-start gap-2 rounded-xl bg-[#fff7ed] p-3 text-[0.74rem] leading-snug text-[#9a4d18]" role="note">
+          <span aria-hidden>⚠️</span>
+          <span>Bitte informieren Sie zusätzlich unser Service-Team über Ihre Allergien.</span>
+        </div>
         <div className="flex flex-wrap gap-2 mb-5">
           {ALLERGEN_IDS.map((id) => (
             <button

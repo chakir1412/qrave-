@@ -18,6 +18,7 @@ import MenuGrid, { type Section } from "./MenuGrid";
 import ItemModal from "./ItemModal";
 import Wishlist from "./Wishlist";
 import { DailyPushBanner, DailyPushPopup } from "./DailyPush";
+import GuestNoteBanner from "./GuestNoteBanner";
 import type { FilterKey } from "./constants";
 import { useSpeisekarteTier1Tracking } from "./useSpeisekarteTier1Tracking";
 
@@ -34,6 +35,8 @@ export type SpeisekarteProps = {
   tischNummer?: number;
   /** Gesponserte Partner-Items (lib/speisekarte-logic) */
   sponsoredItems?: SponsoredItem[];
+  /** Frei-Text-Hinweis für Gäste (z. B. „Heute extra-lange Wartezeiten"). */
+  guestNote?: string | null;
 };
 
 export default function Speisekarte({
@@ -45,12 +48,21 @@ export default function Speisekarte({
   restaurantId,
   tischNummer,
   sponsoredItems = [],
+  guestNote = null,
 }: SpeisekarteProps) {
   const [lang, setLang] = useState<"de" | "en">("de");
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
-  const [modalItem, setModalItem] = useState<MenuItem | null>(null);
+  /** Modal-Stack: oben = aktuelles Modal. Beim Schließen pop, sodass das vorherige Item wieder sichtbar ist. */
+  const [modalStack, setModalStack] = useState<MenuItem[]>([]);
+  const modalItem = modalStack[modalStack.length - 1] ?? null;
+  const pushModal = useCallback((item: MenuItem) => {
+    setModalStack((prev) => [...prev, item]);
+  }, []);
+  const popModal = useCallback(() => {
+    setModalStack((prev) => prev.slice(0, -1));
+  }, []);
   const [allergenOpen, setAllergenOpen] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
   const {
@@ -224,6 +236,12 @@ export default function Speisekarte({
         </div>
       </header>
 
+      {guestNote && guestNote.trim() ? (
+        <div className="max-w-[880px] mx-auto px-[22px] pt-4">
+          <GuestNoteBanner note={guestNote} />
+        </div>
+      ) : null}
+
       <main className="max-w-[880px] mx-auto px-[22px] pt-7 pb-28">
         <MenuGrid
           showHighlightSlider={showHighlightSlider}
@@ -231,7 +249,7 @@ export default function Speisekarte({
           onAddToCart={handleAddToWishlist}
           visibleSections={visibleSections}
           filterItems={filterItems}
-          onItemClick={setModalItem}
+          onItemClick={pushModal}
           activeAllergens={activeAllergens}
           isInWishlist={isInWishlist}
           onCategorySectionRef={onCategorySectionRef}
@@ -249,8 +267,9 @@ export default function Speisekarte({
           menuItems={menuItems}
           sponsoredItems={sponsoredItems}
           restaurantId={restaurantId}
-          onClose={() => setModalItem(null)}
-          onSelectItem={setModalItem}
+          onClose={popModal}
+          onSelectItem={pushModal}
+          onAddToWishlist={handleAddToWishlist}
           isInWishlist={isInWishlist}
           onToggleWishlist={handleToggleWishlist}
           theme="light"

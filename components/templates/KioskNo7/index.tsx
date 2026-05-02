@@ -9,6 +9,7 @@ import ConsentBanner from "@/components/ConsentBanner";
 import ItemModal from "@/components/speisekarte/ItemModal";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { DailyPushBanner, DailyPushPopup } from "@/components/speisekarte/DailyPush";
+import GuestNoteBanner from "@/components/speisekarte/GuestNoteBanner";
 import type { MenuItem } from "@/lib/supabase";
 import { getItemEmoji, getDisplayPrice } from "@/components/speisekarte/utils";
 import { BADGE_LABELS, BADGE_STYLES, type FilterKey } from "@/components/speisekarte/constants";
@@ -68,12 +69,20 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     restaurantId,
     tischNummer,
     sponsoredItems = [],
+    guestNote = null,
   } = props;
 
   const ACCENT = (accentColor ?? "#FFD600").trim() || "#FFD600";
 
   const [activeTab, setActiveTab] = useState<string>(CATEGORY_TAB_ALLE_KEY);
-  const [modalItem, setModalItem] = useState<MenuItem | null>(null);
+  const [modalStack, setModalStack] = useState<MenuItem[]>([]);
+  const modalItem = modalStack[modalStack.length - 1] ?? null;
+  const pushModal = useCallback((it: MenuItem) => {
+    setModalStack((prev) => [...prev, it]);
+  }, []);
+  const popModal = useCallback(() => {
+    setModalStack((prev) => prev.slice(0, -1));
+  }, []);
   const [consentGiven, setConsentGiven] = useState(false);
 
   const {
@@ -310,6 +319,12 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
         </div>
       </div>
 
+      {guestNote && guestNote.trim() ? (
+        <div className="px-4 mt-2">
+          <GuestNoteBanner note={guestNote} theme="dark" />
+        </div>
+      ) : null}
+
       {/* Special bar – Daily Push */}
       {dailyPush && (
         <div className="px-4 mt-2">
@@ -389,7 +404,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                     return (
                       <div
                         key={item.id}
-                        onClick={() => setModalItem(item)}
+                        onClick={() => pushModal(item)}
                         style={{
                           backgroundColor: KIOSK_COLORS.card,
                           borderRadius: 16,
@@ -477,7 +492,7 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                         border: `1px solid ${KIOSK_COLORS.border}`,
                         cursor: "pointer",
                       }}
-                      onClick={() => setModalItem(item)}
+                      onClick={() => pushModal(item)}
                     >
                       <div
                         style={{ fontSize: 26, width: 36, textAlign: "center", flexShrink: 0 }}
@@ -682,8 +697,9 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
           menuItems={menuItems}
           sponsoredItems={sponsoredItems}
           restaurantId={restaurantId}
-          onClose={() => setModalItem(null)}
-          onSelectItem={setModalItem}
+          onClose={popModal}
+          onSelectItem={pushModal}
+          onAddToWishlist={handleAddToWishlist}
           isInWishlist={isInWishlist}
           onToggleWishlist={handleToggleWishlist}
           theme="bar-soleil"

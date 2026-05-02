@@ -11,7 +11,7 @@ import {
 import { emojiGradient } from "@/lib/emojiGradient";
 import { getItemEmoji, getDisplayPrice } from "./utils";
 
-const JUST_ADDED_DURATION_MS = 1500;
+const JUST_ADDED_DURATION_MS = 300;
 
 export type ItemModalProps = {
   item: MenuItem;
@@ -23,6 +23,8 @@ export type ItemModalProps = {
   onSelectItem: (item: MenuItem) => void;
   isInWishlist: (id: string) => boolean;
   onToggleWishlist: (item: MenuItem) => void;
+  /** Direkt-Add (mit Menge) — wenn nicht gesetzt, wird onToggleWishlist als Fallback genutzt. */
+  onAddToWishlist?: (item: MenuItem, qty: number) => void;
   theme?: string;
 };
 
@@ -247,10 +249,16 @@ export default function ItemModal({
   onSelectItem,
   isInWishlist,
   onToggleWishlist,
+  onAddToWishlist,
 }: ItemModalProps) {
   const [justAdded, setJustAdded] = useState(false);
+  const [qty, setQty] = useState(1);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const inList = isInWishlist(item.id);
+
+  useEffect(() => {
+    setQty(1);
+    setJustAdded(false);
+  }, [item.id]);
 
   useEffect(() => {
     return () => {
@@ -259,17 +267,21 @@ export default function ItemModal({
     };
   }, []);
 
-  const handleMainToggle = () => {
-    const wasIn = isInWishlist(item.id);
-    onToggleWishlist(item);
-    if (!wasIn) {
-      setJustAdded(true);
-      const t = setTimeout(() => {
-        setJustAdded(false);
-      }, JUST_ADDED_DURATION_MS);
-      timeoutsRef.current.push(t);
+  const handleAdd = () => {
+    if (onAddToWishlist) {
+      onAddToWishlist(item, qty);
+    } else if (!isInWishlist(item.id)) {
+      onToggleWishlist(item);
     }
+    setJustAdded(true);
+    const t = setTimeout(() => {
+      setJustAdded(false);
+    }, JUST_ADDED_DURATION_MS);
+    timeoutsRef.current.push(t);
   };
+
+  const decQty = () => setQty((q) => Math.max(1, q - 1));
+  const incQty = () => setQty((q) => Math.min(99, q + 1));
 
   const zutatenText = useMemo(() => safeZutatenDisplay(item.zutaten), [item.zutaten]);
 
@@ -563,6 +575,31 @@ export default function ItemModal({
                 background: "rgba(255,255,255,0.03)",
               }}
             >
+              {item.allergens_text && item.allergens_text.trim() ? (
+                <>
+                  <div
+                    style={{
+                      fontSize: 9,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      color: "rgba(255,255,255,0.45)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Allergene & Zutaten
+                  </div>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                      color: "rgba(255,255,255,0.7)",
+                      margin: "0 0 8px",
+                    }}
+                  >
+                    {item.allergens_text}
+                  </p>
+                </>
+              ) : null}
               <p
                 style={{
                   fontSize: 11,
@@ -574,7 +611,7 @@ export default function ItemModal({
                 <span aria-hidden className="mr-1.5 inline-block">
                   ⚠️
                 </span>
-                Zu Allergenen informiert Sie gerne unser Service-Team.
+                Bitte informieren Sie zusätzlich unser Service-Team über Ihre Allergien.
               </p>
             </div>
 
@@ -710,14 +747,64 @@ export default function ItemModal({
             className="sticky bottom-0 z-[2] shrink-0"
             style={{
               background: MODAL_BG,
-              padding: "16px 20px",
-              paddingTop: 24,
+              padding: "12px 20px 16px",
               borderTop: "1px solid rgba(255,255,255,0.06)",
             }}
           >
+            <div
+              className="mb-3 flex items-center justify-between gap-3 rounded-[14px] px-3 py-2"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              <span
+                className="text-[12px] uppercase tracking-wider"
+                style={{ color: "rgba(255,255,255,0.45)", letterSpacing: "0.08em" }}
+              >
+                Menge
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={decQty}
+                  disabled={qty <= 1}
+                  aria-label="Menge verringern"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold transition active:scale-95 disabled:opacity-40"
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    color: "#fff",
+                    border: "none",
+                  }}
+                >
+                  −
+                </button>
+                <span
+                  className="min-w-[1.5rem] text-center text-[15px] font-semibold"
+                  style={{ color: "#fff" }}
+                  aria-live="polite"
+                >
+                  {qty}
+                </span>
+                <button
+                  type="button"
+                  onClick={incQty}
+                  disabled={qty >= 99}
+                  aria-label="Menge erhöhen"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold transition active:scale-95 disabled:opacity-40"
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    color: "#fff",
+                    border: "none",
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            </div>
             <button
               type="button"
-              onClick={handleMainToggle}
+              onClick={handleAdd}
               className="w-full font-semibold"
               style={{
                 height: 52,
@@ -726,24 +813,22 @@ export default function ItemModal({
                 fontWeight: 600,
                 border: "none",
                 cursor: "pointer",
-                ...(justAdded || inList
+                ...(justAdded
                   ? {
-                      backgroundColor: "rgba(0,200,160,0.35)",
-                      color: "#000",
+                      backgroundColor: "#22c55e",
+                      color: "#fff",
                     }
                   : {
                       background: "#00c8a0",
                       color: "#000",
                     }),
-                transition: "background-color 0.3s ease, color 0.3s ease",
+                transition: "background-color 0.2s ease, color 0.2s ease",
               }}
             >
-              <span aria-hidden>{inList ? "♥ " : "♡ "}</span>
-              {justAdded
-                ? "Gemerkt"
-                : inList
-                  ? "In der Merkliste"
-                  : "Zur Merkliste"}
+              <span aria-hidden className="mr-1.5">
+                {justAdded ? "✓" : "♡"}
+              </span>
+              {justAdded ? "Hinzugefügt" : "Zur Merkliste"}
             </button>
             <p
               className="mt-2.5 text-center leading-snug"

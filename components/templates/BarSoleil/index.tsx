@@ -11,6 +11,7 @@ import MenuGrid, { type Section } from "@/components/speisekarte/MenuGrid";
 import ItemModal from "@/components/speisekarte/ItemModal";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { DailyPushBanner, DailyPushPopup } from "@/components/speisekarte/DailyPush";
+import GuestNoteBanner from "@/components/speisekarte/GuestNoteBanner";
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
 import {
@@ -65,13 +66,21 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
     restaurantId,
     tischNummer,
     sponsoredItems = [],
+    guestNote = null,
   } = props;
 
   const [lang, setLang] = useState<"de" | "en">("de");
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
-  const [modalItem, setModalItem] = useState<MenuItem | null>(null);
+  const [modalStack, setModalStack] = useState<MenuItem[]>([]);
+  const modalItem = modalStack[modalStack.length - 1] ?? null;
+  const pushModal = useCallback((it: MenuItem) => {
+    setModalStack((prev) => [...prev, it]);
+  }, []);
+  const popModal = useCallback(() => {
+    setModalStack((prev) => prev.slice(0, -1));
+  }, []);
   const [allergenOpen, setAllergenOpen] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
 
@@ -297,6 +306,12 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
         </div>
       </header>
 
+      {guestNote && guestNote.trim() ? (
+        <div className="max-w-[880px] mx-auto px-4 mt-4">
+          <GuestNoteBanner note={guestNote} theme="dark" />
+        </div>
+      ) : null}
+
       {/* Special bar / Daily Push – unterhalb des Headers mit Abstand, nicht abgeschnitten */}
       {dailyPush && (
         <div className="max-w-[880px] mx-auto px-4 mt-4 mb-3">
@@ -336,7 +351,7 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
           onAddToCart={handleAddToWishlist}
           visibleSections={visibleSections}
           filterItems={filterItems}
-          onItemClick={setModalItem}
+          onItemClick={pushModal}
           activeAllergens={activeAllergens}
           bannerSlot={null}
           isInWishlist={isInWishlist}
@@ -351,8 +366,9 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
           menuItems={menuItems}
           sponsoredItems={sponsoredItems}
           restaurantId={restaurantId}
-          onClose={() => setModalItem(null)}
-          onSelectItem={setModalItem}
+          onClose={popModal}
+          onSelectItem={pushModal}
+          onAddToWishlist={handleAddToWishlist}
           isInWishlist={isInWishlist}
           onToggleWishlist={handleToggleWishlist}
           theme="bar-soleil"
