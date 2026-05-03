@@ -17,9 +17,10 @@ import FilterBar, { AllergenSheet, type MainTabItem } from "./FilterBar";
 import MenuGrid, { type Section } from "./MenuGrid";
 import ItemModal from "./ItemModal";
 import Wishlist from "./Wishlist";
-import { DailyPushBanner, DailyPushPopup } from "./DailyPush";
+import { DailyPushBanner, DailyPushPopup, dailyPushToMenuItem } from "./DailyPush";
 import GuestNoteBanner from "./GuestNoteBanner";
 import LunchSection from "./LunchSection";
+import { activeLunchOffers } from "@/lib/lunch";
 import type { FilterKey } from "./constants";
 import { useSpeisekarteTier1Tracking } from "./useSpeisekarteTier1Tracking";
 
@@ -86,9 +87,20 @@ export default function Speisekarte({
   } = useWishlist();
   const {
     open: dailyPopupOpen,
-    openPopup: openDailyPopup,
     closePopup: closeDailyPopup,
   } = useDailyPush(primaryDailyPush, consentGiven);
+
+  const openDailyPushItem = useCallback(
+    (dp: DailyPush) => {
+      const matched =
+        menuItems.find((m) => m.name.trim().toLowerCase() === dp.item_name.trim().toLowerCase()) ??
+        menuItems.find((m) =>
+          m.name.trim().toLowerCase().includes(dp.item_name.trim().toLowerCase()),
+        );
+      pushModal(matched ?? dailyPushToMenuItem(dp));
+    },
+    [menuItems, pushModal],
+  );
   const { track } = useAnalytics();
 
   useEffect(() => {
@@ -108,7 +120,24 @@ export default function Speisekarte({
     return undefined;
   }, [track, restaurantName, dailyPushes.length, menuItems.length]);
 
-  const mainTabs: MainTabItem[] = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
+  // Initial false (SSR-konsistent); useEffect setzt nach Mount den echten
+  // Zustand, Wechsel werden im 60s-Interval geprüft.
+  const [hasActiveLunch, setHasActiveLunch] = useState(false);
+  useEffect(() => {
+    const update = () => setHasActiveLunch(activeLunchOffers(lunchOffers).length > 0);
+    update();
+    const t = window.setInterval(update, 60_000);
+    return () => window.clearInterval(t);
+  }, [lunchOffers]);
+
+  const LUNCH_TAB_KEY = "lunch";
+  const mainTabs: MainTabItem[] = useMemo(() => {
+    const derived = deriveCategoryTabsFromItems(menuItems);
+    if (hasActiveLunch) {
+      return [{ key: LUNCH_TAB_KEY, label: "🍽️ Mittagsangebot" }, ...derived];
+    }
+    return derived;
+  }, [menuItems, hasActiveLunch]);
 
   const mainTab = useMemo(() => {
     if (pickedMainTab && mainTabs.some((t) => t.key === pickedMainTab)) return pickedMainTab;
@@ -116,14 +145,18 @@ export default function Speisekarte({
   }, [pickedMainTab, mainTabs]);
 
   const effectiveMainTab = useMemo(() => {
+    if (mainTab === LUNCH_TAB_KEY && hasActiveLunch) return LUNCH_TAB_KEY;
     const firstKey = mainTabs[0]?.key ?? CATEGORY_TAB_ALLE_KEY;
     const sections = buildSectionsForCategoryTab(mainTab, menuItems);
     if (sections.length > 0) return mainTab;
     return firstKey;
-  }, [mainTab, mainTabs, menuItems]);
+  }, [mainTab, mainTabs, menuItems, hasActiveLunch]);
 
   const currentSections = useMemo(
-    () => buildSectionsForCategoryTab(effectiveMainTab, menuItems),
+    () =>
+      effectiveMainTab === LUNCH_TAB_KEY
+        ? []
+        : buildSectionsForCategoryTab(effectiveMainTab, menuItems),
     [menuItems, effectiveMainTab],
   );
 
@@ -249,31 +282,38 @@ export default function Speisekarte({
       ) : null}
 
       <main className="max-w-[880px] mx-auto px-[22px] pt-7 pb-28">
-        <LunchSection
-          offers={lunchOffers}
-          menuItems={menuItems}
-          onItemClick={pushModal}
-        />
-        <MenuGrid
-          showHighlightSlider={showHighlightSlider}
-          highlights={highlights}
-          onAddToCart={handleAddToWishlist}
-          visibleSections={visibleSections}
-          filterItems={filterItems}
-          onItemClick={pushModal}
-          activeAllergens={activeAllergens}
-          isInWishlist={isInWishlist}
-          onCategorySectionRef={onCategorySectionRef}
-          bannerSlot={
-            dailyPushes.length > 0 && effectiveMainTab === CATEGORY_TAB_ALLE_KEY ? (
-              <div className="mb-3 flex flex-col gap-2">
-                {dailyPushes.map((dp) => (
-                  <DailyPushBanner key={dp.id} dailyPush={dp} onOpenPopup={openDailyPopup} />
-                ))}
-              </div>
-            ) : null
-          }
-        />
+        {effectiveMainTab === LUNCH_TAB_KEY ? (
+          <LunchSection
+            offers={lunchOffers}
+            menuItems={menuItems}
+            onItemClick={pushModal}
+          />
+        ) : (
+          <MenuGrid
+            showHighlightSlider={showHighlightSlider}
+            highlights={highlights}
+            onAddToCart={handleAddToWishlist}
+            visibleSections={visibleSections}
+            filterItems={filterItems}
+            onItemClick={pushModal}
+            activeAllergens={activeAllergens}
+            isInWishlist={isInWishlist}
+            onCategorySectionRef={onCategorySectionRef}
+            bannerSlot={
+              dailyPushes.length > 0 && effectiveMainTab === CATEGORY_TAB_ALLE_KEY ? (
+                <div className="mb-3 flex flex-col gap-2">
+                  {dailyPushes.map((dp) => (
+                    <DailyPushBanner
+                      key={dp.id}
+                      dailyPush={dp}
+                      onOpenPopup={() => openDailyPushItem(dp)}
+                    />
+                  ))}
+                </div>
+              ) : null
+            }
+          />
+        )}
       </main>
 
       {modalItem && (

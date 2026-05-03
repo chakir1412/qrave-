@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SpeisekarteProps } from "@/components/speisekarte";
 import { useWishlist } from "@/components/shared/useWishlist";
 import { useDailyPush } from "@/components/shared/useDailyPush";
@@ -8,9 +8,10 @@ import { useAnalytics } from "@/components/shared/useAnalytics";
 import ConsentBanner from "@/components/ConsentBanner";
 import ItemModal from "@/components/speisekarte/ItemModal";
 import Wishlist from "@/components/speisekarte/Wishlist";
-import { DailyPushBanner, DailyPushPopup } from "@/components/speisekarte/DailyPush";
+import { DailyPushBanner, DailyPushPopup, dailyPushToMenuItem } from "@/components/speisekarte/DailyPush";
 import GuestNoteBanner from "@/components/speisekarte/GuestNoteBanner";
 import LunchSection from "@/components/speisekarte/LunchSection";
+import { activeLunchOffers } from "@/lib/lunch";
 import type { MenuItem } from "@/lib/supabase";
 import { getItemEmoji, getDisplayPrice } from "@/components/speisekarte/utils";
 import { BADGE_LABELS, BADGE_STYLES, type FilterKey } from "@/components/speisekarte/constants";
@@ -29,10 +30,12 @@ type Section = { kategorie: string; subtitle: string | null; items: MenuItem[] }
 
 const KIOSK_ORDER = "__kiosk_order__";
 const KIOSK_INFO = "__kiosk_info__";
+const KIOSK_LUNCH = "__kiosk_lunch__";
 
 function kioskTabTrackingLabel(tab: string): string {
   if (tab === KIOSK_ORDER) return "Bestellung";
   if (tab === KIOSK_INFO) return "Info";
+  if (tab === KIOSK_LUNCH) return "Mittagsangebot";
   return categoryTabLabel(tab);
 }
 
@@ -126,17 +129,41 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
     return undefined;
   }, [track, restaurantName, dailyPushes.length, menuItems.length]);
 
+  const [hasActiveLunch, setHasActiveLunch] = useState(false);
+  useEffect(() => {
+    const update = () => setHasActiveLunch(activeLunchOffers(lunchOffers).length > 0);
+    update();
+    const t = window.setInterval(update, 60_000);
+    return () => window.clearInterval(t);
+  }, [lunchOffers]);
+
   const allTabs: MainTabDef[] = useMemo(() => {
     const cats = deriveCategoryTabsFromItems(menuItems);
+    const base: MainTabDef[] = [...cats];
+    if (hasActiveLunch) {
+      base.unshift({ key: KIOSK_LUNCH, label: "🍽️ Mittagsangebot" });
+    }
     return [
-      ...cats,
+      ...base,
       { key: KIOSK_ORDER, label: "🛒 Bestellung" },
       { key: KIOSK_INFO, label: "📍 Info" },
     ];
-  }, [menuItems]);
+  }, [menuItems, hasActiveLunch]);
+
+  // Wenn Lunch aktiv ist und der User noch keinen Tab manuell gewählt hat,
+  // springt der Default automatisch auf den Lunch-Tab. Selektion bleibt
+  // bestehen, sobald der User auf einen anderen Tab klickt.
+  const initialTabSyncRef = useRef(false);
+  useEffect(() => {
+    if (initialTabSyncRef.current) return;
+    if (hasActiveLunch) {
+      setActiveTab(KIOSK_LUNCH);
+      initialTabSyncRef.current = true;
+    }
+  }, [hasActiveLunch]);
 
   const currentSections: Section[] = useMemo(() => {
-    if (activeTab === KIOSK_ORDER || activeTab === KIOSK_INFO) return [];
+    if (activeTab === KIOSK_ORDER || activeTab === KIOSK_INFO || activeTab === KIOSK_LUNCH) return [];
     return buildSectionsForCategoryTab(activeTab, menuItems);
   }, [activeTab, menuItems]);
 
@@ -194,7 +221,8 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
 
   const { main: heroMain, accent: heroAccent } = splitNameForHero(restaurantName || "KIOSK No. 7");
 
-  const showMenu = activeTab !== KIOSK_ORDER && activeTab !== KIOSK_INFO;
+  const showLunch = activeTab === KIOSK_LUNCH;
+  const showMenu = activeTab !== KIOSK_ORDER && activeTab !== KIOSK_INFO && !showLunch;
   const showOrder = activeTab === KIOSK_ORDER;
   const showInfo = activeTab === KIOSK_INFO;
 
@@ -332,7 +360,20 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
       {dailyPushes.length > 0 && (
         <div className="px-4 mt-2 flex flex-col gap-2">
           {dailyPushes.map((dp) => (
-            <DailyPushBanner key={dp.id} dailyPush={dp} onOpenPopup={openDailyPopup} />
+            <DailyPushBanner
+              key={dp.id}
+              dailyPush={dp}
+              onOpenPopup={() => {
+                const matched =
+                  menuItems.find(
+                    (m) => m.name.trim().toLowerCase() === dp.item_name.trim().toLowerCase(),
+                  ) ??
+                  menuItems.find((m) =>
+                    m.name.trim().toLowerCase().includes(dp.item_name.trim().toLowerCase()),
+                  );
+                pushModal(matched ?? dailyPushToMenuItem(dp));
+              }}
+            />
           ))}
         </div>
       )}
@@ -368,12 +409,14 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
 
       {/* Content */}
       <main className="px-4 pt-2 pb-28">
-        <LunchSection
-          offers={lunchOffers}
-          menuItems={menuItems}
-          onItemClick={pushModal}
-          theme="dark"
-        />
+        {showLunch && (
+          <LunchSection
+            offers={lunchOffers}
+            menuItems={menuItems}
+            onItemClick={pushModal}
+            theme="dark"
+          />
+        )}
         {showMenu && (
           <div>
             {currentSections.map((sec) => (

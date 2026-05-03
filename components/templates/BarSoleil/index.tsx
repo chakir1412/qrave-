@@ -10,9 +10,10 @@ import FilterBar, { AllergenSheet, type MainTabItem } from "@/components/speisek
 import MenuGrid, { type Section } from "@/components/speisekarte/MenuGrid";
 import ItemModal from "@/components/speisekarte/ItemModal";
 import Wishlist from "@/components/speisekarte/Wishlist";
-import { DailyPushBanner, DailyPushPopup } from "@/components/speisekarte/DailyPush";
+import { DailyPushBanner, DailyPushPopup, dailyPushToMenuItem } from "@/components/speisekarte/DailyPush";
 import GuestNoteBanner from "@/components/speisekarte/GuestNoteBanner";
 import LunchSection from "@/components/speisekarte/LunchSection";
+import { activeLunchOffers } from "@/lib/lunch";
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
 import {
@@ -126,7 +127,22 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
     return undefined;
   }, [track, restaurantName, dailyPushes.length, menuItems.length, categories.length]);
 
-  const mainTabs: MainTabItem[] = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
+  const LUNCH_TAB_KEY = "lunch";
+  const [hasActiveLunch, setHasActiveLunch] = useState(false);
+  useEffect(() => {
+    const update = () => setHasActiveLunch(activeLunchOffers(lunchOffers).length > 0);
+    update();
+    const t = window.setInterval(update, 60_000);
+    return () => window.clearInterval(t);
+  }, [lunchOffers]);
+
+  const mainTabs: MainTabItem[] = useMemo(() => {
+    const derived = deriveCategoryTabsFromItems(menuItems);
+    if (hasActiveLunch) {
+      return [{ key: LUNCH_TAB_KEY, label: "🍽️ Mittagsangebot" }, ...derived];
+    }
+    return derived;
+  }, [menuItems, hasActiveLunch]);
 
   const mainTab = useMemo(() => {
     if (pickedMainTab && mainTabs.some((t) => t.key === pickedMainTab)) return pickedMainTab;
@@ -134,14 +150,18 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
   }, [pickedMainTab, mainTabs]);
 
   const effectiveMainTab = useMemo(() => {
+    if (mainTab === LUNCH_TAB_KEY && hasActiveLunch) return LUNCH_TAB_KEY;
     const firstKey = mainTabs[0]?.key ?? CATEGORY_TAB_ALLE_KEY;
     const sections = buildSectionsForCategoryTab(mainTab, menuItems);
     if (sections.length > 0) return mainTab;
     return firstKey;
-  }, [mainTab, mainTabs, menuItems]);
+  }, [mainTab, mainTabs, menuItems, hasActiveLunch]);
 
   const currentSections = useMemo(
-    () => buildSectionsForCategoryTab(effectiveMainTab, menuItems),
+    () =>
+      effectiveMainTab === LUNCH_TAB_KEY
+        ? []
+        : buildSectionsForCategoryTab(effectiveMainTab, menuItems),
     [menuItems, effectiveMainTab],
   );
 
@@ -319,7 +339,20 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
       {dailyPushes.length > 0 && (
         <div className="max-w-[880px] mx-auto px-4 mt-4 mb-3 flex flex-col gap-2">
           {dailyPushes.map((dp) => (
-            <DailyPushBanner key={dp.id} dailyPush={dp} onOpenPopup={openDailyPopup} />
+            <DailyPushBanner
+              key={dp.id}
+              dailyPush={dp}
+              onOpenPopup={() => {
+                const matched =
+                  menuItems.find(
+                    (m) => m.name.trim().toLowerCase() === dp.item_name.trim().toLowerCase(),
+                  ) ??
+                  menuItems.find((m) =>
+                    m.name.trim().toLowerCase().includes(dp.item_name.trim().toLowerCase()),
+                  );
+                pushModal(matched ?? dailyPushToMenuItem(dp));
+              }}
+            />
           ))}
         </div>
       )}
@@ -349,25 +382,28 @@ export default function BarSoleilTemplate(props: SpeisekarteProps) {
 
       {/* Content – MenuGrid mit Bar-Soleil-Farben (--text, --copper, --card) */}
       <main className="max-w-[880px] mx-auto px-4 pt-6 pb-28" style={{ backgroundColor: "#0F0D0A" }}>
-        <LunchSection
-          offers={lunchOffers}
-          menuItems={menuItems}
-          onItemClick={pushModal}
-          theme="dark"
-        />
-        <MenuGrid
-          theme="bar-soleil"
-          showHighlightSlider={showHighlightSlider}
-          highlights={highlights}
-          onAddToCart={handleAddToWishlist}
-          visibleSections={visibleSections}
-          filterItems={filterItems}
-          onItemClick={pushModal}
-          activeAllergens={activeAllergens}
-          bannerSlot={null}
-          isInWishlist={isInWishlist}
-          onCategorySectionRef={onCategorySectionRef}
-        />
+        {effectiveMainTab === LUNCH_TAB_KEY ? (
+          <LunchSection
+            offers={lunchOffers}
+            menuItems={menuItems}
+            onItemClick={pushModal}
+            theme="dark"
+          />
+        ) : (
+          <MenuGrid
+            theme="bar-soleil"
+            showHighlightSlider={showHighlightSlider}
+            highlights={highlights}
+            onAddToCart={handleAddToWishlist}
+            visibleSections={visibleSections}
+            filterItems={filterItems}
+            onItemClick={pushModal}
+            activeAllergens={activeAllergens}
+            bannerSlot={null}
+            isInWishlist={isInWishlist}
+            onCategorySectionRef={onCategorySectionRef}
+          />
+        )}
       </main>
 
       {/* Item Modal */}
