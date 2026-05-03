@@ -268,22 +268,17 @@ export default function WirtshausItemModal({
               ✕
             </button>
           </div>
-        ) : (
-          <div
-            className="flex shrink-0 items-center justify-between px-5 pt-4"
-            style={{ paddingBottom: 0 }}
-          >
-            <span
-              className="text-[0.62rem] font-semibold uppercase tracking-[0.18em]"
-              style={{ color: COL.accent }}
-            >
-              Speisekarte
-            </span>
+        ) : null}
+
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+          {!hasImage ? (
             <button
               type="button"
               onClick={onClose}
-              className="flex items-center justify-center"
+              className="absolute z-[1] flex items-center justify-center"
               style={{
+                top: 14,
+                right: 14,
                 width: 34,
                 height: 34,
                 borderRadius: "50%",
@@ -296,13 +291,13 @@ export default function WirtshausItemModal({
             >
               ✕
             </button>
-          </div>
-        )}
-
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          ) : null}
           <div
             className="min-h-0 flex-1 overflow-y-auto"
-            style={{ padding: "20px 22px 32px" }}
+            style={{
+              padding: hasImage ? "20px 22px 32px" : "20px 22px 32px",
+              paddingTop: hasImage ? 20 : 56,
+            }}
           >
             {tagPills.length > 0 ? (
               <div className="mb-3 flex flex-wrap" style={{ gap: 6 }}>
@@ -616,47 +611,40 @@ export default function WirtshausItemModal({
             className="sticky bottom-0 z-[2] shrink-0"
             style={{
               background: COL.bg,
-              padding: "14px 22px 18px",
+              padding: "10px 22px 14px",
               borderTop: `1px solid ${COL.divider}`,
             }}
           >
-            <div
-              className="mb-3 flex items-center justify-between gap-3 rounded-[14px] px-3 py-2"
-              style={{
-                background: COL.cream,
-                border: `1px solid ${COL.divider}`,
-              }}
-            >
-              <span
+            <div className="flex items-center gap-2" style={{ height: 48 }}>
+              <div
+                className="flex shrink-0 items-center"
                 style={{
-                  fontSize: 11,
-                  color: COL.textMuted,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
+                  height: 48,
+                  borderRadius: 12,
+                  border: `1px solid ${COL.divider}`,
+                  background: COL.cream,
+                  padding: "0 4px",
                 }}
               >
-                Menge
-              </span>
-              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={decQty}
                   disabled={qty <= 1}
                   aria-label="Menge verringern"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold transition active:scale-95 disabled:opacity-40"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-base font-semibold transition active:scale-95 disabled:opacity-40"
                   style={{
-                    background: COL.bg,
+                    background: "transparent",
                     color: COL.text,
-                    border: `1px solid ${COL.divider}`,
+                    border: "none",
                   }}
                 >
                   −
                 </button>
                 <span
                   style={{
-                    minWidth: "1.5rem",
+                    minWidth: "1.6rem",
                     textAlign: "center",
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: 600,
                     color: COL.text,
                   }}
@@ -669,41 +657,41 @@ export default function WirtshausItemModal({
                   onClick={incQty}
                   disabled={qty >= 99}
                   aria-label="Menge erhöhen"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold transition active:scale-95 disabled:opacity-40"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-base font-semibold transition active:scale-95 disabled:opacity-40"
                   style={{
-                    background: COL.bg,
+                    background: "transparent",
                     color: COL.text,
-                    border: `1px solid ${COL.divider}`,
+                    border: "none",
                   }}
                 >
                   +
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={handleAdd}
+                className="flex-1 font-semibold transition"
+                style={{
+                  height: 48,
+                  borderRadius: 12,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  border: "none",
+                  cursor: "pointer",
+                  background: justAdded ? "#22c55e" : COL.accent,
+                  color: "#fff",
+                }}
+              >
+                <span aria-hidden className="mr-2">
+                  {justAdded ? "✓" : "♡"}
+                </span>
+                {justAdded ? "Hinzugefügt" : "Zur Merkliste"}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleAdd}
-              className="w-full font-semibold transition"
-              style={{
-                height: 50,
-                borderRadius: 12,
-                fontSize: 14,
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                border: "none",
-                cursor: "pointer",
-                background: justAdded ? "#22c55e" : COL.accent,
-                color: justAdded ? "#fff" : "#fff",
-              }}
-            >
-              <span aria-hidden className="mr-2">
-                {justAdded ? "✓" : "♡"}
-              </span>
-              {justAdded ? "Hinzugefügt" : "Zur Merkliste"}
-            </button>
             <p
-              className="mt-2.5 text-center"
+              className="mt-2 text-center"
               style={{
                 fontSize: 10,
                 color: COL.textSubtle,

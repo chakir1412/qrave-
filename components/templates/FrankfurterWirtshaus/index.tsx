@@ -8,8 +8,7 @@ import {
   type CSSProperties,
 } from "react";
 import type { SpeisekarteProps } from "@/components/speisekarte";
-import type { MenuItem, OpeningHoursDay } from "@/lib/supabase";
-import { parseOpeningHours } from "@/lib/supabase";
+import type { MenuItem } from "@/lib/supabase";
 import { useWishlist } from "@/components/shared/useWishlist";
 import { useAnalytics } from "@/components/shared/useAnalytics";
 import ConsentBanner from "@/components/ConsentBanner";
@@ -54,19 +53,6 @@ const FILTER_OPTIONS: ReadonlyArray<{ key: FilterKey; label: string }> = [
   { key: "spicy", label: "🌶 Scharf" },
 ];
 
-function isOpenNow(hours: OpeningHoursDay[] | null, now = new Date()): boolean {
-  if (!hours || hours.length !== 7) return false;
-  const jsDay = now.getDay();
-  const idx = jsDay === 0 ? 6 : jsDay - 1;
-  const day = hours[idx];
-  if (!day || day.closed) return false;
-  const [oh, om] = day.open.split(":").map((x) => parseInt(x, 10));
-  const [ch, cm] = day.close.split(":").map((x) => parseInt(x, 10));
-  if (![oh, om, ch, cm].every(Number.isFinite)) return false;
-  const cur = now.getHours() * 60 + now.getMinutes();
-  return cur >= oh * 60 + om && cur <= ch * 60 + cm;
-}
-
 export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
   const {
     menuItems,
@@ -77,7 +63,6 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
     sponsoredItems = [],
     guestNote = null,
     lunchOffers = [],
-    openingHours = null,
   } = props;
 
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
@@ -123,16 +108,6 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
     const t = window.setInterval(update, 60_000);
     return () => window.clearInterval(t);
   }, [lunchOffers]);
-
-  // Open-Status alle 60s aktualisieren (kein hydration-Mismatch durch SSR-Zeit).
-  const [openNow, setOpenNow] = useState(false);
-  useEffect(() => {
-    const parsed = parseOpeningHours(openingHours);
-    const update = () => setOpenNow(isOpenNow(parsed));
-    update();
-    const t = window.setInterval(update, 60_000);
-    return () => window.clearInterval(t);
-  }, [openingHours]);
 
   useMemo(() => {
     track("view_menu", {
@@ -322,42 +297,13 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
 
       {/* Header — gedruckte Speisekarte */}
       <header
-        className="relative px-5 pb-6 pt-9"
+        className="px-5 pb-6 pt-9"
         style={{
           background: COL.bg,
           borderBottom: `1px solid ${COL.dividerSoft}`,
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            top: 14,
-            right: 18,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 11,
-            color: openNow ? "#3a7d52" : COL.textMuted,
-            fontWeight: 500,
-            letterSpacing: "0.06em",
-          }}
-        >
-          <span
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: "50%",
-              backgroundColor: openNow ? "#3a7d52" : COL.textSubtle,
-              boxShadow: openNow ? "0 0 6px rgba(58,125,82,0.6)" : "none",
-            }}
-            aria-hidden
-          />
-          {openNow ? "Geöffnet" : "Geschlossen"}
-        </div>
-        <div
-          className="mx-auto max-w-[880px] text-center"
-          style={{ paddingTop: 6 }}
-        >
+        <div className="mx-auto max-w-[880px] text-center">
           <h1
             style={{
               fontFamily: SERIF,
@@ -384,25 +330,6 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
               {taglineCategories.join("  ·  ")}
             </div>
           ) : null}
-          <button
-            type="button"
-            onClick={openWishlist}
-            style={{
-              position: "absolute",
-              top: 14,
-              left: 18,
-              fontSize: 11,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: cartCount > 0 ? COL.accent : COL.textMuted,
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              fontWeight: cartCount > 0 ? 600 : 500,
-            }}
-          >
-            Merkliste {cartCount > 0 ? `(${cartCount})` : ""}
-          </button>
         </div>
       </header>
 
@@ -575,6 +502,7 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
       <Wishlist
         open={wishlistOpen}
         onClose={closeWishlist}
+        overlayZIndex={999}
         cart={entries}
         onUpdateQty={updateQty}
         onRemove={handleRemoveFromWishlist}
@@ -592,10 +520,91 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
         onClearAll={() => setActiveAllergens(new Set())}
       />
 
+      {/* Bottom-Bar — Karte / Merkliste */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-[140] border-t"
+        style={{
+          borderColor: COL.divider,
+          background: `${COL.bg}f2`,
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+        }}
+      >
+        <div className="mx-auto flex max-w-[880px] items-center gap-3 px-5 py-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (wishlistOpen) closeWishlist();
+            }}
+            className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2"
+            style={{
+              border: `1px solid ${!wishlistOpen ? COL.accent : COL.dividerSoft}`,
+              background: !wishlistOpen ? "rgba(200,137,78,0.08)" : "transparent",
+              color: !wishlistOpen ? COL.accent : COL.textMuted,
+              fontSize: 11,
+              fontWeight: !wishlistOpen ? 600 : 500,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+            }}
+          >
+            <span style={{ fontSize: 18 }} aria-hidden>
+              📖
+            </span>
+            Karte
+          </button>
+          <button
+            type="button"
+            onClick={openWishlist}
+            className="relative flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2"
+            style={{
+              border: `1px solid ${wishlistOpen ? COL.accent : COL.dividerSoft}`,
+              background: wishlistOpen ? "rgba(200,137,78,0.08)" : "transparent",
+              color: wishlistOpen ? COL.accent : COL.textMuted,
+              fontSize: 11,
+              fontWeight: wishlistOpen ? 600 : 500,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+            }}
+          >
+            <span style={{ fontSize: 18 }} aria-hidden>
+              🔖
+            </span>
+            Merkliste
+            <span
+              className="absolute"
+              style={{
+                top: 2,
+                right: 12,
+                minWidth: 18,
+                height: 18,
+                padding: "0 5px",
+                borderRadius: 999,
+                background: COL.accent,
+                color: "#fff",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: 0,
+                textTransform: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: cartCount > 0 ? 1 : 0,
+                transform: cartCount > 0 ? "scale(1)" : "scale(0.75)",
+                transition: "opacity 200ms ease, transform 200ms ease",
+              }}
+            >
+              {cartCount}
+            </span>
+          </button>
+        </div>
+      </nav>
+
       {/* Footer */}
       <footer
         className="border-t py-6 text-center"
-        style={{ borderColor: COL.dividerSoft }}
+        style={{ borderColor: COL.dividerSoft, paddingBottom: 88 }}
       >
         <p
           style={{
@@ -686,80 +695,102 @@ function ItemList({ sections, filterItems, onItemClick, onCategorySectionRef }: 
               {sec.kategorie}
             </h2>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {items.map((item) => (
-                <li key={item.id} style={{ borderBottom: `1px dotted ${COL.dividerSoft}` }}>
-                  <button
-                    type="button"
-                    onClick={() => onItemClick(item)}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "14px 0",
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div
+              {items.map((item) => {
+                const hasImage = Boolean(item.bild_url);
+                return (
+                  <li key={item.id} style={{ borderBottom: `1px dotted ${COL.dividerSoft}` }}>
+                    <button
+                      type="button"
+                      onClick={() => onItemClick(item)}
                       style={{
                         display: "flex",
-                        alignItems: "baseline",
-                        gap: 16,
+                        alignItems: "flex-start",
+                        gap: hasImage ? 14 : 0,
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "14px 0",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
                       }}
                     >
-                      <span
-                        style={{
-                          fontFamily: SERIF,
-                          fontSize: 16,
-                          fontWeight: 500,
-                          color: COL.text,
-                          flex: 1,
-                          letterSpacing: "-0.005em",
-                        }}
-                      >
-                        {item.name}
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: SERIF,
-                          fontSize: 16,
-                          fontWeight: 500,
-                          color: COL.accent,
-                          whiteSpace: "nowrap",
-                          letterSpacing: "-0.01em",
-                        }}
-                      >
-                        {getDisplayPrice(item)}
-                      </span>
-                    </div>
-                    {item.beschreibung ? (
-                      <p
-                        style={{
-                          fontSize: 12.5,
-                          color: COL.textMuted,
-                          margin: "4px 0 0",
-                          lineHeight: 1.5,
-                          letterSpacing: "0.005em",
-                        }}
-                      >
-                        {item.beschreibung}
-                      </p>
-                    ) : null}
-                    {item.allergens_text && item.allergens_text.trim() ? (
-                      <p
-                        style={{
-                          fontSize: 11,
-                          color: COL.textSubtle,
-                          margin: "3px 0 0",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        {item.allergens_text}
-                      </p>
-                    ) : null}
-                  </button>
-                </li>
-              ))}
+                      {hasImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.bild_url as string}
+                          alt={item.name}
+                          style={{
+                            width: 64,
+                            height: 64,
+                            borderRadius: 8,
+                            objectFit: "cover",
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : null}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "baseline",
+                            gap: 16,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontFamily: SERIF,
+                              fontSize: 16,
+                              fontWeight: 500,
+                              color: COL.text,
+                              flex: 1,
+                              letterSpacing: "-0.005em",
+                            }}
+                          >
+                            {item.name}
+                          </span>
+                          <span
+                            style={{
+                              fontFamily: SERIF,
+                              fontSize: 16,
+                              fontWeight: 500,
+                              color: COL.accent,
+                              whiteSpace: "nowrap",
+                              letterSpacing: "-0.01em",
+                            }}
+                          >
+                            {getDisplayPrice(item)}
+                          </span>
+                        </div>
+                        {item.beschreibung ? (
+                          <p
+                            style={{
+                              fontSize: 12.5,
+                              color: COL.textMuted,
+                              margin: "4px 0 0",
+                              lineHeight: 1.5,
+                              letterSpacing: "0.005em",
+                            }}
+                          >
+                            {item.beschreibung}
+                          </p>
+                        ) : null}
+                        {item.allergens_text && item.allergens_text.trim() ? (
+                          <p
+                            style={{
+                              fontSize: 11,
+                              color: COL.textSubtle,
+                              margin: "3px 0 0",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            {item.allergens_text}
+                          </p>
+                        ) : null}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         );
