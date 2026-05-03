@@ -820,103 +820,69 @@ export function KarteTab({
       <div
         className="px-0 pt-3.5"
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr auto",
-          gap: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
           marginBottom: 12,
         }}
       >
-        <div className="min-w-0" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button
-            type="button"
-            onClick={() => onSubChange("heute")}
-            className="w-full transition active:scale-[0.99]"
-            style={{
-              background:
-                activeSub === "heute" ? dash.ord : "rgba(0,200,160,0.08)",
-              border:
-                activeSub === "heute"
-                  ? `1px solid ${dash.orm}`
-                  : "1px solid rgba(0,200,160,0.25)",
-              borderRadius: 14,
-              padding: "14px 16px",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              color: dash.tx,
-            }}
-          >
-            <span style={{ fontSize: 20 }} aria-hidden>
-              ⭐
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>Tages-Special</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onSubChange("lunch")}
-            className="w-full transition active:scale-[0.99]"
-            style={{
-              backgroundColor: activeSub === "lunch" ? dash.ord : "rgba(255,212,38,0.08)",
-              border:
-                activeSub === "lunch"
-                  ? `1px solid ${dash.orm}`
-                  : "1px solid rgba(255,212,38,0.25)",
-              borderRadius: 14,
-              padding: "14px 16px",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              color: dash.tx,
-            }}
-          >
-            <span style={{ fontSize: 20 }} aria-hidden>
-              🍽️
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>Mittagsangebot</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onSubChange("notiz")}
-            className="w-full transition active:scale-[0.99]"
-            style={{
-              backgroundColor: activeSub === "notiz" ? dash.ord : dash.s1,
-              border:
-                activeSub === "notiz" ? `1px solid ${dash.orm}` : `1px solid ${dash.bo}`,
-              borderRadius: 14,
-              padding: "14px 16px",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              color: dash.tx,
-            }}
-          >
-            <span style={{ fontSize: 20 }} aria-hidden>
-              📝
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>Gäste-Notiz</span>
-          </button>
+        <div
+          className="flex flex-1 items-center gap-1 overflow-x-auto scrollbar-hide rounded-[12px] border p-1"
+          style={{ borderColor: dash.bo, backgroundColor: dash.s1 }}
+        >
+          {(
+            [
+              { key: "menu", label: "Speisekarte" },
+              { key: "heute", label: "Tages-Special" },
+              { key: "lunch", label: "Mittagsangebot" },
+              { key: "notiz", label: "Gäste-Notiz" },
+            ] as const
+          ).map((tab) => {
+            const active = activeSub === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => onSubChange(tab.key)}
+                className="shrink-0 whitespace-nowrap rounded-[10px] px-3 py-2 text-[12px] font-semibold transition"
+                style={
+                  active
+                    ? {
+                        backgroundColor: dash.primaryBg,
+                        color: dash.primaryFg,
+                        border: `1px solid ${dash.primaryBg}`,
+                      }
+                    : {
+                        backgroundColor: "transparent",
+                        color: dash.mi,
+                        border: "1px solid transparent",
+                      }
+                }
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
         <button
           type="button"
           onClick={onOpenPreview}
-          className="shrink-0 self-stretch transition active:scale-95"
+          className="shrink-0 transition active:scale-95"
           style={{
             background: dash.s1,
             border: `1px solid ${dash.bo}`,
-            borderRadius: 14,
-            width: 72,
+            borderRadius: 12,
+            width: 44,
+            height: 44,
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 6,
-            opacity: 0.6,
           }}
+          aria-label="Vorschau öffnen"
         >
-          <span style={{ fontSize: 22 }} aria-hidden>
+          <span style={{ fontSize: 18 }} aria-hidden>
             👁
           </span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: dash.mu }}>Vorschau</span>
         </button>
       </div>
 
