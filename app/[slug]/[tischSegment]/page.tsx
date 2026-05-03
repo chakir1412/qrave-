@@ -11,6 +11,7 @@ import CompoundCafeTemplate from "@/components/templates/CompoundCafe";
 import NamiSushiTemplate from "@/components/templates/NamiSushi";
 import DaMarioTemplate from "@/components/templates/DaMario";
 import RootsTemplate from "@/components/templates/RootsPlantKitchen";
+import FrankfurterWirtshausTemplate from "@/components/templates/FrankfurterWirtshaus";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ const templateMap: Record<string, ComponentType<SpeisekarteProps>> = {
   "nami-sushi": NamiSushiTemplate,
   "da-mario": DaMarioTemplate,
   roots: RootsTemplate,
+  "frankfurter-wirtshaus": FrankfurterWirtshausTemplate,
 };
 
 function parseTischNummer(segment: string): number | null {
@@ -138,6 +140,7 @@ export default async function TischSpeisekartePage({
     sponsoredItems,
     guestNote: data.restaurant.guest_note ?? null,
     lunchOffers: data.lunchOffers,
+    openingHours: data.restaurant.opening_hours ?? null,
   };
 
   const templateKey = (data.restaurant.template ?? "bar-soleil") as string;

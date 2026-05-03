@@ -3,7 +3,7 @@ import type { Restaurant, MenuItem, DailyPush, LunchOffer } from "@/lib/supabase
 import { orderedCategoriesFromItems } from "@/components/speisekarte/menu-layout";
 
 const RESTAURANT_SELECT_PUBLIC =
-  "id, slug, name, template, accent_color, logo_url, guest_note";
+  "id, slug, name, template, accent_color, logo_url, guest_note, opening_hours";
 
 const MENU_EXTENDED_SELECT =
   "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, allergen_ids, allergens_text, sponsored, partner_name, preis_volumen, sort_order, is_highlight, main_tab, section_subtitle, zutaten, geschmacksprofil, story_text";

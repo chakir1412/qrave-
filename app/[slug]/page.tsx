@@ -9,6 +9,7 @@ import CompoundCafeTemplate from "@/components/templates/CompoundCafe";
 import NamiSushiTemplate from "@/components/templates/NamiSushi";
 import DaMarioTemplate from "@/components/templates/DaMario";
 import RootsTemplate from "@/components/templates/RootsPlantKitchen";
+import FrankfurterWirtshausTemplate from "@/components/templates/FrankfurterWirtshaus";
 
 const templateMap: Record<string, React.ComponentType<SpeisekarteProps>> = {
   "bar-soleil": BarSoleilTemplate,
@@ -17,6 +18,7 @@ const templateMap: Record<string, React.ComponentType<SpeisekarteProps>> = {
   "nami-sushi": NamiSushiTemplate,
   "da-mario": DaMarioTemplate,
   roots: RootsTemplate,
+  "frankfurter-wirtshaus": FrankfurterWirtshausTemplate,
 };
 
 export default async function SpeisekartePage({
@@ -45,6 +47,7 @@ export default async function SpeisekartePage({
     sponsoredItems,
     guestNote: data.restaurant.guest_note ?? null,
     lunchOffers: data.lunchOffers,
+    openingHours: data.restaurant.opening_hours ?? null,
   };
 
   const templateKey = (data.restaurant.template ?? "bar-soleil") as string;

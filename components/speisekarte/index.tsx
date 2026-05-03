@@ -42,6 +42,8 @@ export type SpeisekarteProps = {
   guestNote?: string | null;
   /** Mittagsangebote — wenn aktuell im Zeitfenster, eigene Sektion oben. */
   lunchOffers?: LunchOffer[];
+  /** Wochenplan (Mo–So) für „Heute geöffnet"-Indicator. */
+  openingHours?: import("@/lib/supabase").OpeningHours | null;
 };
 
 export default function Speisekarte({
