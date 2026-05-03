@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { parseMenuJsonFromModel, type ParsedMenuItemDto } from "@/lib/parse-menu";
 import {
   extractPdfTextFromBuffer,
+  getPdfPageCount,
   MIN_TEXT_CHARS_TEXT_PATH,
   pdfBufferToPngBase64Pages,
+  pdfBufferToPngBase64PagesRange,
 } from "@/lib/server/pdf-scan";
 
 /** Vercel Serverless Timeout (PDF-Rendering + KI). */
@@ -14,11 +16,18 @@ export const dynamic = "force-dynamic";
 const MAX_EXTRACTED_TEXT_CHARS = 3_500_000;
 
 /** PDF-Binary direkt an Anthropic (Base64 im JSON); unter Limit bleibt Request unter Vercel ~4,5 MB. */
-const MAX_PDF_BYTES_DIRECT = 2_500_000;
+const MAX_PDF_BYTES_DIRECT = 4_000_000;
+
+/** Page-Chunking: Seiten pro Anthropic-Call (3 Seiten = robust und passt
+ *  bequem in `maxTokens` 8192). */
+const PAGES_PER_CHUNK = 3;
+/** Hartes Limit für die Anzahl paralleler Chunks pro Request — schützt vor
+ *  Riesen-PDFs mit > ~60 Seiten. */
+const MAX_PAGE_CHUNKS = 20;
 
 const MODEL = "claude-sonnet-4-20250514";
 const CHUNK_SIZE = 2000;
-const MAX_CHUNKS = 8;
+const MAX_CHUNKS = 32;
 const CHUNK_MAX_TOKENS = 4000;
 const CHUNK_RETRY_SPLIT_MIN_LENGTH = 1000;
 const PDF_IMPORT_PROMPT = `Du bist ein Experte für Restaurantspeisekarten. Extrahiere alle Menüpunkte aus der Speisekarte.
@@ -330,6 +339,74 @@ function dedupeItems(items: ParsedMenuItemDto[]): ParsedMenuItemDto[] {
   return out;
 }
 
+/** Teilt eine 1-basierte Seitenliste [1..pageCount] in Gruppen à `pagesPerChunk`
+ *  Seiten und gibt für jede Gruppe { from, to } zurück. */
+function buildPageRanges(
+  pageCount: number,
+  pagesPerChunk: number,
+): Array<{ from: number; to: number }> {
+  const out: Array<{ from: number; to: number }> = [];
+  for (let from = 1; from <= pageCount; from += pagesPerChunk) {
+    const to = Math.min(pageCount, from + pagesPerChunk - 1);
+    out.push({ from, to });
+    if (out.length >= MAX_PAGE_CHUNKS) break;
+  }
+  return out;
+}
+
+/** Verarbeitet eine PDF seitenweise in Gruppen à `PAGES_PER_CHUNK` Seiten,
+ *  rendert jede Gruppe als PNGs und ruft Anthropic parallel pro Gruppe auf.
+ *  Liefert die zusammengeführte, dedupierte Items-Liste. */
+async function parsePdfByPageChunks(
+  pdfBuf: Buffer,
+  apiKey: string,
+): Promise<ParsedMenuItemDto[]> {
+  const pageCount = await getPdfPageCount(pdfBuf);
+  if (pageCount <= 0) return [];
+
+  const ranges = buildPageRanges(pageCount, PAGES_PER_CHUNK);
+
+  const groups = await Promise.all(
+    ranges.map(async ({ from, to }) => {
+      let pngs: string[] = [];
+      try {
+        pngs = await pdfBufferToPngBase64PagesRange(pdfBuf, from, to);
+      } catch (err) {
+        console.error(`parse-menu page-chunk render ${from}-${to}:`, err);
+        return [] as ParsedMenuItemDto[];
+      }
+      if (pngs.length === 0) return [] as ParsedMenuItemDto[];
+
+      const content: AnthropicContentPart[] = [
+        ...pngs.map(
+          (data): AnthropicContentPart => ({
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data },
+          }),
+        ),
+        {
+          type: "text",
+          text:
+            `Seiten ${from}–${to} der Speisekarte. Extrahiere ALLE Items, die auf diesen Seiten zu sehen sind — auch wenn sie zu Kategorien gehören, die schon auf vorherigen Seiten begonnen haben.\n\n` +
+            PDF_IMPORT_PROMPT,
+        },
+      ];
+
+      try {
+        return await anthropicExtractMenuItems(content, apiKey, {
+          usePdfBeta: false,
+          maxTokens: 8192,
+        });
+      } catch (err) {
+        console.error(`parse-menu page-chunk anthropic ${from}-${to}:`, err);
+        return [] as ParsedMenuItemDto[];
+      }
+    }),
+  );
+
+  return dedupeItems(groups.flat());
+}
+
 /** Ein Anthropic messages-Call mit Bild oder PDF-Dokument → strukturierte Menü-Items. */
 async function anthropicExtractMenuItems(
   userContent: AnthropicContentPart[],
@@ -483,6 +560,29 @@ export async function POST(req: Request) {
         );
       }
       try {
+        let pageCount = 0;
+        try {
+          pageCount = await getPdfPageCount(pdfBuf);
+        } catch (cntErr) {
+          console.error("parse-menu getPdfPageCount:", cntErr);
+        }
+
+        /**
+         * HAUPTPFAD bei mehrseitigen PDFs: Seiten in Gruppen à PAGES_PER_CHUNK
+         * rendern und parallel an Anthropic. Robust für gescannte und auch
+         * text-basierte PDFs (Modell sieht Layout/Spalten/Preise direkt).
+         */
+        if (pageCount > 1) {
+          const pageChunkItems = await parsePdfByPageChunks(pdfBuf, apiKey);
+          if (pageChunkItems.length > 0) {
+            return NextResponse.json({ success: true, items: pageChunkItems });
+          }
+        }
+
+        /**
+         * Single-Page-PDF oder Page-Chunking lieferte nichts: alter Pfad mit
+         * Text-Extraktion + Chunks (für text-basierte einseitige Karten).
+         */
         let extracted = "";
         try {
           extracted = await extractPdfTextFromBuffer(pdfBuf);
@@ -503,34 +603,36 @@ export async function POST(req: Request) {
           return NextResponse.json({ success: true, items: merged });
         }
 
-        /** Gescannt / leere Text-Parse: Seiten als PNG an Anthropic. */
-        let pngs: string[] = [];
-        try {
-          pngs = await pdfBufferToPngBase64Pages(pdfBuf, 4);
-        } catch (renderErr) {
-          console.error("parse-menu pdfBufferToPngBase64Pages:", renderErr);
-        }
+        /** Single-Page Vision Fallback: bis zu 4 Seiten als PNG zusammen. */
+        if (pageCount <= 1) {
+          let pngs: string[] = [];
+          try {
+            pngs = await pdfBufferToPngBase64Pages(pdfBuf, 4);
+          } catch (renderErr) {
+            console.error("parse-menu pdfBufferToPngBase64Pages:", renderErr);
+          }
 
-        if (pngs.length > 0) {
-          const imageContent: AnthropicContentPart[] = [
-            ...pngs.map(
-              (data): AnthropicContentPart => ({
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/png",
-                  data,
-                },
-              }),
-            ),
-            { type: "text", text: PDF_IMPORT_PROMPT },
-          ];
-          const imgItems = await anthropicExtractMenuItems(imageContent, apiKey, {
-            usePdfBeta: false,
-            maxTokens: 8192,
-          });
-          if (imgItems.length > 0) {
-            return NextResponse.json({ success: true, items: imgItems });
+          if (pngs.length > 0) {
+            const imageContent: AnthropicContentPart[] = [
+              ...pngs.map(
+                (data): AnthropicContentPart => ({
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: "image/png",
+                    data,
+                  },
+                }),
+              ),
+              { type: "text", text: PDF_IMPORT_PROMPT },
+            ];
+            const imgItems = await anthropicExtractMenuItems(imageContent, apiKey, {
+              usePdfBeta: false,
+              maxTokens: 8192,
+            });
+            if (imgItems.length > 0) {
+              return NextResponse.json({ success: true, items: imgItems });
+            }
           }
         }
 

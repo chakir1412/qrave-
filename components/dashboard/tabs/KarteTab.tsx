@@ -552,8 +552,10 @@ export function KarteTab({
       file.name.toLowerCase().endsWith(".pdf");
     fd.append("restaurantId", restaurantId);
 
-    /** Kleine PDFs: Binary direkt an API (Anthropic PDF) — oft besser als pdf.js-Text. Große PDFs: nur Text (Vercel-Limit). */
-    const MAX_PDF_DIRECT_BYTES = 2_500_000;
+    /** Bis ~4 MB: Binary direkt an API → Server zerlegt seitenweise in
+     *  Chunks à 3 Seiten und ruft Anthropic parallel pro Chunk. Größer:
+     *  pdf.js extrahiert Text auf dem Client, Server chunked Text. */
+    const MAX_PDF_DIRECT_BYTES = 4_000_000;
     if (isPdf) {
       if (file.size <= MAX_PDF_DIRECT_BYTES) {
         fd.append("file", file);
