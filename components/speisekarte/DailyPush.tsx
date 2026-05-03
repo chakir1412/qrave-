@@ -8,7 +8,7 @@ import { getDisplayPrice } from "./utils";
 const JUST_ADDED_DURATION_MS = 1500;
 
 /** Erstellt ein MenuItem-kompatibles Objekt aus daily_push für die Merkliste (preis 0). */
-function dailyPushToMenuItem(dailyPush: DailyPush): MenuItem {
+export function dailyPushToMenuItem(dailyPush: DailyPush): MenuItem {
   return {
     id: dailyPush.id,
     restaurant_id: dailyPush.restaurant_id,
