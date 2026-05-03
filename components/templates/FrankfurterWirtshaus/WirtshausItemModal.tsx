@@ -144,11 +144,13 @@ export default function WirtshausItemModal({
 }: WirtshausItemModalProps) {
   const [justAdded, setJustAdded] = useState(false);
   const [qty, setQty] = useState(1);
+  const [allergensOpen, setAllergensOpen] = useState(false);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     setQty(1);
     setJustAdded(false);
+    setAllergensOpen(false);
   }, [item.id]);
 
   useEffect(() => {
@@ -426,50 +428,88 @@ export default function WirtshausItemModal({
             <div
               style={{
                 borderRadius: 8,
-                padding: "14px 16px",
                 background: COL.cream,
                 border: `1px solid ${COL.divider}`,
+                overflow: "hidden",
               }}
             >
-              {item.allergens_text && item.allergens_text.trim() ? (
-                <>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.14em",
-                      color: COL.accent,
-                      marginBottom: 6,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Allergene & Zutaten
-                  </div>
-                  <p
-                    style={{
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      color: COL.text,
-                      margin: "0 0 10px",
-                    }}
-                  >
-                    {item.allergens_text}
-                  </p>
-                </>
-              ) : null}
-              <p
+              <button
+                type="button"
+                onClick={() => setAllergensOpen((v) => !v)}
+                aria-expanded={allergensOpen}
+                aria-controls="allergens-panel"
                 style={{
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  color: COL.textMuted,
-                  margin: 0,
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "12px 16px",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
                 }}
               >
-                <span aria-hidden className="mr-1.5 inline-block">
-                  ⚠️
+                <span
+                  style={{
+                    fontSize: 11,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.14em",
+                    color: COL.accent,
+                    fontWeight: 600,
+                  }}
+                >
+                  Allergene & Zutaten
                 </span>
-                Bitte informieren Sie zusätzlich unser Service-Team über Ihre Allergien.
-              </p>
+                <span
+                  aria-hidden
+                  style={{
+                    fontSize: 14,
+                    color: COL.accent,
+                    transition: "transform 200ms ease",
+                    transform: allergensOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    lineHeight: 1,
+                  }}
+                >
+                  ▾
+                </span>
+              </button>
+              {allergensOpen ? (
+                <div
+                  id="allergens-panel"
+                  style={{
+                    padding: "0 16px 14px",
+                    borderTop: `1px solid ${COL.divider}`,
+                    paddingTop: 12,
+                  }}
+                >
+                  {item.allergens_text && item.allergens_text.trim() ? (
+                    <p
+                      style={{
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        color: COL.text,
+                        margin: "0 0 10px",
+                      }}
+                    >
+                      {item.allergens_text}
+                    </p>
+                  ) : null}
+                  <p
+                    style={{
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                      color: COL.textMuted,
+                      margin: 0,
+                    }}
+                  >
+                    <span aria-hidden className="mr-1.5 inline-block">
+                      ⚠️
+                    </span>
+                    Bitte informieren Sie zusätzlich unser Service-Team über Ihre Allergien.
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             {!isCurrentItemDrink && suggestions.length > 0 ? (

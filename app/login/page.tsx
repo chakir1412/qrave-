@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const ui = {
@@ -13,10 +14,35 @@ const ui = {
   green: "#34E89E",
 } as const;
 
+type EmailMode = "magic" | "password";
+
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          className="flex min-h-screen items-center justify-center"
+          style={{ backgroundColor: ui.bg, color: ui.mu }}
+        >
+          Lädt …
+        </main>
+      }
+    >
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") ?? "/dashboard";
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailMode, setEmailMode] = useState<EmailMode>("magic");
   const [loadingProvider, setLoadingProvider] = useState<"apple" | "google" | null>(null);
   const [loadingMagic, setLoadingMagic] = useState(false);
+  const [loadingPassword, setLoadingPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
 
@@ -58,6 +84,33 @@ export default function LoginPage() {
       setSent(true);
     } finally {
       setLoadingMagic(false);
+    }
+  }
+
+  async function signInWithPasswordSubmit() {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) {
+      setError("Bitte eine E-Mail eingeben.");
+      return;
+    }
+    if (!password) {
+      setError("Bitte das Passwort eingeben.");
+      return;
+    }
+    setError(null);
+    setLoadingPassword(true);
+    try {
+      const { error: pwErr } = await supabase.auth.signInWithPassword({
+        email: normalized,
+        password,
+      });
+      if (pwErr) {
+        setError("E-Mail oder Passwort falsch");
+        return;
+      }
+      router.replace(redirect);
+    } finally {
+      setLoadingPassword(false);
     }
   }
 
@@ -143,8 +196,40 @@ export default function LoginPage() {
           {!sent ? (
             <>
               <div className="my-4 h-px" style={{ backgroundColor: ui.border }} />
+              <div className="mb-3 flex gap-1 rounded-xl border p-1" style={{ borderColor: ui.border }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmailMode("magic");
+                    setError(null);
+                  }}
+                  className="flex-1 rounded-lg px-3 py-1.5 text-xs font-bold transition"
+                  style={
+                    emailMode === "magic"
+                      ? { backgroundColor: "rgba(255,255,255,0.08)", color: ui.tx }
+                      : { backgroundColor: "transparent", color: ui.mu }
+                  }
+                >
+                  Magic Link
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmailMode("password");
+                    setError(null);
+                  }}
+                  className="flex-1 rounded-lg px-3 py-1.5 text-xs font-bold transition"
+                  style={
+                    emailMode === "password"
+                      ? { backgroundColor: "rgba(255,255,255,0.08)", color: ui.tx }
+                      : { backgroundColor: "transparent", color: ui.mu }
+                  }
+                >
+                  Mit Passwort einloggen
+                </button>
+              </div>
               <label className="text-xs font-semibold" style={{ color: ui.mu }}>
-                E-Mail für Magic Link
+                E-Mail
               </label>
               <input
                 type="email"
@@ -159,15 +244,48 @@ export default function LoginPage() {
                   backgroundColor: "rgba(255,255,255,0.04)",
                 }}
               />
-              <button
-                type="button"
-                onClick={() => void signInWithMagicLink()}
-                disabled={loadingMagic || loadingProvider !== null}
-                className="mt-3 w-full rounded-xl py-3 text-sm font-extrabold text-white disabled:opacity-60"
-                style={{ background: `linear-gradient(135deg, ${ui.or}, #FF7A3D)` }}
-              >
-                {loadingMagic ? "Sende Magic Link …" : "Magic Link senden"}
-              </button>
+              {emailMode === "password" ? (
+                <>
+                  <label className="mt-3 block text-xs font-semibold" style={{ color: ui.mu }}>
+                    Passwort
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void signInWithPasswordSubmit();
+                    }}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    className="mt-1.5 w-full rounded-xl border px-3.5 py-3 text-sm outline-none"
+                    style={{
+                      color: ui.tx,
+                      borderColor: ui.border,
+                      backgroundColor: "rgba(255,255,255,0.04)",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void signInWithPasswordSubmit()}
+                    disabled={loadingPassword || loadingProvider !== null || loadingMagic}
+                    className="mt-3 w-full rounded-xl py-3 text-sm font-extrabold text-white disabled:opacity-60"
+                    style={{ background: `linear-gradient(135deg, ${ui.or}, #FF7A3D)` }}
+                  >
+                    {loadingPassword ? "Anmeldung läuft …" : "Einloggen"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void signInWithMagicLink()}
+                  disabled={loadingMagic || loadingProvider !== null}
+                  className="mt-3 w-full rounded-xl py-3 text-sm font-extrabold text-white disabled:opacity-60"
+                  style={{ background: `linear-gradient(135deg, ${ui.or}, #FF7A3D)` }}
+                >
+                  {loadingMagic ? "Sende Magic Link …" : "Magic Link senden"}
+                </button>
+              )}
             </>
           ) : (
             <div

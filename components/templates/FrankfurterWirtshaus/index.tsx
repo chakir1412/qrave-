@@ -53,6 +53,38 @@ const FILTER_OPTIONS: ReadonlyArray<{ key: FilterKey; label: string }> = [
   { key: "spicy", label: "🌶 Scharf" },
 ];
 
+/** Filter-Key → akzeptierte Tag-Werte. Im Repo existieren historisch zwei
+ *  Schreibweisen (Kurz: "veg"/"gf"/"spicy" aus dem EditItemOverlay; Lang:
+ *  "vegetarisch"/"glutenfrei"/"scharf" aus PDF-Import + manuellen SQL-Updates).
+ *  Wir matchen beide. */
+const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
+  all: [],
+  vegan: ["vegan"],
+  veg: ["vegetarisch", "veg", "vegetarian"],
+  gf: ["glutenfrei", "gf", "gluten-free", "glutenfree"],
+  spicy: ["scharf", "spicy", "hot"],
+};
+
+/** Kategorien, die als reine Getränke-Kategorien gelten und beim aktiven
+ *  Diät-Filter komplett ausgeblendet werden — auch dann, wenn einzelne
+ *  Items darin als vegan/vegetarisch getaggt sind. Gäste suchen mit dem
+ *  Filter ein Speisengericht, keine Getränkeliste. */
+const DRINK_CATEGORIES: ReadonlySet<string> = new Set([
+  "Aperitif",
+  "Softdrinks",
+  "Säfte",
+  "Biere vom Fass",
+  "Flaschenbiere",
+  "Apfelwein",
+  "Weine",
+  "Spirituosen",
+  "Longdrinks",
+  "Rum",
+  "Whiskey",
+  "Heissgetränke",
+  "Fruchtiges von Rapps",
+]);
+
 export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
   const {
     menuItems,
@@ -214,8 +246,11 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
     (items: MenuItem[]) => {
       let list = items;
       if (filter !== "all") {
-        const tags = (item: MenuItem) => (item.tags ?? []).map((t) => t.toLowerCase());
-        list = list.filter((item) => tags(item).includes(filter));
+        const aliases = FILTER_TAG_ALIASES[filter];
+        list = list.filter((item) => {
+          const tags = (item.tags ?? []).map((t) => t.trim().toLowerCase());
+          return aliases.some((a) => tags.includes(a));
+        });
       }
       if (activeAllergens.size > 0) {
         list = list.filter((item) => {
@@ -480,6 +515,7 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
             filterItems={filterItems}
             onItemClick={pushModal}
             onCategorySectionRef={onCategorySectionRef}
+            hideCategories={filter !== "all" ? DRINK_CATEGORIES : null}
           />
         )}
       </main>
@@ -648,10 +684,24 @@ type ItemListProps = {
   filterItems: (items: MenuItem[]) => MenuItem[];
   onItemClick: (item: MenuItem) => void;
   onCategorySectionRef: (kategorie: string, el: HTMLElement | null) => void;
+  /** Wenn gesetzt: Kategorien aus diesem Set werden komplett ausgeblendet
+   *  (z. B. Getränke bei aktivem Diät-Filter). */
+  hideCategories: ReadonlySet<string> | null;
 };
 
-function ItemList({ sections, filterItems, onItemClick, onCategorySectionRef }: ItemListProps) {
-  if (sections.length === 0) {
+function ItemList({
+  sections,
+  filterItems,
+  onItemClick,
+  onCategorySectionRef,
+  hideCategories,
+}: ItemListProps) {
+  const visibleSections =
+    hideCategories === null
+      ? sections
+      : sections.filter((sec) => !hideCategories.has(sec.kategorie));
+
+  if (visibleSections.length === 0) {
     return (
       <div
         style={{
@@ -668,7 +718,7 @@ function ItemList({ sections, filterItems, onItemClick, onCategorySectionRef }: 
 
   return (
     <div>
-      {sections.map((sec, idx) => {
+      {visibleSections.map((sec, idx) => {
         const items = filterItems(sec.items);
         if (items.length === 0) return null;
         return (
