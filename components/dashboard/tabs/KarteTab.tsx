@@ -1915,37 +1915,35 @@ export function KarteTab({
             style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
           >
             <div className="mb-2 text-sm font-extrabold">Item hinzufügen</div>
-            <div className="flex gap-2">
-              <select
-                value={lunchSelectId}
-                onChange={(e) => setLunchSelectId(e.target.value)}
-                className="flex-1 rounded-[11px] border px-3 py-2 text-sm outline-none"
-                style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
-              >
-                <option value="">Aus Karte wählen …</option>
-                {menuItems
-                  .filter((m) => m.aktiv && !lunchOffers.some((o) => o.item_id === m.id))
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!lunchSelectId) return;
-                  const id = lunchSelectId;
-                  setLunchSelectId("");
-                  void addLunchItem(id);
-                }}
-                disabled={!lunchSelectId}
-                className="rounded-[10px] px-4 text-sm font-bold disabled:opacity-50"
-                style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
-              >
-                + Hinzufügen
-              </button>
-            </div>
+            <select
+              value={lunchSelectId}
+              onChange={(e) => setLunchSelectId(e.target.value)}
+              className="mb-2 w-full rounded-[11px] border px-3 py-2.5 text-sm outline-none"
+              style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
+            >
+              <option value="">Aus Karte wählen …</option>
+              {menuItems
+                .filter((m) => m.aktiv && !lunchOffers.some((o) => o.item_id === m.id))
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                if (!lunchSelectId) return;
+                const id = lunchSelectId;
+                setLunchSelectId("");
+                void addLunchItem(id);
+              }}
+              disabled={!lunchSelectId}
+              className="w-full rounded-[10px] py-2.5 text-sm font-bold disabled:opacity-50"
+              style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
+            >
+              + Hinzufügen
+            </button>
           </div>
 
           {lunchOffers.length === 0 ? (

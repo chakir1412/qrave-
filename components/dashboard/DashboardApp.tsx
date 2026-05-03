@@ -473,6 +473,8 @@ export function DashboardApp({
         }}
         restaurantId={restaurant.id}
         slug={restaurant.slug}
+        restaurantName={restaurant.name}
+        logoUrl={currentLogoUrl ?? restaurant.logo_url ?? null}
         bereiche={tischBereiche}
         onToast={showToast}
         onTablesUpdated={() => void refreshTables()}
