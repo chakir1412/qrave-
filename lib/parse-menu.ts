@@ -4,12 +4,29 @@ export type ParsedMenuItemDto = {
   beschreibung: string;
   /** Aus der Beschreibung extrahierte Allergene & Zutaten (Freitext). */
   allergens_text: string;
+  /** Diät-Tags (Subset von vegan, vegetarisch, glutenfrei, scharf). */
+  tags: string[];
   preis: number;
   kategorie: string;
   main_tab: "speisen" | "getraenke" | "snacks";
   /** 0..1, wie sicher die Kategorie-Zuordnung ist */
   category_confidence: number;
 };
+
+const ALLOWED_TAGS = ["vegan", "vegetarisch", "glutenfrei", "scharf"] as const;
+
+function normalizeTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out = new Set<string>();
+  for (const v of raw) {
+    if (typeof v !== "string") continue;
+    const k = v.trim().toLowerCase();
+    if ((ALLOWED_TAGS as readonly string[]).includes(k)) out.add(k);
+  }
+  // Vegan impliziert vegetarisch.
+  if (out.has("vegan")) out.add("vegetarisch");
+  return Array.from(out);
+}
 
 const MAIN_TABS = ["speisen", "getraenke", "snacks"] as const;
 
@@ -154,6 +171,7 @@ function normalizeOne(raw: unknown): ParsedMenuItemDto | null {
     name,
     beschreibung,
     allergens_text,
+    tags: normalizeTags(o.tags),
     preis: toNumberPreis(o.preis),
     kategorie,
     main_tab: normalizeMainTab(o.main_tab),

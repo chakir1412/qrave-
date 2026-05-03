@@ -32,7 +32,19 @@ const CHUNK_MAX_TOKENS = 4000;
 const CHUNK_RETRY_SPLIT_MIN_LENGTH = 1000;
 const PDF_IMPORT_PROMPT = `Du bist ein Experte für Restaurantspeisekarten. Extrahiere alle Menüpunkte aus der Speisekarte.
 Antworte NUR mit einem JSON Array, ohne Markdown, ohne Erklärung, ohne Codeblöcke:
-[{"name":"...","beschreibung":"...","allergens_text":"...","preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
+[{"name":"...","beschreibung":"...","allergens_text":"...","tags":["vegan","vegetarisch","glutenfrei","scharf"],"preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
+
+DIÄT-TAGS:
+
+Für jedes Item: prüfe ob es vegan, vegetarisch, glutenfrei oder scharf ist und gib zutreffende Werte als Array in "tags" zurück (Subset aus ["vegan","vegetarisch","glutenfrei","scharf"]). Wenn nichts zutrifft: leeres Array [].
+
+Regeln:
+- "vegan": KEIN Fleisch, KEIN Fisch, KEINE Milch/Käse/Sahne/Butter, KEINE Eier, KEIN Honig. Beispiele: Mineralwasser, Limo, Schwarzer Kaffee/Tee, Apfelsaft, Bier, Wein, Gin, Vodka, vegane Bowls, Pommes ohne Mayo.
+- "vegetarisch": KEIN Fleisch, KEIN Fisch — Milch/Käse/Eier/Honig sind erlaubt. Alle veganen Items zusätzlich auch als "vegetarisch" markieren. Beispiele: Käsespätzle, Latte Macchiato, Käsebrot, Salat ohne Fleisch.
+- "glutenfrei": keine glutenhaltigen Zutaten — kein Weizen-/Roggen-/Gersten-Mehl, kein Brot/Brötchen, keine Panade/Paniermehl, keine Pasta, kein Bier (außer ausdrücklich glutenfrei), keine Sojasauce. Reine Pommes, Salzkartoffeln, Wein, Spirituosen ohne Beimischung sind glutenfrei.
+- "scharf": enthält Chili, Jalapeños, Pfeffer in größerer Menge, Sambal, Sriracha, Harissa, "spicy", "hot" — oder das Item wird in der Beschreibung explizit als scharf, feurig, oder pikant beschrieben.
+
+Wenn unklar (z. B. Soße könnte Sahne enthalten oder nicht): lieber kein Tag setzen als einen falschen.
 KATEGORIEN:
 
 Burger, Sandwiches, Wraps -> "Burger"

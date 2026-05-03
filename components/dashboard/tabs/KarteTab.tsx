@@ -104,6 +104,7 @@ type ReviewRow = {
   name: string;
   beschreibung: string;
   allergens_text: string;
+  tags: string[];
   preis: number;
   kategorie: string;
   main_tab: ParsedMenuItemDto["main_tab"];
@@ -509,6 +510,7 @@ export function KarteTab({
       name: it.name,
       beschreibung: it.beschreibung,
       allergens_text: it.allergens_text ?? "",
+      tags: Array.isArray(it.tags) ? [...it.tags] : [],
       preis: it.preis,
       kategorie: it.kategorie,
       main_tab: it.main_tab,
@@ -679,6 +681,7 @@ export function KarteTab({
           name: r.name.trim(),
           beschreibung: r.beschreibung.trim() || null,
           allergens_text: r.allergens_text.trim() || null,
+          tags: Array.isArray(r.tags) ? r.tags : [],
           preis: Number.isFinite(r.preis) && r.preis >= 0 ? r.preis : 0,
           kategorie: kat,
           aktiv: true,
