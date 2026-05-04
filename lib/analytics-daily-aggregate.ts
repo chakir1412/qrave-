@@ -46,26 +46,44 @@ function metricsForRestaurantEvents(
   dayYmd: string,
   events: RawRestaurantEventRow[],
 ): RestaurantAnalyticsDailyRow {
-  const scans = events.filter((e) => e.event_type === "scan");
-  const blocks = { morning: 0, midday: 0, evening: 0, night: 0 };
-  for (const e of scans) {
-    blocks[timeBlockForHour(eventHourBerlin(e))]++;
-  }
-
-  const sessions = new Map<string, number>();
+  // Eine "Session" = ein eindeutiger Besuch der Speisekarte. Wir nehmen die
+  // session_id, fallen sonst auf die Event-ID zurück. Ein "Scan" wird
+  // semantisch als der Beginn einer Session interpretiert — der frühest
+  // gesehene Hour-Bucket pro Session entscheidet die Tageszeit.
+  //
+  // Hintergrund: `event_type === "scan"` wird nur vom Tier-0-Server-Pfad
+  // (`/<slug>/<tischSegment>`) geschrieben — bei direktem Slug-Aufruf
+  // entstehen keine "scan"-Rows, obwohl der Gast die Karte sieht. Vorher
+  // war scan_count deshalb für die meisten Restaurants 0.
+  const sessions = new Map<
+    string,
+    { firstHour: number; maxTier: number }
+  >();
   for (const e of events) {
     const k = sessionKey(e);
+    const h = eventHourBerlin(e);
     const t = e.tier ?? 0;
-    const cur = sessions.get(k) ?? 0;
-    if (t > cur) sessions.set(k, t);
+    const cur = sessions.get(k);
+    if (cur) {
+      if (h < cur.firstHour) cur.firstHour = h;
+      if (t > cur.maxTier) cur.maxTier = t;
+    } else {
+      sessions.set(k, { firstHour: h, maxTier: t });
+    }
   }
+
+  const blocks = { morning: 0, midday: 0, evening: 0, night: 0 };
+  for (const s of sessions.values()) {
+    blocks[timeBlockForHour(s.firstHour)]++;
+  }
+
   const sessionsCount = sessions.size;
-  const withConsent = [...sessions.values()].filter((t) => t >= 1).length;
+  const withConsent = [...sessions.values()].filter((s) => s.maxTier >= 1).length;
 
   return {
     restaurant_id: restaurantId,
     day_berlin: dayYmd,
-    scan_count: scans.length,
+    scan_count: sessionsCount,
     item_detail_count: events.filter((e) => e.event_type === "item_detail").length,
     category_enter_count: events.filter((e) => e.event_type === "category_enter").length,
     scans_morning: blocks.morning,
