@@ -1,8 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import {
   type AnalyticsEventRow,
-  peakHoursToday,
-  weekScanCounts,
+  type PeakRow,
 } from "@/components/dashboard/analytics";
 
 export type DashboardAnalytics = {
@@ -12,8 +11,18 @@ export type DashboardAnalytics = {
   topItemToday: string | null;
   topItemsWeek: { name: string; count: number }[];
   weekSeries: number[];
-  peaksToday: ReturnType<typeof peakHoursToday>;
+  peaksToday: PeakRow[];
   topFilter: string | null;
+};
+
+type ScanEventRow = {
+  id: string;
+  session_id: string | null;
+  item_id: string | null;
+  item_name: string | null;
+  event_type: string | null;
+  filter_key: string | null;
+  created_at: string;
 };
 
 function startOfLocalDay(d: Date): Date {
@@ -22,6 +31,22 @@ function startOfLocalDay(d: Date): Date {
   return x;
 }
 
+function startOfWeekMonday(ref: Date): Date {
+  const d = startOfLocalDay(ref);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function sessionKey(e: ScanEventRow): string {
+  const sid = e.session_id?.trim();
+  return sid && sid.length > 0 ? sid : `row:${e.id}`;
+}
+
+/** Liefert die Aufrufe-Kennzahlen + Top-Items aus `scan_events`.
+ *  „Aufruf" = ein eindeutiger Besuch (session_id), passend zum Backend-
+ *  Aggregat in `restaurant_analytics_daily`. */
 export async function fetchDashboardAnalytics(
   restaurantId: string,
 ): Promise<DashboardAnalytics> {
@@ -29,14 +54,19 @@ export async function fetchDashboardAnalytics(
   const startToday = startOfLocalDay(today);
   const startYesterday = new Date(startToday);
   startYesterday.setDate(startYesterday.getDate() - 1);
-  const startWeek = new Date(startToday);
-  startWeek.setDate(startWeek.getDate() - 13);
+  const monday = startOfWeekMonday(today);
+  const sundayEnd = new Date(monday);
+  sundayEnd.setDate(monday.getDate() + 7);
+  // Fenster für Top-Items / Charts: aktuelle Woche (Mo–So) plus die Vor-
+  // woche, damit der Hook auch Montagmorgens nicht leer ist.
+  const fetchFrom = new Date(monday);
+  fetchFrom.setDate(fetchFrom.getDate() - 7);
 
   const { data, error } = await supabase
-    .from("analytics_events")
-    .select("item_id, item_name, event_type, filter_key, created_at")
+    .from("scan_events")
+    .select("id, session_id, item_id, item_name, event_type, filter_key, created_at")
     .eq("restaurant_id", restaurantId)
-    .gte("created_at", startWeek.toISOString());
+    .gte("created_at", fetchFrom.toISOString());
 
   if (error || !data) {
     return {
@@ -51,40 +81,62 @@ export async function fetchDashboardAnalytics(
     };
   }
 
-  const events = data as AnalyticsEventRow[];
+  const events = data as ScanEventRow[];
 
-  const todayEvents = events.filter((e) => new Date(e.created_at) >= startToday);
-  const yesterdayEvents = events.filter((e) => {
-    const t = new Date(e.created_at);
-    return t >= startYesterday && t < startToday;
-  });
+  // Mapped-Form für Komponenten, die noch AnalyticsEventRow erwarten
+  // (Top-3-Box, Klickrows-Sektion). Identisch zum bisherigen Vertrag.
+  const eventsMapped: AnalyticsEventRow[] = events.map((e) => ({
+    item_id: e.item_id,
+    item_name: e.item_name,
+    event_type: e.event_type,
+    filter_key: e.filter_key,
+    created_at: e.created_at,
+  }));
 
-  const weekEvents = events.filter((e) => {
-    const t = new Date(e.created_at);
-    const monday = new Date(startOfLocalDay(today));
-    const day = monday.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    monday.setDate(monday.getDate() + diff);
-    monday.setHours(0, 0, 0, 0);
-    const sun = new Date(monday);
-    sun.setDate(monday.getDate() + 6);
-    sun.setHours(23, 59, 59, 999);
-    return t >= monday && t <= sun;
-  });
-
-  const todayByItem = new Map<string, number>();
-  for (const e of todayEvents) {
-    if (!e.item_name) continue;
-    const k = e.item_name;
-    todayByItem.set(k, (todayByItem.get(k) ?? 0) + 1);
+  // Sessions pro Tag-Key sammeln.
+  const sessionsByDay = new Map<string, Set<string>>();
+  function dayKey(d: Date): string {
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   }
-  const sortedToday = [...todayByItem.entries()].sort((a, b) => b[1] - a[1]);
-  const topItemToday = sortedToday[0]?.[0] ?? null;
+  for (const e of events) {
+    const t = new Date(e.created_at);
+    const k = dayKey(startOfLocalDay(t));
+    let set = sessionsByDay.get(k);
+    if (!set) {
+      set = new Set();
+      sessionsByDay.set(k, set);
+    }
+    set.add(sessionKey(e));
+  }
+  function sessionsOnDay(d: Date): number {
+    return sessionsByDay.get(dayKey(d))?.size ?? 0;
+  }
 
+  const viewsToday = sessionsOnDay(startToday);
+  const viewsYesterday = sessionsOnDay(startYesterday);
+
+  // Wochenserie Mo–So.
+  const weekSeries: number[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    weekSeries.push(sessionsOnDay(d));
+  }
+
+  // Top-Items: Klicks aufs Detail-Modal (`item_detail`) in der aktuellen
+  // Woche. Item-Modal-Klicks sind die wirklich starke Engagement-Signal,
+  // nicht reine Sektions-Aufrufe.
+  const itemDetailWeek = events.filter(
+    (e) =>
+      e.event_type === "item_detail" &&
+      typeof e.item_name === "string" &&
+      e.item_name.trim().length > 0 &&
+      new Date(e.created_at) >= monday &&
+      new Date(e.created_at) < sundayEnd,
+  );
   const weekByItem = new Map<string, number>();
-  for (const e of weekEvents) {
-    if (!e.item_name) continue;
-    const k = e.item_name;
+  for (const e of itemDetailWeek) {
+    const k = (e.item_name as string).trim();
     weekByItem.set(k, (weekByItem.get(k) ?? 0) + 1);
   }
   const topItemsWeek = [...weekByItem.entries()]
@@ -92,22 +144,56 @@ export async function fetchDashboardAnalytics(
     .slice(0, 10)
     .map(([name, count]) => ({ name, count }));
 
+  const todayByItem = new Map<string, number>();
+  for (const e of events) {
+    if (e.event_type !== "item_detail") continue;
+    if (!e.item_name) continue;
+    const t = new Date(e.created_at);
+    if (t < startToday) continue;
+    const k = e.item_name.trim();
+    todayByItem.set(k, (todayByItem.get(k) ?? 0) + 1);
+  }
+  const topItemToday =
+    [...todayByItem.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+  // Peak-Stunden heute: pro Stunde eindeutige Sessions zählen
+  // (sonst dominiert eine einzelne aktive Session die Buckets).
+  const sessionsByHour = new Map<number, Set<string>>();
+  for (const e of events) {
+    const t = new Date(e.created_at);
+    if (t < startToday) continue;
+    const sk = sessionKey(e);
+    const h = t.getHours();
+    let set = sessionsByHour.get(h);
+    if (!set) {
+      set = new Set();
+      sessionsByHour.set(h, set);
+    }
+    set.add(sk);
+  }
+  const peaksToday: PeakRow[] = [...sessionsByHour.entries()]
+    .map(([h, set]) => ({ label: `${h}–${h + 1}h`, count: set.size }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // Top-Filter: filter_set-Events der letzten Woche.
   const byFilter = new Map<string, number>();
   for (const e of events) {
     if (!e.filter_key) continue;
+    if (e.event_type !== "filter_set") continue;
     byFilter.set(e.filter_key, (byFilter.get(e.filter_key) ?? 0) + 1);
   }
-  const sortedFilters = [...byFilter.entries()].sort((a, b) => b[1] - a[1]);
-  const topFilter = sortedFilters[0]?.[0] ?? null;
+  const topFilter =
+    [...byFilter.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
   return {
-    events,
-    viewsToday: todayEvents.length,
-    viewsYesterday: yesterdayEvents.length,
+    events: eventsMapped,
+    viewsToday,
+    viewsYesterday,
     topItemToday,
     topItemsWeek,
-    weekSeries: weekScanCounts(events, today),
-    peaksToday: peakHoursToday(events, today),
+    weekSeries,
+    peaksToday,
     topFilter,
   };
 }
