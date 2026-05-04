@@ -34,15 +34,25 @@ export default function LunchSection({
 
   if (active.length === 0) return null;
 
-  const items = active
-    .map((offer) => {
+  type SingleEntry = { kind: "single"; item: MenuItem; offer: LunchOffer };
+  type BundleEntry = { kind: "bundle"; offer: LunchOffer; items: MenuItem[] };
+  const entries: Array<SingleEntry | BundleEntry> = active
+    .map((offer): SingleEntry | BundleEntry | null => {
+      if (offer.is_bundle) {
+        const ids = offer.bundle_items ?? [];
+        const its = ids
+          .map((id) => menuItems.find((m) => m.id === id))
+          .filter((m): m is MenuItem => Boolean(m));
+        if (its.length === 0) return null;
+        return { kind: "bundle", offer, items: its };
+      }
       const item = menuItems.find((m) => m.id === offer.item_id);
       if (!item) return null;
-      return { item, offer };
+      return { kind: "single", item, offer };
     })
-    .filter((x): x is { item: MenuItem; offer: LunchOffer } => x !== null);
+    .filter((x): x is SingleEntry | BundleEntry => x !== null);
 
-  if (items.length === 0) return null;
+  if (entries.length === 0) return null;
 
   const dark = theme === "dark";
   const headlineColor = dark ? "#E8A96E" : "#b8966a";
@@ -73,7 +83,67 @@ export default function LunchSection({
         🍽️ Mittagsangebot
       </h2>
       <div className="flex flex-col gap-2">
-        {items.map(({ item, offer }) => {
+        {entries.map((entry) => {
+          if (entry.kind === "bundle") {
+            const lunchPrice = entry.offer.lunch_price;
+            return (
+              <div
+                key={entry.offer.id}
+                className="rounded-2xl border p-3.5"
+                style={{ background: cardBg, borderColor: cardBorder }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="text-[0.6rem] font-bold uppercase tracking-[0.18em]"
+                      style={{ color: headlineColor }}
+                    >
+                      Bundle · {entry.items.length} Items
+                    </div>
+                    <div
+                      className="font-semibold leading-tight"
+                      style={{ color: titleColor, fontSize: "1rem", marginTop: 2 }}
+                    >
+                      {entry.offer.bundle_name ?? "Mittagsmenü"}
+                    </div>
+                  </div>
+                  <div
+                    className="shrink-0 text-right text-[1rem] font-bold"
+                    style={{ color: priceColor }}
+                  >
+                    {typeof lunchPrice === "number" && !Number.isNaN(lunchPrice)
+                      ? `${lunchPrice.toFixed(2)} €`
+                      : "—"}
+                  </div>
+                </div>
+                <ul
+                  className="mt-2 flex flex-col gap-1.5"
+                  style={{ borderTop: `1px solid ${cardBorder}`, paddingTop: 8 }}
+                >
+                  {entry.items.map((it) => (
+                    <li key={it.id}>
+                      <button
+                        type="button"
+                        onClick={() => onItemClick(it)}
+                        className="flex w-full items-baseline justify-between gap-2 text-left text-[0.85rem]"
+                        style={{ background: "transparent", border: "none", cursor: "pointer" }}
+                      >
+                        <span style={{ color: titleColor }}>· {it.name}</span>
+                        <span
+                          className="text-[0.72rem]"
+                          style={{ color: subTextColor }}
+                        >
+                          {getDisplayPrice(it)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          }
+
+          const { item, offer } = entry;
           const lunchPrice = offer.lunch_price;
           const hasDiscount =
             typeof lunchPrice === "number" &&

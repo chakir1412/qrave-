@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -12,6 +13,7 @@ import type { DailyPush, LunchOffer } from "@/lib/supabase";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { LUNCH_WEEKDAY_KEYS } from "@/lib/supabase";
+import { isDrinkCategory } from "@/lib/category-types";
 import {
   inferMainTabFromCategoryName,
   type ParsedMenuItemDto,
@@ -115,6 +117,25 @@ type ReviewRow = {
 type CategoryMap = Record<string, CategoryBucket>;
 
 const ACCEPT_UPLOAD = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
+
+/** Vorlagen für die Gäste-Notiz; eckige Klammern markieren den Platzhalter,
+ *  der nach dem Einfügen pre-selected wird. */
+const NOTIZ_TEMPLATES = [
+  "Küche schließt heute um [Zeit]",
+  "Wir schließen heute um [Zeit]",
+  "Kein [Gericht] heute verfügbar",
+  "Heute nur Getränke bis [Zeit]",
+] as const;
+
+/** Parsed Komma- oder Punkt-getrennten Preis-String. Whitespace und €
+ *  werden ignoriert. Liefert null bei ungültiger Eingabe. */
+function parseDecimal(raw: string): number | null {
+  if (typeof raw !== "string") return null;
+  const cleaned = raw.trim().replace(/\s/g, "").replace(/€/g, "").replace(",", ".");
+  if (cleaned === "" || cleaned === "-" || cleaned === ".") return null;
+  const n = Number.parseFloat(cleaned);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
 
 function newReviewId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -267,7 +288,30 @@ export function KarteTab({
         }
       : { time_from: "11:30", time_to: "14:30", weekdays: ["mo", "di", "mi", "do", "fr"] };
   });
-  const [lunchSelectId, setLunchSelectId] = useState("");
+  const [lunchSelectFood, setLunchSelectFood] = useState("");
+  const [lunchSelectDrink, setLunchSelectDrink] = useState("");
+  const [bundleName, setBundleName] = useState("");
+  const [bundleSelectedIds, setBundleSelectedIds] = useState<string[]>([]);
+  const [bundlePriceText, setBundlePriceText] = useState("");
+  const notizRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const insertNotizTemplate = useCallback(
+    (tpl: string) => {
+      onGuestNotizChange(tpl);
+      const m = /\[[^\]]+\]/.exec(tpl);
+      if (!m) return;
+      const start = m.index;
+      const end = start + m[0].length;
+      // Nach dem Re-Render Cursor / Selection auf den Platzhalter setzen.
+      window.setTimeout(() => {
+        const ta = notizRef.current;
+        if (!ta) return;
+        ta.focus();
+        ta.setSelectionRange(start, end);
+      }, 30);
+    },
+    [onGuestNotizChange],
+  );
 
   const [portalReady, setPortalReady] = useState(false);
   const [deleteMenuConfirmOpen, setDeleteMenuConfirmOpen] = useState(false);
@@ -722,6 +766,9 @@ export function KarteTab({
     }
   }
 
+  const LUNCH_OFFER_RETURN =
+    "id, restaurant_id, item_id, lunch_price, time_from, time_to, weekdays, aktiv, is_bundle, bundle_items, bundle_name, created_at";
+
   async function addLunchItem(itemId: string) {
     const item = menuItems.find((m) => m.id === itemId);
     if (!item) return;
@@ -735,8 +782,11 @@ export function KarteTab({
         time_to: lunchForm.time_to,
         weekdays: lunchForm.weekdays,
         aktiv: true,
+        is_bundle: false,
+        bundle_items: [],
+        bundle_name: null,
       })
-      .select("id, restaurant_id, item_id, lunch_price, time_from, time_to, weekdays, aktiv, created_at")
+      .select(LUNCH_OFFER_RETURN)
       .single();
     if (error || !data) {
       onToast(error?.message ?? "Mittagsangebot konnte nicht angelegt werden");
@@ -744,6 +794,40 @@ export function KarteTab({
     }
     onLunchOffersChange([...lunchOffers, data as LunchOffer]);
     onToast(`✓ ${item.name} ins Mittagsangebot`);
+  }
+
+  async function addLunchBundle(name: string, itemIds: string[], price: number) {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      onToast("Bundle-Name fehlt");
+      return;
+    }
+    if (itemIds.length < 2) {
+      onToast("Bundle braucht mindestens 2 Items");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("lunch_offers")
+      .insert({
+        restaurant_id: restaurantId,
+        item_id: null,
+        lunch_price: price,
+        time_from: lunchForm.time_from,
+        time_to: lunchForm.time_to,
+        weekdays: lunchForm.weekdays,
+        aktiv: true,
+        is_bundle: true,
+        bundle_items: itemIds,
+        bundle_name: trimmed,
+      })
+      .select(LUNCH_OFFER_RETURN)
+      .single();
+    if (error || !data) {
+      onToast(error?.message ?? "Bundle konnte nicht angelegt werden");
+      return;
+    }
+    onLunchOffersChange([...lunchOffers, data as LunchOffer]);
+    onToast(`✓ Bundle „${trimmed}" angelegt`);
   }
 
   async function removeLunchItem(id: string) {
@@ -761,7 +845,7 @@ export function KarteTab({
       .from("lunch_offers")
       .update(patch)
       .eq("id", id)
-      .select("id, restaurant_id, item_id, lunch_price, time_from, time_to, weekdays, aktiv, created_at")
+      .select(LUNCH_OFFER_RETURN)
       .single();
     if (error || !data) {
       onToast(error?.message ?? "Speichern fehlgeschlagen");
@@ -1769,11 +1853,26 @@ export function KarteTab({
                   }
                 >
                   <option value="">Gericht wählen …</option>
-                  {menuItems.filter((x) => x.aktiv).map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
+                  {(() => {
+                    const speisen = menuItems.filter(
+                      (m) => m.aktiv && !isDrinkCategory(m.kategorie),
+                    );
+                    const byKat = new Map<string, MenuItem[]>();
+                    for (const m of speisen) {
+                      const k = (m.kategorie ?? "Sonstiges").trim() || "Sonstiges";
+                      if (!byKat.has(k)) byKat.set(k, []);
+                      byKat.get(k)!.push(m);
+                    }
+                    return Array.from(byKat.entries()).map(([k, list]) => (
+                      <optgroup key={k} label={k}>
+                        {list.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ));
+                  })()}
                 </select>
               ) : (
                 <>
@@ -1910,20 +2009,26 @@ export function KarteTab({
             </button>
           </div>
 
+          {/* Speisen-Sektion */}
           <div
             className="mb-3 rounded-[20px] border px-5 py-5"
             style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
           >
-            <div className="mb-2 text-sm font-extrabold">Item hinzufügen</div>
+            <div className="mb-2 text-sm font-extrabold">🍽 Speise hinzufügen</div>
             <select
-              value={lunchSelectId}
-              onChange={(e) => setLunchSelectId(e.target.value)}
+              value={lunchSelectFood}
+              onChange={(e) => setLunchSelectFood(e.target.value)}
               className="mb-2 w-full rounded-[11px] border px-3 py-2.5 text-sm outline-none"
               style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
             >
-              <option value="">Aus Karte wählen …</option>
+              <option value="">Speise wählen …</option>
               {menuItems
-                .filter((m) => m.aktiv && !lunchOffers.some((o) => o.item_id === m.id))
+                .filter(
+                  (m) =>
+                    m.aktiv &&
+                    !isDrinkCategory(m.kategorie) &&
+                    !lunchOffers.some((o) => !o.is_bundle && o.item_id === m.id),
+                )
                 .map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
@@ -1933,19 +2038,159 @@ export function KarteTab({
             <button
               type="button"
               onClick={() => {
-                if (!lunchSelectId) return;
-                const id = lunchSelectId;
-                setLunchSelectId("");
+                if (!lunchSelectFood) return;
+                const id = lunchSelectFood;
+                setLunchSelectFood("");
                 void addLunchItem(id);
               }}
-              disabled={!lunchSelectId}
+              disabled={!lunchSelectFood}
               className="w-full rounded-[10px] py-2.5 text-sm font-bold disabled:opacity-50"
               style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
             >
-              + Hinzufügen
+              + Speise hinzufügen
             </button>
           </div>
 
+          {/* Getränke-Sektion */}
+          <div
+            className="mb-3 rounded-[20px] border px-5 py-5"
+            style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+          >
+            <div className="mb-2 text-sm font-extrabold">🥤 Getränk hinzufügen</div>
+            <select
+              value={lunchSelectDrink}
+              onChange={(e) => setLunchSelectDrink(e.target.value)}
+              className="mb-2 w-full rounded-[11px] border px-3 py-2.5 text-sm outline-none"
+              style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
+            >
+              <option value="">Getränk wählen …</option>
+              {menuItems
+                .filter(
+                  (m) =>
+                    m.aktiv &&
+                    isDrinkCategory(m.kategorie) &&
+                    !lunchOffers.some((o) => !o.is_bundle && o.item_id === m.id),
+                )
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                if (!lunchSelectDrink) return;
+                const id = lunchSelectDrink;
+                setLunchSelectDrink("");
+                void addLunchItem(id);
+              }}
+              disabled={!lunchSelectDrink}
+              className="w-full rounded-[10px] py-2.5 text-sm font-bold disabled:opacity-50"
+              style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
+            >
+              + Getränk hinzufügen
+            </button>
+          </div>
+
+          {/* Bundle-Editor */}
+          <div
+            className="mb-3 rounded-[20px] border px-5 py-5"
+            style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+          >
+            <div className="mb-2 text-sm font-extrabold">🍱 Bundle erstellen</div>
+            <p className="mb-3 text-[11px]" style={{ color: dash.mu }}>
+              Mehrere Items mit Gesamtpreis (z. B. Hauptgericht + Beilage + Getränk).
+            </p>
+            <input
+              value={bundleName}
+              onChange={(e) => setBundleName(e.target.value)}
+              placeholder="Bundle-Name (z. B. Mittagsmenü 1)"
+              className="mb-2 w-full rounded-[11px] border px-3 py-2.5 text-sm outline-none"
+              style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
+            />
+            <div
+              className="mb-2 max-h-44 overflow-y-auto rounded-[11px] border p-2"
+              style={{ backgroundColor: dash.s2, borderColor: dash.bo }}
+            >
+              {menuItems.filter((m) => m.aktiv).length === 0 ? (
+                <p className="text-[11px]" style={{ color: dash.mu }}>
+                  Noch keine aktiven Items.
+                </p>
+              ) : (
+                menuItems
+                  .filter((m) => m.aktiv)
+                  .map((m) => {
+                    const checked = bundleSelectedIds.includes(m.id);
+                    return (
+                      <label
+                        key={m.id}
+                        className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-xs"
+                        style={{ color: dash.tx }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setBundleSelectedIds((prev) =>
+                              checked ? prev.filter((id) => id !== m.id) : [...prev, m.id],
+                            );
+                          }}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="flex-1 truncate">{m.name}</span>
+                        <span style={{ color: dash.mu, fontSize: 10 }}>
+                          {isDrinkCategory(m.kategorie) ? "🥤" : "🍽"} {m.preis.toFixed(2)} €
+                        </span>
+                      </label>
+                    );
+                  })
+              )}
+            </div>
+            <input
+              value={bundlePriceText}
+              onChange={(e) => setBundlePriceText(e.target.value)}
+              placeholder="Gesamtpreis (z. B. 12,50)"
+              inputMode="decimal"
+              className="mb-2 w-full rounded-[11px] border px-3 py-2.5 text-sm outline-none"
+              style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const price = parseDecimal(bundlePriceText);
+                if (price === null || price <= 0) {
+                  onToast("Gültigen Gesamtpreis eingeben (z. B. 12,50)");
+                  return;
+                }
+                if (!bundleName.trim()) {
+                  onToast("Bundle-Name fehlt");
+                  return;
+                }
+                if (bundleSelectedIds.length < 2) {
+                  onToast("Mindestens 2 Items auswählen");
+                  return;
+                }
+                const ids = [...bundleSelectedIds];
+                const name = bundleName.trim();
+                setBundleName("");
+                setBundleSelectedIds([]);
+                setBundlePriceText("");
+                void addLunchBundle(name, ids, price);
+              }}
+              disabled={
+                !bundleName.trim() ||
+                bundleSelectedIds.length < 2 ||
+                parseDecimal(bundlePriceText) === null
+              }
+              className="w-full rounded-[10px] py-2.5 text-sm font-bold disabled:opacity-50"
+              style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
+            >
+              + Bundle erstellen
+            </button>
+          </div>
+
+          {/* Liste der angelegten Offers (Single + Bundle) */}
           {lunchOffers.length === 0 ? (
             <p className="text-center text-xs" style={{ color: dash.mu }}>
               Noch keine Items im Mittagsangebot.
@@ -1953,6 +2198,71 @@ export function KarteTab({
           ) : (
             <div className="flex flex-col gap-2">
               {lunchOffers.map((o) => {
+                if (o.is_bundle) {
+                  const items = (o.bundle_items ?? [])
+                    .map((id) => menuItems.find((m) => m.id === id))
+                    .filter((m): m is MenuItem => Boolean(m));
+                  return (
+                    <div
+                      key={o.id}
+                      className="rounded-2xl border px-4 py-3"
+                      style={{ backgroundColor: dash.s1, borderColor: "rgba(255,212,38,0.35)" }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className="text-[10px] font-bold uppercase tracking-widest"
+                            style={{ color: dash.yellow }}
+                          >
+                            Bundle
+                          </div>
+                          <div className="text-sm font-semibold">
+                            {o.bundle_name ?? "Unbenanntes Bundle"}
+                          </div>
+                          <ul className="mt-1 text-[11px]" style={{ color: dash.mu }}>
+                            {items.map((it) => (
+                              <li key={it.id}>· {it.name}</li>
+                            ))}
+                          </ul>
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="text-[11px]" style={{ color: dash.mu }}>
+                              Gesamtpreis (€)
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={o.lunch_price != null ? String(o.lunch_price) : ""}
+                              placeholder="z. B. 12,50"
+                              onChange={(e) => {
+                                const v = parseDecimal(e.target.value);
+                                if (v === null) return;
+                                void patchLunchOffer(o.id, { lunch_price: v });
+                              }}
+                              className="w-24 rounded-md border px-2 py-1 text-xs outline-none"
+                              style={{
+                                backgroundColor: dash.s2,
+                                borderColor: dash.bo,
+                                color: dash.tx,
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void removeLunchItem(o.id)}
+                          className="shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold"
+                          style={{
+                            backgroundColor: "rgba(255,75,110,0.12)",
+                            borderColor: "rgba(255,75,110,0.28)",
+                            color: dash.re,
+                          }}
+                        >
+                          Entfernen
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
                 const item = menuItems.find((m) => m.id === o.item_id);
                 return (
                   <div
@@ -1961,6 +2271,14 @@ export function KarteTab({
                     style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
                   >
                     <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-[10px] font-bold uppercase tracking-wider"
+                          style={{ color: dash.mu }}
+                        >
+                          {item && isDrinkCategory(item.kategorie) ? "Getränk" : "Speise"}
+                        </span>
+                      </div>
                       <div className="truncate text-sm font-semibold">
                         {item?.name ?? "(gelöschtes Gericht)"}
                       </div>
@@ -1972,17 +2290,19 @@ export function KarteTab({
                           Mittagspreis (€)
                         </span>
                         <input
-                          type="number"
-                          step="0.10"
-                          min={0}
-                          value={o.lunch_price ?? ""}
+                          type="text"
+                          inputMode="decimal"
+                          value={o.lunch_price != null ? String(o.lunch_price) : ""}
                           placeholder="optional"
                           onChange={(e) => {
                             const raw = e.target.value;
-                            const v = raw === "" ? null : Number.parseFloat(raw);
-                            void patchLunchOffer(o.id, {
-                              lunch_price: v == null || Number.isNaN(v) ? null : v,
-                            });
+                            if (raw.trim() === "") {
+                              void patchLunchOffer(o.id, { lunch_price: null });
+                              return;
+                            }
+                            const v = parseDecimal(raw);
+                            if (v === null) return;
+                            void patchLunchOffer(o.id, { lunch_price: v });
                           }}
                           className="w-24 rounded-md border px-2 py-1 text-xs outline-none"
                           style={{
@@ -2020,16 +2340,42 @@ export function KarteTab({
         >
           <div className="mb-0.5 text-base font-extrabold">Gäste-Notiz</div>
           <div className="mb-3 text-xs" style={{ color: dash.mu }}>
-            Erscheint in der Vorschau (lokal gespeichert)
+            Erscheint als Hinweis-Banner ganz oben in der Speisekarte.
           </div>
           <textarea
-            className="mb-3 w-full resize-none rounded-[11px] border px-3.5 py-3 text-sm outline-none"
+            ref={notizRef}
+            className="mb-2 w-full resize-none rounded-[11px] border px-3.5 py-3 text-sm outline-none"
             style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
             rows={4}
             placeholder="z. B. Küche heute bis 22 Uhr"
             value={guestNotiz}
             onChange={(e) => onGuestNotizChange(e.target.value)}
           />
+          <div className="mb-3">
+            <div
+              className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
+              style={{ color: dash.mu }}
+            >
+              Vorlagen
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {NOTIZ_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl}
+                  type="button"
+                  onClick={() => insertNotizTemplate(tpl)}
+                  className="rounded-full border px-3 py-1 text-[11px] font-medium transition active:scale-95"
+                  style={{
+                    backgroundColor: dash.s2,
+                    borderColor: dash.bo,
+                    color: dash.mi,
+                  }}
+                >
+                  {tpl}
+                </button>
+              ))}
+            </div>
+          </div>
           <button
             type="button"
             onClick={saveNotiz}

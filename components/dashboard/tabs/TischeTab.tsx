@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Bereich } from "../types";
 import { heatFromScans } from "../types";
-import { DASH_GLASS_CARD_CLASS, dash, dashPrimaryButtonStyle } from "../constants";
+import { DASH_GLASS_CARD_CLASS, dash } from "../constants";
 
 type Props = {
   slideClass: string;
   bereiche: Bereich[];
   loading?: boolean;
   loadError?: string | null;
-  onOpenConfig: () => void;
   onToast: (msg: string) => void;
 };
 
@@ -19,7 +18,6 @@ export function TischeTab({
   bereiche: initial,
   loading = false,
   loadError = null,
-  onOpenConfig,
   onToast,
 }: Props) {
   const [bereiche, setBereiche] = useState<Bereich[]>(() =>
@@ -81,22 +79,16 @@ export function TischeTab({
       ) : null}
 
       {!loadError && initial.length === 0 ? (
-        <section className={`${DASH_GLASS_CARD_CLASS} mx-0 mt-6 flex flex-col items-center gap-3 px-5 py-10 text-center`}>
+        <section
+          className={`${DASH_GLASS_CARD_CLASS} mx-0 mt-6 flex flex-col items-center gap-3 px-5 py-10 text-center`}
+        >
           <span className="text-3xl">🪑</span>
           <p className="text-[15px] font-bold" style={{ color: dash.tx }}>
             Noch keine Tische
           </p>
           <p className="max-w-[280px] text-xs leading-relaxed" style={{ color: dash.mu }}>
-            Lege Bereiche und Tische an — Scans und NFC-URLs kannst du später ergänzen.
+            Tische und QR-Codes werden zentral über das Founder-Dashboard gepflegt.
           </p>
-          <button
-            type="button"
-            onClick={onOpenConfig}
-            className="mt-1 rounded-[10px] px-5 py-3 text-[13px] font-bold"
-            style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
-          >
-            Jetzt konfigurieren
-          </button>
         </section>
       ) : null}
 
@@ -243,19 +235,6 @@ export function TischeTab({
           ))}
         </>
       ) : null}
-
-      <button
-        type="button"
-        onClick={onOpenConfig}
-        className="mx-0 mb-4 mt-3 flex w-full items-center justify-center gap-1.5 rounded-[10px] border py-3 text-[13px] font-semibold transition active:opacity-90"
-        style={{
-          backgroundColor: dash.secondaryBg,
-          borderColor: dash.secondaryBorder,
-          color: dash.secondaryFg,
-        }}
-      >
-        ⚙️ Tische &amp; Bereiche konfigurieren
-      </button>
 
     </div>
   );

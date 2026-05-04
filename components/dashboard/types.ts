@@ -48,7 +48,6 @@ export type OverlaysState = {
 };
 
 export type PagesState = {
-  tischeConfig: boolean;
   preview: boolean;
 };
 

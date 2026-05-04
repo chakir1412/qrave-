@@ -2,7 +2,7 @@
 
 import { Inter } from "next/font/google";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 import type {
@@ -483,8 +483,8 @@ export function RestaurantsTab({
   const [subView, setSubView] = useState<SubView>(null);
   const [stickerModalFor, setStickerModalFor] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [newTischNr, setNewTischNr] = useState("");
   const [newBereich, setNewBereich] = useState("");
+  const [newAnzahl, setNewAnzahl] = useState("1");
   const [qrFormError, setQrFormError] = useState<string | null>(null);
   const [qrPrintBusy, setQrPrintBusy] = useState(false);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
@@ -686,22 +686,24 @@ export function RestaurantsTab({
             <p style={{ margin: "0 0 14px", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)" }}>
               TISCHE · QR & NFC
             </p>
-            <div className="grid gap-3" style={{ gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
-              <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Tisch-Nummer
-                <input
-                  type="number"
-                  min={1}
-                  value={newTischNr}
-                  onChange={(e) => setNewTischNr(e.target.value)}
-                  style={{ ...inputBase, marginTop: 6 }}
-                />
-              </label>
+            <div className="grid gap-3" style={{ gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr" }}>
               <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
                 Bereich
                 <input
                   value={newBereich}
                   onChange={(e) => setNewBereich(e.target.value)}
+                  placeholder="z. B. Innen, Terrasse"
+                  style={{ ...inputBase, marginTop: 6 }}
+                />
+              </label>
+              <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
+                Anzahl
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={newAnzahl}
+                  onChange={(e) => setNewAnzahl(e.target.value)}
                   style={{ ...inputBase, marginTop: 6 }}
                 />
               </label>
@@ -716,21 +718,46 @@ export function RestaurantsTab({
               disabled={pending}
               onClick={() => {
                 setQrFormError(null);
-                const n = Number.parseInt(newTischNr, 10);
-                if (!Number.isFinite(n) || n < 1) {
-                  setQrFormError("Bitte gültige Tisch-Nummer eingeben.");
+                const count = Number.parseInt(newAnzahl, 10);
+                if (!Number.isFinite(count) || count < 1 || count > 50) {
+                  setQrFormError("Anzahl zwischen 1 und 50 eingeben.");
                   return;
                 }
-                void run(
-                  supabase.from("restaurant_tables").insert({
-                    restaurant_id: subView.restaurantId,
-                    tisch_nummer: n,
-                    bereich: newBereich.trim() || null,
-                  }),
-                ).then(() => {
-                  setNewTischNr("");
-                  setNewBereich("");
-                });
+                const bereich = newBereich.trim() || null;
+                void (async () => {
+                  setPending(true);
+                  setSupabaseError(null);
+                  try {
+                    // Höchste Tisch-Nummer + 1 (Restaurant-weit) als Start.
+                    const { data: maxRow, error: mErr } = await supabase
+                      .from("restaurant_tables")
+                      .select("tisch_nummer")
+                      .eq("restaurant_id", subView.restaurantId)
+                      .order("tisch_nummer", { ascending: false })
+                      .limit(1)
+                      .maybeSingle();
+                    if (mErr) {
+                      setSupabaseError(mErr.message);
+                      return;
+                    }
+                    const start = (typeof maxRow?.tisch_nummer === "number" ? maxRow.tisch_nummer : 0) + 1;
+                    const rows = Array.from({ length: count }, (_, i) => ({
+                      restaurant_id: subView.restaurantId,
+                      tisch_nummer: start + i,
+                      bereich,
+                    }));
+                    const { error } = await supabase.from("restaurant_tables").insert(rows);
+                    if (error) {
+                      setSupabaseError(error.message);
+                      return;
+                    }
+                    setNewBereich("");
+                    setNewAnzahl("1");
+                    await onRefresh();
+                  } finally {
+                    setPending(false);
+                  }
+                })();
               }}
               className="mt-3 w-full"
               style={{
@@ -744,7 +771,7 @@ export function RestaurantsTab({
                 background: `linear-gradient(135deg, ${ORANGE}, #ff8c4a)`,
               }}
             >
-              Tisch hinzufügen
+              {pending ? "Lege an…" : `+ ${Number.parseInt(newAnzahl, 10) || 1} Tisch(e) anlegen`}
             </button>
             <button
               type="button"
@@ -832,85 +859,105 @@ export function RestaurantsTab({
                 }}
               />
             </label>
-            <div className="mt-6 flex flex-col gap-3">
+            <div className="mt-6 flex flex-col gap-5">
               {tablesForSub.length === 0 ? (
                 <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>Keine Tische angelegt.</p>
               ) : null}
-              {tablesForSub.map((tb) => (
-                <div
-                  key={tb.id}
-                  style={{
-                    border: "0.5px solid rgba(255,255,255,0.1)",
-                    borderRadius: 16,
-                    padding: 14,
-                  }}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div style={{ fontWeight: 800, color: "#fff", fontSize: 15 }}>
-                        Tisch {tb.tisch_nummer}
-                        {tb.bereich ? (
-                          <span style={{ color: "rgba(255,255,255,0.45)", fontWeight: 600 }}> · {tb.bereich}</span>
-                        ) : null}
-                      </div>
-                      <div
-                        className="mt-1 break-all text-xs"
-                        style={{ color: "rgba(255,255,255,0.35)", maxWidth: "100%" }}
-                      >
-                        {tb.qr_url ?? "—"}
-                      </div>
+              {(() => {
+                const groups = [...groupTablesByBereich(tablesForSub).entries()];
+                return groups.map(([bereichName, tables]) => (
+                  <div key={bereichName} className="flex flex-col gap-3">
+                    <div
+                      className="flex items-center gap-2"
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        letterSpacing: "0.12em",
+                        color: "rgba(255,255,255,0.55)",
+                        textTransform: "uppercase",
+                        borderBottom: "0.5px solid rgba(255,255,255,0.1)",
+                        paddingBottom: 6,
+                      }}
+                    >
+                      <span aria-hidden>{bereichEmoji(bereichName)}</span>
+                      <span>{bereichName}</span>
+                      <span style={{ color: "rgba(255,255,255,0.35)", fontWeight: 600 }}>· {tables.length}</span>
                     </div>
-                    {tb.qr_url ? (
-                      <RestaurantTableQrPreview
-                        menuUrl={tb.qr_url}
-                        logoUrl={subRestaurant.logo_url ?? null}
-                        restaurantId={subRestaurant.id}
-                        downloadFilenameBase={`qrave-${filenameSafeSlug(subRestaurant.slug)}-tisch-${tb.tisch_nummer}`}
-                        orange={ORANGE}
-                      />
-                    ) : null}
-                    <div className="flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(tb.nfc_installiert)}
-                          disabled={pending}
-                          onChange={() => void toggleTableInstallStatus(tb.id, "nfc_installiert")}
-                          style={{ accentColor: ORANGE }}
-                        />
-                        NFC
-                      </label>
-                      <label className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(tb.sticker_installiert)}
-                          disabled={pending}
-                          onChange={() => void toggleTableInstallStatus(tb.id, "sticker_installiert")}
-                          style={{ accentColor: "#34e89e" }}
-                        />
-                        Sticker
-                      </label>
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => void run(supabase.from("restaurant_tables").delete().eq("id", tb.id))}
+                    {tables.map((tb) => (
+                      <div
+                        key={tb.id}
                         style={{
-                          padding: "6px 12px",
-                          borderRadius: 10,
-                          border: "none",
-                          background: "rgba(239,68,68,0.85)",
-                          color: "#fff",
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: "pointer",
+                          border: "0.5px solid rgba(255,255,255,0.1)",
+                          borderRadius: 16,
+                          padding: 14,
                         }}
                       >
-                        Löschen
-                      </button>
-                    </div>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div style={{ fontWeight: 800, color: "#fff", fontSize: 15 }}>
+                              Tisch {tb.tisch_nummer}
+                            </div>
+                            <div
+                              className="mt-1 break-all text-xs"
+                              style={{ color: "rgba(255,255,255,0.35)", maxWidth: "100%" }}
+                            >
+                              {tb.qr_url ?? "—"}
+                            </div>
+                          </div>
+                          {tb.qr_url ? (
+                            <RestaurantTableQrPreview
+                              menuUrl={tb.qr_url}
+                              logoUrl={subRestaurant.logo_url ?? null}
+                              restaurantId={subRestaurant.id}
+                              downloadFilenameBase={`qrave-${filenameSafeSlug(subRestaurant.slug)}-tisch-${tb.tisch_nummer}`}
+                              orange={ORANGE}
+                            />
+                          ) : null}
+                          <div className="flex flex-wrap items-center gap-3">
+                            <label className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
+                              <input
+                                type="checkbox"
+                                checked={Boolean(tb.nfc_installiert)}
+                                disabled={pending}
+                                onChange={() => void toggleTableInstallStatus(tb.id, "nfc_installiert")}
+                                style={{ accentColor: ORANGE }}
+                              />
+                              NFC
+                            </label>
+                            <label className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
+                              <input
+                                type="checkbox"
+                                checked={Boolean(tb.sticker_installiert)}
+                                disabled={pending}
+                                onChange={() => void toggleTableInstallStatus(tb.id, "sticker_installiert")}
+                                style={{ accentColor: "#34e89e" }}
+                              />
+                              Sticker
+                            </label>
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => void run(supabase.from("restaurant_tables").delete().eq("id", tb.id))}
+                              style={{
+                                padding: "6px 12px",
+                                borderRadius: 10,
+                                border: "none",
+                                background: "rgba(239,68,68,0.85)",
+                                color: "#fff",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Löschen
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
         ) : null}
@@ -1522,9 +1569,7 @@ function RestaurantCard({
             >
               NOTIZ
             </p>
-            <p style={{ margin: 0, fontSize: 14, color: "rgba(255,255,255,0.85)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-              {ext?.note?.trim() || "—"}
-            </p>
+            <NoteEditor restaurantId={r.id} ext={ext ?? null} pending={pending} />
           </div>
 
           <div className="flex flex-wrap gap-2" style={{ gap: 8 }}>
@@ -1638,6 +1683,98 @@ function RestaurantCard({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function NoteEditor({
+  restaurantId,
+  ext,
+  pending,
+}: {
+  restaurantId: string;
+  ext: FounderRestaurantExtRow | null;
+  pending: boolean;
+}) {
+  const [draft, setDraft] = useState(ext?.note ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const lastSavedRef = useRef<string>(ext?.note ?? "");
+
+  // Sync, falls ext.note von außen ändert (z. B. nach Refresh).
+  useEffect(() => {
+    const next = ext?.note ?? "";
+    setDraft(next);
+    lastSavedRef.current = next;
+  }, [ext?.note]);
+
+  async function commit(value: string) {
+    if (value === lastSavedRef.current) return;
+    setSaving(true);
+    setError(null);
+    const { error: dbErr } = await supabase
+      .from("founder_restaurants")
+      .upsert(
+        {
+          restaurant_id: restaurantId,
+          next_visit: ext?.next_visit ?? null,
+          last_visit: ext?.last_visit ?? null,
+          note: value.trim() || null,
+          sticker_tier: ext?.sticker_tier ?? null,
+          sticker_count: ext?.sticker_count ?? 0,
+          sticker_paid: ext?.sticker_paid ?? false,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "restaurant_id" },
+      );
+    setSaving(false);
+    if (dbErr) {
+      setError(dbErr.message);
+      return;
+    }
+    lastSavedRef.current = value;
+  }
+
+  return (
+    <>
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => void commit(draft)}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" && (e.metaKey || e.ctrlKey)) || (e.key === "Enter" && !e.shiftKey)) {
+            e.preventDefault();
+            (e.target as HTMLTextAreaElement).blur();
+          }
+        }}
+        placeholder="Notiz hinzufügen … (Enter speichert, Shift+Enter = Zeilenumbruch)"
+        rows={3}
+        disabled={pending || saving}
+        style={{
+          width: "100%",
+          background: "rgba(255,255,255,0.04)",
+          border: "0.5px solid rgba(255,255,255,0.12)",
+          borderRadius: 10,
+          padding: "10px 12px",
+          color: "rgba(255,255,255,0.92)",
+          fontSize: 14,
+          lineHeight: 1.5,
+          fontFamily: "inherit",
+          resize: "vertical",
+          outline: "none",
+          opacity: pending || saving ? 0.7 : 1,
+        }}
+      />
+      <div className="mt-1 flex items-center justify-between" style={{ fontSize: 11 }}>
+        <span style={{ color: "rgba(255,255,255,0.35)" }}>
+          {saving
+            ? "Speichert …"
+            : draft === lastSavedRef.current
+              ? "Gespeichert"
+              : "Ungespeicherte Änderungen"}
+        </span>
+        {error ? <span style={{ color: ERR_RED }}>{error}</span> : null}
+      </div>
+    </>
   );
 }
 

@@ -154,12 +154,16 @@ export type DailyPush = {
 export const LUNCH_WEEKDAY_KEYS = ["mo", "di", "mi", "do", "fr", "sa", "so"] as const;
 export type LunchWeekday = (typeof LUNCH_WEEKDAY_KEYS)[number];
 
-/** Mittagsangebot-Eintrag (public.lunch_offers). */
+/** Mittagsangebot-Eintrag (public.lunch_offers).
+ *  Ein Eintrag ist entweder Single-Item (`item_id` gesetzt, `is_bundle=false`)
+ *  oder Bundle (`is_bundle=true`, `bundle_items` enthält menu_item-IDs,
+ *  `lunch_price` ist der Gesamtpreis). */
 export type LunchOffer = {
   id: string;
   restaurant_id: string;
-  item_id: string;
-  /** Optional abweichender Mittagspreis; wenn null, gilt der reguläre Preis. */
+  /** Bei Single-Items gesetzt; bei Bundles NULL. */
+  item_id: string | null;
+  /** Optional abweichender Mittagspreis (Single) bzw. Gesamtpreis (Bundle). */
   lunch_price: number | null;
   /** ISO-Time "HH:MM" oder "HH:MM:SS". */
   time_from: string;
@@ -167,16 +171,22 @@ export type LunchOffer = {
   /** Auswahl aus LUNCH_WEEKDAY_KEYS, z. B. ["mo","di","mi","do","fr"]. */
   weekdays: string[];
   aktiv: boolean;
+  is_bundle: boolean;
+  /** Bei Bundles: Liste der enthaltenen menu_items.id; sonst []. */
+  bundle_items: string[];
+  /** Anzeigename des Bundles (z. B. „Mittagsmenü 1"). */
+  bundle_name: string | null;
   created_at?: string;
 };
+
+const LUNCH_OFFER_SELECT =
+  "id, restaurant_id, item_id, lunch_price, time_from, time_to, weekdays, aktiv, is_bundle, bundle_items, bundle_name, created_at";
 
 /** Liefert alle aktiven Mittagsangebote für ein Restaurant. */
 export async function fetchLunchOffers(restaurantId: string): Promise<LunchOffer[]> {
   const { data, error } = await supabase
     .from("lunch_offers")
-    .select(
-      "id, restaurant_id, item_id, lunch_price, time_from, time_to, weekdays, aktiv, created_at",
-    )
+    .select(LUNCH_OFFER_SELECT)
     .eq("restaurant_id", restaurantId)
     .eq("aktiv", true);
   if (error || !data) return [];

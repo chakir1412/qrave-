@@ -24,6 +24,7 @@ import {
   CATEGORY_TAB_ALLE_KEY,
 } from "@/components/speisekarte/menu-layout";
 import { activeLunchOffers } from "@/lib/lunch";
+import { DRINK_CATEGORIES } from "@/lib/category-types";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
@@ -65,25 +66,8 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
   spicy: ["scharf", "spicy", "hot"],
 };
 
-/** Kategorien, die als reine Getränke-Kategorien gelten und beim aktiven
- *  Diät-Filter komplett ausgeblendet werden — auch dann, wenn einzelne
- *  Items darin als vegan/vegetarisch getaggt sind. Gäste suchen mit dem
- *  Filter ein Speisengericht, keine Getränkeliste. */
-const DRINK_CATEGORIES: ReadonlySet<string> = new Set([
-  "Aperitif",
-  "Softdrinks",
-  "Säfte",
-  "Biere vom Fass",
-  "Flaschenbiere",
-  "Apfelwein",
-  "Weine",
-  "Spirituosen",
-  "Longdrinks",
-  "Rum",
-  "Whiskey",
-  "Heissgetränke",
-  "Fruchtiges von Rapps",
-]);
+// Drink-Categories werden zentral aus lib/category-types geliefert,
+// damit Wirts-Dashboard und Wirtshaus-Template synchron bleiben.
 
 export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
   const {
