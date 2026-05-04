@@ -72,6 +72,77 @@ function isBreakfastOrDessert(item: MenuItem): boolean {
   );
 }
 
+/** Kategorien, die NIE als „Oft zusammen bestellt"-Suggestion erscheinen
+ *  sollen — egal welches Speisengericht der Gast offen hat. */
+const SUGGESTION_BLACKLIST: ReadonlySet<string> = new Set([
+  "Spirituosen",
+  "Longdrinks",
+  "Rum",
+  "Whiskey",
+  "Aperitif",
+  "Shots",
+]);
+
+type ItemType = "veg" | "meat" | "fish" | "dessert" | "default";
+
+/** Per Item-Typ erlaubte Drink-Kategorien (case-sensitive Match auf
+ *  `menu_items.kategorie`). Items aus Kategorien, die in der Blacklist
+ *  stehen, werden zusätzlich global verworfen. */
+const SUGGESTION_ALLOW_BY_TYPE: Record<ItemType, ReadonlySet<string>> = {
+  veg: new Set(["Softdrinks", "Säfte", "Weine", "Apfelwein"]),
+  meat: new Set(["Biere vom Fass", "Flaschenbiere", "Weine", "Softdrinks", "Apfelwein"]),
+  fish: new Set(["Weine", "Softdrinks", "Säfte"]),
+  dessert: new Set(["Heissgetränke"]),
+  default: new Set([
+    "Softdrinks",
+    "Säfte",
+    "Weine",
+    "Biere vom Fass",
+    "Flaschenbiere",
+    "Apfelwein",
+    "Heissgetränke",
+  ]),
+};
+
+function classifyItem(it: MenuItem): ItemType {
+  const kat = (it.kategorie ?? "").trim().toLowerCase();
+  if (
+    kat.includes("dessert") ||
+    kat.includes("nachspeise") ||
+    kat.includes("kuchen") ||
+    kat.includes("eis") ||
+    kat.includes("torte")
+  ) {
+    return "dessert";
+  }
+  if (kat.includes("fisch") || kat.includes("fish") || kat.includes("seafood")) {
+    return "fish";
+  }
+  const tags = (it.tags ?? []).map((t) => t.trim().toLowerCase());
+  if (
+    tags.includes("vegan") ||
+    tags.includes("vegetarisch") ||
+    tags.includes("veg") ||
+    kat.includes("vegan") ||
+    kat.includes("vegetarisch") ||
+    kat === "salate"
+  ) {
+    return "veg";
+  }
+  if (
+    kat.includes("schnitzel") ||
+    kat.includes("burger") ||
+    kat.includes("hauptgericht") ||
+    kat.includes("steak") ||
+    kat.includes("wurst") ||
+    kat.includes("braten") ||
+    kat.includes("fleisch")
+  ) {
+    return "meat";
+  }
+  return "default";
+}
+
 export function getDrinkSuggestions(
   menuItems: MenuItem[],
   currentItem: MenuItem,
@@ -81,6 +152,8 @@ export function getDrinkSuggestions(
   const results: (MenuItem | SponsoredSuggestion)[] = [];
 
   const cat = (currentItem.kategorie ?? "").trim().toLowerCase();
+  const itemType = classifyItem(currentItem);
+  const allowedCats = SUGGESTION_ALLOW_BY_TYPE[itemType];
 
   const triggered = sponsoredItems.filter((s) => {
     if (!s.aktiv) return false;
@@ -90,6 +163,11 @@ export function getDrinkSuggestions(
       return tl === cat || tl === "all";
     });
     if (!categoryMatch) return false;
+
+    // Sponsored-Items aus blacklisteten Kategorien verwerfen — kein
+    // Spirituosen-Push neben einem Salat.
+    const sCat = (s.kategorie ?? "").trim();
+    if (SUGGESTION_BLACKLIST.has(sCat)) return false;
 
     const partnerKeywords = [
       (s.partner_name ?? "").toLowerCase(),
@@ -113,7 +191,12 @@ export function getDrinkSuggestions(
     .filter((m) => {
       if (m.id === currentItem.id) return false;
       if (!isDrinkItem(m)) return false;
-      if (isHotDrink(m) && !isBreakfastOrDessert(currentItem)) return false;
+      const mCat = (m.kategorie ?? "").trim();
+      if (SUGGESTION_BLACKLIST.has(mCat)) return false;
+      if (!allowedCats.has(mCat)) return false;
+      if (isHotDrink(m) && itemType !== "dessert" && !isBreakfastOrDessert(currentItem)) {
+        return false;
+      }
       return true;
     })
     .filter(

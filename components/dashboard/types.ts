@@ -49,6 +49,7 @@ export type OverlaysState = {
 
 export type PagesState = {
   preview: boolean;
+  tischeConfig: boolean;
 };
 
 export function heatFromScans(scans: number): TischHeat {

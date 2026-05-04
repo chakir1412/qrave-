@@ -30,6 +30,7 @@ import {
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { supabase } from "@/lib/supabase";
 import type { FounderDashboardData, FounderKpiDeltaLine, FounderScanEventRow } from "@/lib/founder-types";
+import { uniqueSessionsFromEvents } from "@/lib/founder-types";
 import { RestaurantsTab } from "@/components/founder/tabs/RestaurantsTab";
 import { TodoTab } from "@/components/founder/tabs/TodoTab";
 import { KontakteTab } from "@/components/founder/tabs/KontakteTab";
@@ -186,8 +187,10 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
   const [pipelineTableMissing, setPipelineTableMissing] = useState(false);
   const isMobile = useMediaQuery("(max-width: 900px)");
 
-  const scansToday = data.scanEventsToday.length;
-  const scansWeek = data.scanEventsWeek.length;
+  // Sessions, nicht rohe Events — gleiche Definition wie der nightly Cron-
+  // Aggregator (jede session_id zählt einmal pro Zeitfenster).
+  const scansToday = uniqueSessionsFromEvents(data.scanEventsToday);
+  const scansWeek = uniqueSessionsFromEvents(data.scanEventsWeek);
   const consentLikeWeek = data.scanEventsWeek.filter((e) => (e.event_type ?? "").toLowerCase().includes("consent"));
   const consentAcceptedWeek = consentLikeWeek.filter((e) => {
     const t = (e.event_type ?? "").toLowerCase();
@@ -275,20 +278,8 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
             done: false,
           },
           {
-            text: "QR Export Fix (Pop-up geblockt)",
-            priority: "high",
-            status: "todo",
-            done: false,
-          },
-          {
             text: "Ersten Werbepartner ansprechen",
             priority: "medium",
-            status: "todo",
-            done: false,
-          },
-          {
-            text: "Vercel-GitHub Webhook prüfen",
-            priority: "low",
             status: "todo",
             done: false,
           },
@@ -866,7 +857,7 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
 
                 <section className="founder-card" style={{ padding: 14, marginBottom: 14, position: "relative" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
-                    <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>Scans aus scan_events</h2>
+                    <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>Besucher pro Tag</h2>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <button type="button" onClick={() => setPickerOpen((v) => !v)} className="founder-card" style={{ padding: "8px 10px", fontSize: 12, color: "#fff", border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer" }}>
                         Von: {rangeFrom.toLocaleDateString("de-DE")}
@@ -1012,20 +1003,35 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
                   <article className="founder-card" style={{ padding: 14 }}>
                     <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>Consent Donut</h3>
                     <div style={{ height: 180, marginTop: 8 }}>
-                      <Doughnut
-                        data={{
-                          labels: ["Accepted", "Declined"],
-                          datasets: [
-                            {
-                              data: [consentAcceptedWeek, Math.max(0, consentLikeWeek.length - consentAcceptedWeek)],
-                              backgroundColor: [C.teal, C.red],
-                              borderColor: ["rgba(255,255,255,0.12)", "rgba(255,255,255,0.12)"],
-                              borderWidth: 1,
-                            },
-                          ],
-                        }}
-                        options={consentDonutOptions}
-                      />
+                      {consentLikeWeek.length === 0 ? (
+                        <div
+                          style={{
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "rgba(255,255,255,0.45)",
+                            fontSize: 13,
+                          }}
+                        >
+                          Noch keine Daten
+                        </div>
+                      ) : (
+                        <Doughnut
+                          data={{
+                            labels: ["Accepted", "Declined"],
+                            datasets: [
+                              {
+                                data: [consentAcceptedWeek, Math.max(0, consentLikeWeek.length - consentAcceptedWeek)],
+                                backgroundColor: [C.teal, C.red],
+                                borderColor: ["rgba(255,255,255,0.12)", "rgba(255,255,255,0.12)"],
+                                borderWidth: 1,
+                              },
+                            ],
+                          }}
+                          options={consentDonutOptions}
+                        />
+                      )}
                     </div>
                   </article>
                 </section>

@@ -18,6 +18,7 @@ import { TischeTab } from "./tabs/TischeTab";
 import { SettingsOverlay } from "./overlays/SettingsOverlay";
 import { EditItemOverlay } from "./overlays/EditItemOverlay";
 import { AddCategoryOverlay } from "./overlays/AddCategoryOverlay";
+import { TischeConfigPage } from "./pages/TischeConfigPage";
 import { PreviewPage } from "./pages/PreviewPage";
 import type {
   DashboardRestaurant,
@@ -91,6 +92,7 @@ export function DashboardApp({
   });
   const [pages, setPages] = useState<PagesState>({
     preview: false,
+    tischeConfig: false,
   });
 
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
@@ -409,6 +411,7 @@ export function DashboardApp({
               bereiche={tischBereiche}
               loading={tischeLoading}
               loadError={tischeError}
+              onOpenConfig={() => setPages((p) => ({ ...p, tischeConfig: true }))}
               onToast={showToast}
             />
           )}
@@ -460,6 +463,19 @@ export function DashboardApp({
         open={overlays.addCat}
         onClose={() => setOverlays((o) => ({ ...o, addCat: false }))}
         onAdd={handleAddCategory}
+      />
+
+      <TischeConfigPage
+        open={pages.tischeConfig}
+        onClose={() => {
+          setPages((p) => ({ ...p, tischeConfig: false }));
+          void refreshTables();
+        }}
+        restaurantId={restaurant.id}
+        slug={restaurant.slug}
+        bereiche={tischBereiche}
+        onToast={showToast}
+        onTablesUpdated={() => void refreshTables()}
       />
 
       <PreviewPage

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { FounderDashboardData, FounderKpiDeltaLine, FounderScanEventRow } from "@/lib/founder-types";
+import { uniqueSessionsFromEvents } from "@/lib/founder-types";
 import { berlinYmd, lastNCalendarDaysBerlin, startOfBerlinYmdUtcIso } from "@/lib/berlin-time";
 import { fp } from "../founder-palette";
 
@@ -228,12 +229,12 @@ export function OverviewTab({ data, isMobile, isTablet, isDesktop }: Props) {
   const aktiv = data.restaurants.filter((r) => r.aktiv).length;
   const pctLive = total === 0 ? 0 : Math.round((aktiv / total) * 100);
 
-  const scansTodayBerlin = data.scanEventsToday.length;
+  const scansTodayBerlin = uniqueSessionsFromEvents(data.scanEventsToday);
 
   const liveRestaurants = data.restaurants.filter((r) => r.aktiv);
   const mrrSum = liveRestaurants.reduce((s, r) => s + (Number(r.umsatz_monat) || 0), 0);
 
-  const weekScans = data.scanEventsWeek.length;
+  const weekScans = uniqueSessionsFromEvents(data.scanEventsWeek);
   const weekPct = Math.min(100, Math.round((weekScans / WEEK_SCAN_TARGET) * 100));
 
   const { totalSessions, withConsent, withoutConsent, consentPct, consentRemain } = useMemo(() => {

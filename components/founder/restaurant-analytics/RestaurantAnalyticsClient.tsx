@@ -348,10 +348,6 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
                   );
                 })}
               </div>
-              <p className="mt-3 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-                Nur QR-Scans ({computed.granularity === "day" ? "pro Tag" : "pro Monat"}).{" "}
-                {data.eventRowCount.toLocaleString("de-DE")} Events im Zeitraum (serverseitig gefiltert).
-              </p>
             </>
           ) : (
             <p className="text-sm" style={{ color: fp.mu }}>
@@ -378,15 +374,21 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
           )}
         </section>
 
-        {/* 4. TISCHE */}
+        {/* 4. TISCHE — kompakte 4er-Grid mit Farbcodierung
+              grün ≥ 6 Scans · gelb 1–5 · rot 0 (kein Scan) */}
         <section style={{ ...card, padding: 20 }} className="mb-4">
-          <h2 className="mb-4 text-[11px] font-extrabold tracking-wide" style={{ color: fp.mu }}>
+          <h2 className="mb-3 text-[11px] font-extrabold tracking-wide" style={{ color: fp.mu }}>
             TISCHE
           </h2>
           {loading ? (
-            <div className="space-y-3">
-              <div className="h-24 animate-pulse rounded-2xl" style={{ background: "rgba(0,0,0,0.2)" }} />
-              <div className="h-24 animate-pulse rounded-2xl" style={{ background: "rgba(0,0,0,0.2)" }} />
+            <div className="grid grid-cols-4 gap-2">
+              {Array.from({ length: 8 }).map((_, k) => (
+                <div
+                  key={k}
+                  className="aspect-square animate-pulse rounded-xl"
+                  style={{ background: "rgba(0,0,0,0.25)" }}
+                />
+              ))}
             </div>
           ) : ready && computed ? (
             computed.tableCards.length === 0 ? (
@@ -394,50 +396,70 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
                 Noch keine Tische angelegt
               </p>
             ) : (
-              <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {computed.tableCards.map((t) => (
-                  <li
-                    key={t.id}
-                    className="rounded-2xl p-4"
-                    style={{ background: "rgba(0,0,0,0.22)", border: "0.5px solid rgba(255,255,255,0.08)" }}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <span className="text-lg font-extrabold text-white">Tisch {t.tisch_nummer}</span>
-                        {t.bereich ? (
-                          <span className="text-sm" style={{ color: fp.mu }}>
-                            {" "}
-                            · {t.bereich}
+              <>
+                <ul className="m-0 grid list-none grid-cols-4 gap-2 p-0">
+                  {computed.tableCards.map((t) => {
+                    const level: "off" | "low" | "ok" =
+                      t.scanCount === 0 ? "off" : t.scanCount <= 5 ? "low" : "ok";
+                    const palette =
+                      level === "ok"
+                        ? {
+                            bg: "rgba(0,200,160,0.12)",
+                            border: "rgba(0,200,160,0.45)",
+                            count: "#34e89e",
+                          }
+                        : level === "low"
+                          ? {
+                              bg: "rgba(255,212,38,0.12)",
+                              border: "rgba(255,212,38,0.45)",
+                              count: "#ffd426",
+                            }
+                          : {
+                              bg: "rgba(255,75,110,0.12)",
+                              border: "rgba(255,75,110,0.4)",
+                              count: "#ff4b6e",
+                            };
+                    const title = `Tisch ${t.tisch_nummer}${
+                      t.bereich ? ` · ${t.bereich}` : ""
+                    } — ${t.scanCount} Scan${t.scanCount === 1 ? "" : "s"}${
+                      t.lastScanAt ? ` (letzter: ${formatBerlinDateTime(t.lastScanAt)})` : ""
+                    }`;
+                    return (
+                      <li
+                        key={t.id}
+                        title={title}
+                        className="relative aspect-square rounded-xl border"
+                        style={{ background: palette.bg, borderColor: palette.border }}
+                      >
+                        <div className="flex h-full flex-col items-center justify-center px-1 text-center">
+                          <span className="text-[10px] font-bold" style={{ color: fp.mu }}>
+                            T{t.tisch_nummer}
                           </span>
-                        ) : null}
-                      </div>
-                      <span className="text-lg font-extrabold tabular-nums" style={{ color: OR }}>
-                        {t.scanCount}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs" style={{ color: fp.mu }}>
-                      Letzter Scan:{" "}
-                      <span className="font-semibold text-white">{formatBerlinDateTime(t.lastScanAt)}</span>
-                    </p>
-                    <button
-                      type="button"
-                      className="mt-2 w-full break-all rounded-lg px-2 py-2 text-left text-xs"
-                      style={{
-                        border: "1px dashed rgba(255,255,255,0.15)",
-                        background: "rgba(255,255,255,0.04)",
-                        color: fp.mi,
-                        cursor: t.qr_url ? "pointer" : "default",
-                        fontFamily: "ui-monospace, monospace",
-                      }}
-                      onClick={() => {
-                        if (t.qr_url) void navigator.clipboard.writeText(t.qr_url);
-                      }}
-                    >
-                      {t.qr_url ?? "—"}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                          <span
+                            className="text-2xl font-extrabold tabular-nums"
+                            style={{ color: palette.count }}
+                          >
+                            {t.scanCount}
+                          </span>
+                          {t.bereich ? (
+                            <span
+                              className="mt-0.5 max-w-full truncate text-[9px]"
+                              style={{ color: fp.mu }}
+                            >
+                              {t.bereich}
+                            </span>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px]" style={{ color: fp.mu }}>
+                  <Legend bg="rgba(0,200,160,0.12)" border="rgba(0,200,160,0.45)" label="aktiv (≥ 6)" />
+                  <Legend bg="rgba(255,212,38,0.12)" border="rgba(255,212,38,0.45)" label="wenig (1–5)" />
+                  <Legend bg="rgba(255,75,110,0.12)" border="rgba(255,75,110,0.4)" label="kein Scan" />
+                </div>
+              </>
             )
           ) : (
             <p className="text-sm" style={{ color: fp.mu }}>
@@ -456,7 +478,7 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
           ) : ready && computed ? (
             <div className="grid gap-6 sm:grid-cols-2">
               <div>
-                <p className="mb-2 text-xs font-bold text-white">Top Items (item_detail)</p>
+                <p className="mb-2 text-xs font-bold text-white">Meistgeklickte Gerichte</p>
                 <ul className="m-0 list-none space-y-2 p-0">
                   {computed.topItems.length === 0 ? (
                     <li className="text-sm" style={{ color: fp.mu }}>
@@ -475,7 +497,7 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
                 </ul>
               </div>
               <div>
-                <p className="mb-2 text-xs font-bold text-white">Top Kategorien (category_enter)</p>
+                <p className="mb-2 text-xs font-bold text-white">Meistbesuchte Kategorien</p>
                 <ul className="m-0 list-none space-y-2 p-0">
                   {computed.topCategories.length === 0 ? (
                     <li className="text-sm" style={{ color: fp.mu }}>
@@ -617,5 +639,17 @@ function TimeBlock({ label, n, max }: { label: string; n: number; max: number })
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: OR }} />
       </div>
     </div>
+  );
+}
+
+function Legend({ bg, border, label }: { bg: string; border: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-block h-3 w-3 rounded-sm border"
+        style={{ background: bg, borderColor: border }}
+      />
+      {label}
+    </span>
   );
 }

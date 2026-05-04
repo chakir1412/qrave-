@@ -22,6 +22,22 @@ export type FounderRestaurantRow = Restaurant & {
   created_at?: string | null;
 };
 
+/** Unique-Session-Count aus einer Event-Liste — gleiche Definition wie der
+ *  Backend-Aggregator (`analytics-daily-aggregate.ts`): jede `session_id`
+ *  zählt einmal, fehlt sie, wird die Event-`id` als Fallback verwendet. */
+export function uniqueSessionsFromEvents(events: FounderScanEventRow[]): number {
+  const set = new Set<string>();
+  for (const e of events) {
+    const sid = e.session_id?.trim();
+    if (sid && sid.length > 0) {
+      set.add(sid);
+    } else if (e.id) {
+      set.add(`row:${e.id}`);
+    }
+  }
+  return set.size;
+}
+
 export type FounderRestaurantExtRow = {
   id: string;
   restaurant_id: string;

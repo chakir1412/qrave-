@@ -10,6 +10,7 @@ type Props = {
   bereiche: Bereich[];
   loading?: boolean;
   loadError?: string | null;
+  onOpenConfig: () => void;
   onToast: (msg: string) => void;
 };
 
@@ -18,6 +19,7 @@ export function TischeTab({
   bereiche: initial,
   loading = false,
   loadError = null,
+  onOpenConfig,
   onToast,
 }: Props) {
   const [bereiche, setBereiche] = useState<Bereich[]>(() =>
@@ -87,8 +89,21 @@ export function TischeTab({
             Noch keine Tische
           </p>
           <p className="max-w-[280px] text-xs leading-relaxed" style={{ color: dash.mu }}>
-            Tische und QR-Codes werden zentral über das Founder-Dashboard gepflegt.
+            Lege Bereiche und Tische an. QR-Codes und Sticker-Export laufen
+            zentral über das Founder-Dashboard.
           </p>
+          <button
+            type="button"
+            onClick={onOpenConfig}
+            className="mt-1 rounded-[10px] px-5 py-3 text-[13px] font-bold"
+            style={{
+              backgroundColor: dash.primaryBg,
+              color: dash.primaryFg,
+              border: "none",
+            }}
+          >
+            Jetzt konfigurieren
+          </button>
         </section>
       ) : null}
 
@@ -207,11 +222,11 @@ export function TischeTab({
                   }}
                 >
                   <span className="text-xs" style={{ color: dash.re }}>
-                    Einige Tische ohne Scan
+                    Noch nie gescannt — QR Code prüfen
                   </span>
                   <button
                     type="button"
-                    onClick={() => onToast("Anfrage gesendet — neuer Sticker kommt 📦")}
+                    onClick={() => onToast("Defekt-Meldung gesendet 📦 Founder informiert")}
                     className="rounded-lg border px-2.5 py-1 text-[11px] font-bold"
                     style={{
                       backgroundColor: "rgba(255,75,110,0.12)",
@@ -219,7 +234,7 @@ export function TischeTab({
                       color: dash.re,
                     }}
                   >
-                    Neu anfordern
+                    QR Code defekt melden
                   </button>
                 </div>
               )}
@@ -236,6 +251,20 @@ export function TischeTab({
         </>
       ) : null}
 
+      {!loadError && initial.length > 0 ? (
+        <button
+          type="button"
+          onClick={onOpenConfig}
+          className="mx-0 mb-4 mt-3 flex w-full items-center justify-center gap-1.5 rounded-[10px] border py-3 text-[13px] font-semibold transition active:opacity-90"
+          style={{
+            backgroundColor: dash.secondaryBg,
+            borderColor: dash.secondaryBorder,
+            color: dash.secondaryFg,
+          }}
+        >
+          ⚙️ Tische &amp; Bereiche bearbeiten
+        </button>
+      ) : null}
     </div>
   );
 }

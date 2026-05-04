@@ -396,20 +396,6 @@ export function HomeTab({
               </div>
             </div>
           )}
-          <div className={`${DASH_GLASS_CARD_CLASS} flex gap-3 rounded-[14px] px-3.5 py-3`}>
-            <div
-              className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg text-[15px]"
-              style={{ backgroundColor: dash.s2 }}
-            >
-              ⚡
-            </div>
-            <div>
-              <div className="text-[13px] font-semibold leading-snug">Peak-Zeiten beobachten</div>
-              <div className="text-[11px] leading-snug" style={{ color: dash.mu }}>
-                Nutze die Peak-Sektion unten für Stoßzeiten.
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -528,7 +514,7 @@ export function HomeTab({
 
       <section className="px-0">
         <div className="mb-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: dash.mu }}>
-          Leute haben geschaut — bestellt?
+          Meistgeklickte Items diese Woche
         </div>
         <div className="flex flex-col gap-2">
           {klickRows.length === 0 && (
@@ -580,7 +566,19 @@ export function HomeTab({
                           }
                   }
                 >
-                  {r.level === "hi" ? "Sehr beliebt" : r.level === "md" ? "Prüfen ⚠️" : "Schwach 📉"}
+                  <span
+                    title={
+                      r.level === "lo" || r.level === "md"
+                        ? "Dieses Gericht wird selten angeschaut. Überlege ob es auf der Karte bleiben soll."
+                        : undefined
+                    }
+                  >
+                    {r.level === "hi"
+                      ? "Sehr beliebt"
+                      : r.level === "md"
+                        ? "Wenig Interesse"
+                        : "Wenig Interesse"}
+                  </span>
                 </span>
               </div>
             </div>
