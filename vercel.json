@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/aggregate-analytics",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }

@@ -9,8 +9,10 @@ import { isYmd } from "@/lib/restaurant-analytics-presets";
  *   Authorization: Bearer <CRON_SECRET>
  * Optional: ?day=YYYY-MM-DD (sonst HEUTE + GESTERN, Europe/Berlin).
  *
- * Lauf alle 15 Min: rolliert den heutigen Tag live und korrigiert noch den
- * gestrigen, falls am Tageswechsel etwas spät ankam.
+ * Vercel-Hobby erlaubt nur tägliche Crons → läuft 1× pro Tag um 0:00 UTC.
+ * Aggregiert dann heute UND gestern, damit am Tageswechsel keine Events
+ * verloren gehen. Tagsüber kommen Live-Daten direkt aus `scan_events`
+ * (siehe Founder-„Besucher pro Tag"-Chart) — nicht aus dem Aggregat.
  */
 export async function GET(req: Request) {
   // Vercel Cron sendet keinen Authorization-Header — schickt aber den
