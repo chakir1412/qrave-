@@ -149,9 +149,15 @@ export default function ConsentBanner({ onConsent, theme = "default" }: ConsentB
                   className="rounded-2xl border px-3 py-3 text-center"
                   style={{ borderColor: t.cardBorder, backgroundColor: t.cardBg }}
                 >
-                  <div className="text-[1.4rem]">{c.emoji}</div>
+                  {theme === "warm" ? null : (
+                    <div className="text-[1.4rem]">{c.emoji}</div>
+                  )}
                   <div
-                    className="mt-1 text-[0.74rem] font-bold"
+                    className={
+                      theme === "warm"
+                        ? "text-[0.74rem] font-bold"
+                        : "mt-1 text-[0.74rem] font-bold"
+                    }
                     style={{ color: t.cardTitle }}
                   >
                     {c.title}
@@ -172,7 +178,7 @@ export default function ConsentBanner({ onConsent, theme = "default" }: ConsentB
               style={{ color: t.linkColor }}
               onClick={() => window.open("/datenschutz", "_blank")}
             >
-              🔍 Volle Transparenz →
+              {theme === "warm" ? "Volle Transparenz →" : "🔍 Volle Transparenz →"}
             </button>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
@@ -210,7 +216,7 @@ export default function ConsentBanner({ onConsent, theme = "default" }: ConsentB
                   cursor: "pointer",
                 }}
               >
-                Ja, ich helfe gerne 🙌
+                {theme === "warm" ? "Ja, ich helfe gerne" : "Ja, ich helfe gerne 🙌"}
               </button>
             </div>
 
