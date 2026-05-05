@@ -3,11 +3,6 @@
 import type { ChangeEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  parseOpeningHours,
-  type OpeningHours,
-  type OpeningHoursDay,
-} from "@/lib/supabase";
 import type { DashboardRestaurant } from "../types";
 import { dash } from "../constants";
 
@@ -26,11 +21,10 @@ type Props = {
   extracting: boolean;
   brandingMessage: string | null;
   currentLogoUrl: string | null;
-  /** Restaurant-Felder bearbeiten (Adresse, Telefon, Öffnungszeiten). */
+  /** Restaurant-Felder bearbeiten (Adresse, Telefon). */
   onPatchRestaurant: (patch: {
     adresse?: string | null;
     telefon?: string | null;
-    opening_hours?: OpeningHours;
   }) => Promise<void>;
 };
 
@@ -153,80 +147,6 @@ function EditableTextRow({
   );
 }
 
-function OpeningHoursInline({
-  hours,
-  onChange,
-}: {
-  hours: OpeningHours;
-  onChange: (next: OpeningHours) => void;
-}) {
-  function patchRow(i: number, patch: Partial<OpeningHoursDay>) {
-    const next = hours.map((row, idx) => (idx === i ? { ...row, ...patch } : row));
-    onChange(next);
-  }
-
-  return (
-    <div className="px-4 py-3" style={rowBorder}>
-      <div className="mb-2 text-[11px] font-medium uppercase tracking-wider" style={{ color: dash.mu }}>
-        Öffnungszeiten
-      </div>
-      <div className="flex flex-col gap-1.5">
-        {hours.map((row, i) => (
-          <div
-            key={row.day}
-            className="flex items-center gap-2 rounded-lg border px-2.5 py-2"
-            style={{ backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.06)" }}
-          >
-            <span className="w-7 shrink-0 text-[12px] font-semibold" style={{ color: "#fff" }}>
-              {row.day}
-            </span>
-            <div className="flex flex-1 items-center gap-1.5">
-              <input
-                type="time"
-                value={row.open}
-                disabled={row.closed}
-                onChange={(e) => patchRow(i, { open: e.target.value })}
-                className="w-[78px] rounded-md border px-1 py-1 text-center text-[12px] outline-none disabled:opacity-40"
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.04)",
-                  borderColor: "rgba(255,255,255,0.08)",
-                  color: "#fff",
-                }}
-                aria-label={`Öffnung ${row.day}`}
-              />
-              <span className="text-[11px]" style={{ color: dash.mu }}>
-                –
-              </span>
-              <input
-                type="time"
-                value={row.close}
-                disabled={row.closed}
-                onChange={(e) => patchRow(i, { close: e.target.value })}
-                className="w-[78px] rounded-md border px-1 py-1 text-center text-[12px] outline-none disabled:opacity-40"
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.04)",
-                  borderColor: "rgba(255,255,255,0.08)",
-                  color: "#fff",
-                }}
-                aria-label={`Schließung ${row.day}`}
-              />
-            </div>
-            <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px]" style={{ color: dash.mu }}>
-              <input
-                type="checkbox"
-                checked={row.closed}
-                onChange={(e) => patchRow(i, { closed: e.target.checked })}
-                className="h-3.5 w-3.5 cursor-pointer accent-current"
-              />
-              Heute geschlossen
-            </label>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function SettingsOverlay({
   open,
   onClose,
@@ -242,27 +162,6 @@ export function SettingsOverlay({
 }: Props) {
   const router = useRouter();
   const logoInputRef = useRef<HTMLInputElement>(null);
-
-  const [hours, setHours] = useState<OpeningHours>(() => parseOpeningHours(restaurant.opening_hours));
-  const lastSavedHoursRef = useRef<string>(JSON.stringify(parseOpeningHours(restaurant.opening_hours)));
-
-  useEffect(() => {
-    if (!open) return;
-    const parsed = parseOpeningHours(restaurant.opening_hours);
-    setHours(parsed);
-    lastSavedHoursRef.current = JSON.stringify(parsed);
-  }, [open, restaurant.opening_hours]);
-
-  useEffect(() => {
-    if (!open) return;
-    const key = JSON.stringify(hours);
-    if (key === lastSavedHoursRef.current) return;
-    const t = window.setTimeout(() => {
-      lastSavedHoursRef.current = key;
-      void onPatchRestaurant({ opening_hours: hours });
-    }, 500);
-    return () => window.clearTimeout(t);
-  }, [hours, open, onPatchRestaurant]);
 
   const displayLogo = logoPreview ?? currentLogoUrl;
 
@@ -377,7 +276,6 @@ export function SettingsOverlay({
 
         <Group title="Restaurant">
           <Row label="Name" right={<span style={valueStyle}>{restaurant.name}</span>} />
-          <OpeningHoursInline hours={hours} onChange={setHours} />
           <EditableTextRow
             label="Adresse"
             value={restaurant.adresse ?? ""}

@@ -234,12 +234,15 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
     async function loadRangeScans(): Promise<void> {
       const fromIso = startOfDay(rangeFrom).toISOString();
       const toExcl = addDays(startOfDay(rangeTo), 1).toISOString();
+      // Eine "Besucher pro Tag"-Zahl entspricht eindeutigen Sessions, nicht
+      // rohen Events. Wir lesen alle Event-Typen und deduplizieren pro Tag
+      // nach session_id (Fallback id) — gleiche Definition wie Cron-Aggregator.
       const { data: rows, error } = await supabase
         .from("scan_events")
-        .select("created_at,event_type")
-        .eq("event_type", "scan")
+        .select("id,session_id,created_at")
         .gte("created_at", fromIso)
-        .lt("created_at", toExcl);
+        .lt("created_at", toExcl)
+        .limit(20000);
       if (error) {
         setRangeScanSeries([]);
         return;
@@ -248,13 +251,16 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
       for (let d = startOfDay(rangeFrom); d <= startOfDay(rangeTo); d = addDays(d, 1)) {
         keys.push(ymd(d));
       }
-      const byDay = new Map<string, number>();
+      const sessionsByDay = new Map<string, Set<string>>();
       for (const row of rows ?? []) {
-        const rec = row as { created_at: string };
+        const rec = row as { id: string; session_id: string | null; created_at: string };
         const k = ymd(new Date(rec.created_at));
-        byDay.set(k, (byDay.get(k) ?? 0) + 1);
+        const sid = rec.session_id?.trim() ? rec.session_id : rec.id;
+        const set = sessionsByDay.get(k) ?? new Set<string>();
+        set.add(sid);
+        sessionsByDay.set(k, set);
       }
-      setRangeScanSeries(keys.map((k) => byDay.get(k) ?? 0));
+      setRangeScanSeries(keys.map((k) => sessionsByDay.get(k)?.size ?? 0));
     }
     void loadRangeScans();
   }, [rangeFrom, rangeTo]);
@@ -651,7 +657,7 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
       </div>
       <div
         style={{
-          position: "absolute",
+          position: "fixed",
           inset: 0,
           opacity: 0.04,
           zIndex: 0,

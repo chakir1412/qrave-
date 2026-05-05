@@ -13,11 +13,6 @@ import type {
 } from "@/lib/founder-types";
 import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
 import { slugifyRestaurantName } from "@/lib/slugify-restaurant";
-import { RestaurantTableHeatmap } from "@/components/founder/RestaurantTableHeatmap";
-import { RestaurantTablesManager } from "@/components/founder/RestaurantTablesManager";
-import { RestaurantTableQrPreview } from "@/components/founder/RestaurantTableQrPreview";
-import { downloadRestaurantQrCodesHtml, filenameSafeSlug } from "@/lib/open-restaurant-qr-print";
-
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 const ORANGE = "#FF5C1A";
@@ -40,8 +35,6 @@ const STICKER_TIERS = [
 ] as const;
 
 type SortMode = "scans" | "az";
-
-type SubView = { restaurantId: string; tab: "tische" | "qr" | "heatmap" } | null;
 
 function extForRestaurant(
   extras: FounderRestaurantExtRow[],
@@ -480,13 +473,8 @@ export function RestaurantsTab({
   const [filterBezirk, setFilterBezirk] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("scans");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [subView, setSubView] = useState<SubView>(null);
   const [stickerModalFor, setStickerModalFor] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [newBereich, setNewBereich] = useState("");
-  const [newAnzahl, setNewAnzahl] = useState("1");
-  const [qrFormError, setQrFormError] = useState<string | null>(null);
-  const [qrPrintBusy, setQrPrintBusy] = useState(false);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
 
   const [modalTier, setModalTier] = useState<string>("starter");
@@ -568,32 +556,6 @@ export function RestaurantsTab({
     [onRefresh],
   );
 
-  const toggleTableInstallStatus = useCallback(
-    async (tischId: string, field: "nfc_installiert" | "sticker_installiert") => {
-      setSupabaseError(null);
-      setPending(true);
-      try {
-        const res = await fetch("/api/founder/restaurant-tables", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ action: "toggleStatus", tischId, field }),
-        });
-        const j = (await res.json()) as { error?: string };
-        if (!res.ok) {
-          setSupabaseError(j.error ?? `Fehler ${res.status}`);
-          return;
-        }
-        await onRefresh();
-      } catch {
-        setSupabaseError("Netzwerkfehler");
-      } finally {
-        setPending(false);
-      }
-    },
-    [onRefresh],
-  );
-
   useEffect(() => {
     if (!stickerModalFor) return;
     const ex = extForRestaurant(restaurantExtras, stickerModalFor);
@@ -602,368 +564,6 @@ export function RestaurantsTab({
     setModalCount(ex?.sticker_count ?? r?.sticker_anzahl ?? 0);
     setModalPaid(ex?.sticker_paid ?? false);
   }, [stickerModalFor, restaurantExtras, restaurantItems]);
-
-  const subRestaurant = subView ? restaurantItems.find((r) => r.id === subView.restaurantId) : undefined;
-  const tablesForSub = useMemo(() => {
-    if (!subView) return [];
-    return restaurantTables
-      .filter((t) => t.restaurant_id === subView.restaurantId)
-      .sort((a, b) => a.tisch_nummer - b.tisch_nummer);
-  }, [restaurantTables, subView]);
-
-  if (subView && subRestaurant) {
-    return (
-      <div className={`${inter.className} pb-8`} style={{ fontFamily: "inherit" }}>
-        <button
-          type="button"
-          onClick={() => setSubView(null)}
-          className="mb-4 flex items-center gap-2"
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "rgba(255,255,255,0.65)",
-            fontWeight: 700,
-            fontSize: 14,
-            cursor: "pointer",
-          }}
-        >
-          ← Restaurants
-        </button>
-        <h2 style={{ margin: "0 0 12px", fontSize: isMobile ? 20 : 22, fontWeight: 800, color: "#fff" }}>
-          {subRestaurant.name}
-        </h2>
-
-        <div className="mb-4 flex flex-wrap gap-2">
-          <DetailTabChip
-            active={subView.tab === "tische"}
-            label="Tische"
-            onClick={() => setSubView({ restaurantId: subView.restaurantId, tab: "tische" })}
-          />
-          <DetailTabChip
-            active={subView.tab === "qr"}
-            label="QR-Codes"
-            onClick={() => setSubView({ restaurantId: subView.restaurantId, tab: "qr" })}
-          />
-          <DetailTabChip
-            active={subView.tab === "heatmap"}
-            label="Heatmap"
-            onClick={() => setSubView({ restaurantId: subView.restaurantId, tab: "heatmap" })}
-          />
-        </div>
-
-        {supabaseError ? (
-          <p
-            className="mb-3 rounded-xl px-3 py-2 text-xs font-semibold"
-            style={{ background: "rgba(239,68,68,0.12)", color: "#fda4af", border: "1px solid rgba(239,68,68,0.35)" }}
-          >
-            {supabaseError}
-          </p>
-        ) : null}
-
-        {subView.tab === "tische" ? (
-          <RestaurantTablesManager
-            restaurant={subRestaurant}
-            tables={tablesForSub}
-            isMobile={isMobile}
-            pending={pending}
-            onRefresh={onRefresh}
-            setPending={setPending}
-            onSupabaseError={(msg) => setSupabaseError(msg)}
-            onClearSupabaseError={() => setSupabaseError(null)}
-          />
-        ) : null}
-
-        {subView.tab === "heatmap" ? (
-          <RestaurantTableHeatmap
-            restaurantId={subRestaurant.id}
-            tables={tablesForSub}
-            isMobile={isMobile}
-          />
-        ) : null}
-
-        {subView.tab === "qr" ? (
-        <div style={{ ...cardBase, padding: isMobile ? 16 : 22 }}>
-            <p style={{ margin: "0 0 14px", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(255,255,255,0.45)" }}>
-              TISCHE · QR & NFC
-            </p>
-            <div className="grid gap-3" style={{ gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr" }}>
-              <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Bereich
-                <input
-                  value={newBereich}
-                  onChange={(e) => setNewBereich(e.target.value)}
-                  placeholder="z. B. Innen, Terrasse"
-                  style={{ ...inputBase, marginTop: 6 }}
-                />
-              </label>
-              <label className="block text-xs font-bold" style={{ color: "rgba(255,255,255,0.5)" }}>
-                Anzahl
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={newAnzahl}
-                  onChange={(e) => setNewAnzahl(e.target.value)}
-                  style={{ ...inputBase, marginTop: 6 }}
-                />
-              </label>
-            </div>
-            {qrFormError ? (
-              <p className="mb-2 text-xs font-semibold" style={{ color: ERR_RED }}>
-                {qrFormError}
-              </p>
-            ) : null}
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                setQrFormError(null);
-                const count = Number.parseInt(newAnzahl, 10);
-                if (!Number.isFinite(count) || count < 1 || count > 50) {
-                  setQrFormError("Anzahl zwischen 1 und 50 eingeben.");
-                  return;
-                }
-                const bereich = newBereich.trim() || null;
-                void (async () => {
-                  setPending(true);
-                  setSupabaseError(null);
-                  try {
-                    // Höchste Tisch-Nummer + 1 (Restaurant-weit) als Start.
-                    const { data: maxRow, error: mErr } = await supabase
-                      .from("restaurant_tables")
-                      .select("tisch_nummer")
-                      .eq("restaurant_id", subView.restaurantId)
-                      .order("tisch_nummer", { ascending: false })
-                      .limit(1)
-                      .maybeSingle();
-                    if (mErr) {
-                      setSupabaseError(mErr.message);
-                      return;
-                    }
-                    const start = (typeof maxRow?.tisch_nummer === "number" ? maxRow.tisch_nummer : 0) + 1;
-                    const rows = Array.from({ length: count }, (_, i) => ({
-                      restaurant_id: subView.restaurantId,
-                      tisch_nummer: start + i,
-                      bereich,
-                    }));
-                    const { error } = await supabase.from("restaurant_tables").insert(rows);
-                    if (error) {
-                      setSupabaseError(error.message);
-                      return;
-                    }
-                    setNewBereich("");
-                    setNewAnzahl("1");
-                    await onRefresh();
-                  } finally {
-                    setPending(false);
-                  }
-                })();
-              }}
-              className="mt-3 w-full"
-              style={{
-                padding: "12px 16px",
-                borderRadius: 14,
-                border: "none",
-                fontWeight: 800,
-                fontSize: 14,
-                color: "#fff",
-                cursor: pending ? "not-allowed" : "pointer",
-                background: `linear-gradient(135deg, ${ORANGE}, #ff8c4a)`,
-              }}
-            >
-              {pending ? "Lege an…" : `+ ${Number.parseInt(newAnzahl, 10) || 1} Tisch(e) anlegen`}
-            </button>
-            <button
-              type="button"
-              disabled={pending || tablesForSub.length === 0}
-              onClick={() => {
-                const lines = tablesForSub.map((t) => t.qr_url ?? "").filter(Boolean);
-                void navigator.clipboard.writeText(lines.join("\n"));
-              }}
-              className="mt-3 w-full"
-              style={{
-                ...glassBtn,
-                marginTop: 12,
-                width: "100%",
-              }}
-            >
-              Alle URLs kopieren
-            </button>
-            <button
-              type="button"
-              disabled={pending || qrPrintBusy || tablesForSub.length === 0}
-              onClick={() => {
-                setQrPrintBusy(true);
-                void downloadRestaurantQrCodesHtml(
-                  subRestaurant.name,
-                  subRestaurant.slug,
-                  tablesForSub,
-                  subRestaurant.logo_url ?? null,
-                ).finally(() => {
-                  setQrPrintBusy(false);
-                });
-              }}
-              className="mt-3 w-full"
-              style={{
-                padding: "12px 16px",
-                borderRadius: 14,
-                border: `1px solid ${ORANGE}`,
-                fontWeight: 800,
-                fontSize: 14,
-                color: ORANGE,
-                cursor: pending || qrPrintBusy || tablesForSub.length === 0 ? "not-allowed" : "pointer",
-                background: "transparent",
-                width: "100%",
-              }}
-            >
-              {qrPrintBusy ? "Erstellt…" : "Alle als PDF exportieren"}
-            </button>
-            <label
-              className="mt-3 flex w-full cursor-pointer items-center justify-center"
-              style={{
-                ...glassBtn,
-                marginTop: 12,
-                width: "100%",
-                border: "1px solid rgba(255,255,255,0.18)",
-              }}
-            >
-              Logo hochladen
-              <input
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  void (async () => {
-                    setPending(true);
-                    setSupabaseError(null);
-                    const path = `${subRestaurant.id}/logo.png`;
-                    const { error } = await supabase.storage
-                      .from("restaurant-assets")
-                      .upload(path, file, { upsert: true, contentType: file.type || undefined });
-                    if (error) {
-                      console.error("Logo Upload Fehler:", error);
-                      setSupabaseError(error.message);
-                      setPending(false);
-                      return;
-                    }
-                    const { data } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
-                    setRestaurantItems((prev) =>
-                      prev.map((r) =>
-                        r.id === subRestaurant.id ? { ...r, logo_url: data?.publicUrl ?? r.logo_url } : r,
-                      ),
-                    );
-                    setPending(false);
-                  })();
-                }}
-              />
-            </label>
-            <div className="mt-6 flex flex-col gap-5">
-              {tablesForSub.length === 0 ? (
-                <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>Keine Tische angelegt.</p>
-              ) : null}
-              {(() => {
-                const groups = [...groupTablesByBereich(tablesForSub).entries()];
-                return groups.map(([bereichName, tables]) => (
-                  <div key={bereichName} className="flex flex-col gap-3">
-                    <div
-                      className="flex items-center gap-2"
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        letterSpacing: "0.12em",
-                        color: "rgba(255,255,255,0.55)",
-                        textTransform: "uppercase",
-                        borderBottom: "0.5px solid rgba(255,255,255,0.1)",
-                        paddingBottom: 6,
-                      }}
-                    >
-                      <span aria-hidden>{bereichEmoji(bereichName)}</span>
-                      <span>{bereichName}</span>
-                      <span style={{ color: "rgba(255,255,255,0.35)", fontWeight: 600 }}>· {tables.length}</span>
-                    </div>
-                    {tables.map((tb) => (
-                      <div
-                        key={tb.id}
-                        style={{
-                          border: "0.5px solid rgba(255,255,255,0.1)",
-                          borderRadius: 16,
-                          padding: 14,
-                        }}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div style={{ fontWeight: 800, color: "#fff", fontSize: 15 }}>
-                              Tisch {tb.tisch_nummer}
-                            </div>
-                            <div
-                              className="mt-1 break-all text-xs"
-                              style={{ color: "rgba(255,255,255,0.35)", maxWidth: "100%" }}
-                            >
-                              {tb.qr_url ?? "—"}
-                            </div>
-                          </div>
-                          {tb.qr_url ? (
-                            <RestaurantTableQrPreview
-                              menuUrl={tb.qr_url}
-                              logoUrl={subRestaurant.logo_url ?? null}
-                              restaurantId={subRestaurant.id}
-                              downloadFilenameBase={`qrave-${filenameSafeSlug(subRestaurant.slug)}-tisch-${tb.tisch_nummer}`}
-                              orange={ORANGE}
-                            />
-                          ) : null}
-                          <div className="flex flex-wrap items-center gap-3">
-                            <label className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
-                              <input
-                                type="checkbox"
-                                checked={Boolean(tb.nfc_installiert)}
-                                disabled={pending}
-                                onChange={() => void toggleTableInstallStatus(tb.id, "nfc_installiert")}
-                                style={{ accentColor: ORANGE }}
-                              />
-                              NFC
-                            </label>
-                            <label className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
-                              <input
-                                type="checkbox"
-                                checked={Boolean(tb.sticker_installiert)}
-                                disabled={pending}
-                                onChange={() => void toggleTableInstallStatus(tb.id, "sticker_installiert")}
-                                style={{ accentColor: "#34e89e" }}
-                              />
-                              Sticker
-                            </label>
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() => void run(supabase.from("restaurant_tables").delete().eq("id", tb.id))}
-                              style={{
-                                padding: "6px 12px",
-                                borderRadius: 10,
-                                border: "none",
-                                background: "rgba(239,68,68,0.85)",
-                                color: "#fff",
-                                fontSize: 12,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                            >
-                              Löschen
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ));
-              })()}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
 
   return (
     <div className={`${inter.className} flex flex-col gap-4 pb-8`} style={{ fontFamily: "inherit" }}>
@@ -1020,8 +620,6 @@ export function RestaurantsTab({
           isMobile={isMobile}
           pending={pending}
           onToggleExpand={() => setExpandedId((cur) => (cur === r.id ? null : r.id))}
-          onOpenTische={() => setSubView({ restaurantId: r.id, tab: "tische" })}
-          onOpenQrNfc={() => setSubView({ restaurantId: r.id, tab: "qr" })}
           onOpenAnalytics={() => {
             const { fromYmd, toYmd } = defaultLast7Ymd();
             router.push(`/founder/restaurants/${r.id}/analytics?from=${fromYmd}&to=${toYmd}`);
@@ -1119,57 +717,6 @@ export function RestaurantsTab({
         />
       ) : null}
     </div>
-  );
-}
-
-function DetailTabChip({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-full px-4 py-2 text-sm font-bold"
-      style={{
-        border: active ? `1px solid ${ORANGE}` : "1px solid rgba(255,255,255,0.12)",
-        background: active ? "rgba(255,92,26,0.15)" : "rgba(255,255,255,0.05)",
-        color: active ? "#fff" : "rgba(255,255,255,0.55)",
-        cursor: "pointer",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function IconTables() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <g stroke="currentColor" strokeWidth={2} strokeLinecap="round" fill="none">
-        <rect x="4" y="5" width="16" height="5" rx="1" />
-        <rect x="4" y="14" width="7" height="6" rx="1" />
-        <rect x="13" y="14" width="7" height="6" rx="1" />
-      </g>
-    </svg>
-  );
-}
-
-function IconQrCodes() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <g stroke="currentColor" strokeWidth={2} strokeLinecap="round" fill="none">
-        <rect x="3" y="3" width="7" height="7" />
-        <rect x="14" y="3" width="7" height="7" />
-        <rect x="3" y="14" width="7" height="7" />
-        <path d="M14 14h1v1h-1z M16 14h1v1h-1z M14 16h1v1h-1z M16 16h3v3h-3z" />
-      </g>
-    </svg>
   );
 }
 
@@ -1286,8 +833,6 @@ function RestaurantCard({
   isMobile,
   pending,
   onToggleExpand,
-  onOpenTische,
-  onOpenQrNfc,
   onOpenAnalytics,
   onOpenStickerModal,
   onDeleteRestaurant,
@@ -1302,8 +847,6 @@ function RestaurantCard({
   isMobile: boolean;
   pending: boolean;
   onToggleExpand: () => void;
-  onOpenTische: () => void;
-  onOpenQrNfc: () => void;
   onOpenAnalytics: () => void;
   onOpenStickerModal: () => void;
   onDeleteRestaurant: () => void;
@@ -1573,18 +1116,6 @@ function RestaurantCard({
           </div>
 
           <div className="flex flex-wrap gap-2" style={{ gap: 8 }}>
-            <button type="button" disabled={pending} onClick={onOpenTische} style={glassActionBtn}>
-              <span style={actionIconWrap}>
-                <IconTables />
-              </span>
-              <span>Tische</span>
-            </button>
-            <button type="button" disabled={pending} onClick={onOpenQrNfc} style={glassActionBtn}>
-              <span style={actionIconWrap}>
-                <IconQrCodes />
-              </span>
-              <span>QR-Codes</span>
-            </button>
             <button type="button" disabled={pending} onClick={onOpenAnalytics} style={glassActionBtn}>
               <span style={actionIconWrap}>
                 <IconAnalytics />

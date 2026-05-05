@@ -234,15 +234,18 @@ body {
 }
 
 .founder-bg-blobs {
-  position: fixed;
-  inset: 0;
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   pointer-events: none;
   z-index: 0;
   mix-blend-mode: screen;
 }
 
 .founder-blob {
-  position: fixed;
+  position: fixed !important;
   border-radius: 50%;
   will-change: transform, opacity;
   pointer-events: none;

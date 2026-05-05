@@ -47,7 +47,6 @@ export default async function SpeisekartePage({
     sponsoredItems,
     guestNote: data.restaurant.guest_note ?? null,
     lunchOffers: data.lunchOffers,
-    openingHours: data.restaurant.opening_hours ?? null,
   };
 
   const templateKey = (data.restaurant.template ?? "bar-soleil") as string;

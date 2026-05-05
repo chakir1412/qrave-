@@ -5,48 +5,6 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-/** Ein Tag in opening_hours (Mo–So, 7 Einträge) */
-export type OpeningHoursDay = {
-  day: string;
-  open: string;
-  close: string;
-  closed: boolean;
-};
-
-export type OpeningHours = OpeningHoursDay[];
-
-export const OPENING_HOURS_DAY_KEYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
-
-export function defaultOpeningHours(): OpeningHours {
-  return OPENING_HOURS_DAY_KEYS.map((day, i) => ({
-    day,
-    open: "11:00",
-    close: "22:00",
-    closed: i === 6,
-  }));
-}
-
-/** Parst JSON aus Supabase; bei null/ungültig → Defaults (Mo–Sa 11–22, So zu). */
-export function parseOpeningHours(raw: unknown): OpeningHours {
-  if (!Array.isArray(raw) || raw.length !== 7) {
-    return defaultOpeningHours();
-  }
-  const result: OpeningHours = [];
-  for (let i = 0; i < 7; i++) {
-    const o = raw[i];
-    if (!o || typeof o !== "object") {
-      return defaultOpeningHours();
-    }
-    const rec = o as Record<string, unknown>;
-    const day = typeof rec.day === "string" ? rec.day : OPENING_HOURS_DAY_KEYS[i];
-    const open = typeof rec.open === "string" ? rec.open : "11:00";
-    const close = typeof rec.close === "string" ? rec.close : "22:00";
-    const closed = typeof rec.closed === "boolean" ? rec.closed : i === 6;
-    result.push({ day, open, close, closed });
-  }
-  return result;
-}
-
 export type Restaurant = {
   id: string;
   slug: string;
@@ -74,8 +32,6 @@ export type Restaurant = {
   aktive_partner: number | null;
   /** Kurzinfo für Gäste (Speisekarte / Preview) */
   guest_note?: string | null;
-  /** Wochenplan Mo–So */
-  opening_hours?: OpeningHours | null;
   /** Öffentliche URL zum Logo (Supabase Storage, z. B. restaurant-assets) */
   logo_url?: string | null;
 };

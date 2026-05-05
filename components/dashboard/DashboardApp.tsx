@@ -3,7 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DailyPush, LunchOffer, OpeningHours } from "@/lib/supabase";
+import type { DailyPush, LunchOffer } from "@/lib/supabase";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
@@ -176,7 +176,6 @@ export function DashboardApp({
     async (patch: {
       adresse?: string | null;
       telefon?: string | null;
-      opening_hours?: OpeningHours;
     }) => {
       const { error } = await supabase
         .from("restaurants")

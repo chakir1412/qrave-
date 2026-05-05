@@ -9,7 +9,6 @@ export type DashboardRestaurant = Pick<
   | "template"
   | "aktiv"
   | "guest_note"
-  | "opening_hours"
   | "adresse"
   | "stadt"
   | "telefon"

@@ -7,27 +7,54 @@ import { isYmd } from "@/lib/restaurant-analytics-presets";
 /**
  * Vercel Cron / externer Scheduler: GET mit Header
  *   Authorization: Bearer <CRON_SECRET>
- * Optional: ?day=YYYY-MM-DD (sonst gestern, Europe/Berlin).
+ * Optional: ?day=YYYY-MM-DD (sonst HEUTE + GESTERN, Europe/Berlin).
+ *
+ * Lauf alle 15 Min: rolliert den heutigen Tag live und korrigiert noch den
+ * gestrigen, falls am Tageswechsel etwas spät ankam.
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "CRON_SECRET ist nicht gesetzt" }, { status: 500 });
-  }
-  const auth = req.headers.get("authorization") ?? "";
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Vercel Cron sendet keinen Authorization-Header — schickt aber den
+  // user-agent "vercel-cron/1.0". Externe Scheduler bleiben mit
+  // Bearer <CRON_SECRET> erlaubt.
+  const ua = req.headers.get("user-agent") ?? "";
+  const isVercelCron = ua.toLowerCase().includes("vercel-cron");
+  if (!isVercelCron) {
+    const secret = process.env.CRON_SECRET;
+    if (!secret) {
+      return NextResponse.json({ error: "CRON_SECRET ist nicht gesetzt" }, { status: 500 });
+    }
+    const auth = req.headers.get("authorization") ?? "";
+    if (auth !== `Bearer ${secret}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   const { searchParams } = new URL(req.url);
   const dayParam = searchParams.get("day") ?? "";
-  const dayYmd =
-    dayParam && isYmd(dayParam) ? dayParam : prevBerlinYmd(berlinYmd(new Date()));
 
   try {
     const supabase = createServiceRoleClient();
-    const result = await aggregateAnalyticsForBerlinDay(supabase, dayYmd);
-    return NextResponse.json({ ok: true, ...result });
+
+    // Expliziter ?day=… Parameter: nur diesen Tag aggregieren.
+    if (dayParam && isYmd(dayParam)) {
+      const result = await aggregateAnalyticsForBerlinDay(supabase, dayParam);
+      return NextResponse.json({ ok: true, days: [dayParam], ...result });
+    }
+
+    // Default: heute UND gestern. Heute, damit Live-Daten ankommen; gestern,
+    // damit am Tageswechsel keine Events verloren gehen.
+    const today = berlinYmd(new Date());
+    const yesterday = prevBerlinYmd(today);
+    const [todayResult, yesterdayResult] = await Promise.all([
+      aggregateAnalyticsForBerlinDay(supabase, today),
+      aggregateAnalyticsForBerlinDay(supabase, yesterday),
+    ]);
+    return NextResponse.json({
+      ok: true,
+      days: [today, yesterday],
+      today: todayResult,
+      yesterday: yesterdayResult,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Aggregation fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });
