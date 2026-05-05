@@ -150,12 +150,39 @@ export function useSpeisekarteTier1Tracking({
   useEffect(() => {
     if (!restaurantId) return;
     leaveFlushRef.current = false;
-    const start = Date.now();
+
+    // Wir messen NUR aktive Sichtbarkeitszeit. Wenn der Tab in den Hintergrund
+    // wechselt (visibilityState === "hidden"), wird der bisher aktive Block
+    // aufaddiert; bei "visible" startet ein neuer Block. So zählen Phasen,
+    // in denen der Gast eine andere App offen hat, nicht zur Session-Dauer.
+    let activeMs = 0;
+    let visibleSince: number | null =
+      typeof document !== "undefined" && document.visibilityState === "visible"
+        ? Date.now()
+        : null;
+
+    const accumulateActive = () => {
+      if (visibleSince != null) {
+        activeMs += Date.now() - visibleSince;
+        visibleSince = null;
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (visibleSince == null) visibleSince = Date.now();
+      } else {
+        accumulateActive();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     const flushLeave = () => {
       if (leaveFlushRef.current) return;
       leaveFlushRef.current = true;
-      const duration = Math.round((Date.now() - start) / 1000);
+      accumulateActive();
+      const duration = Math.max(0, Math.round(activeMs / 1000));
       void safeTrack({
         eventType: "session_end",
         sessionDuration: duration,
@@ -171,6 +198,7 @@ export function useSpeisekarteTier1Tracking({
     window.addEventListener("pagehide", flushLeave);
 
     return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", flushLeave);
       flushLeave();
     };
