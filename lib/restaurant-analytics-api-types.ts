@@ -1,4 +1,3 @@
-import type { FounderRestaurantTableRow } from "@/lib/founder-types";
 import type { RestaurantAnalyticsComputed } from "@/lib/restaurant-analytics-aggregate";
 
 export type RestaurantAnalyticsApiRestaurant = {
@@ -14,7 +13,6 @@ export type RestaurantAnalyticsApiPayload = {
   fromYmd: string;
   toYmd: string;
   restaurant: RestaurantAnalyticsApiRestaurant | null;
-  tables: FounderRestaurantTableRow[];
   founderExtra: {
     next_visit: string | null;
     last_visit: string | null;

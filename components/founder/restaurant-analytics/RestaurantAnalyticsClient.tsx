@@ -1,33 +1,66 @@
 "use client";
 
-import { Roboto } from "next/font/google";
+import { DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { fp } from "@/components/founder/founder-palette";
 import { iterateBerlinDaysInclusive } from "@/lib/berlin-time";
 import type { RestaurantAnalyticsApiPayload } from "@/lib/restaurant-analytics-api-types";
+import type { DrinkCategoryKey } from "@/lib/restaurant-analytics-aggregate";
 import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
 import { RangeCalendarModal } from "./RangeCalendarModal";
 
-const roboto = Roboto({
+const dmSans = DM_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "700", "900"],
+  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
 });
 
-const BG = "#070818";
-const OR = "#FF5C1A";
-const GREEN = "#34E89E";
+const C = {
+  bg: "#0c0c0f",
+  teal: "#00c8a0",
+  orange: "#ff5c1a",
+  blue: "#5b9bff",
+  yellow: "#ffd426",
+  green: "#34e89e",
+  red: "#ff4b6e",
+  textMuted: "rgba(255,255,255,0.55)",
+  textFaint: "rgba(255,255,255,0.4)",
+  borderFaint: "rgba(255,255,255,0.06)",
+  cardBg: "rgba(255,255,255,0.035)",
+  cardBgInner: "rgba(0,0,0,0.22)",
+} as const;
 
 const card: CSSProperties = {
-  background: "linear-gradient(145deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))",
-  borderRadius: 20,
-  border: "0.5px solid rgba(255,255,255,0.09)",
-  boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
-  backdropFilter: "blur(24px)",
-  WebkitBackdropFilter: "blur(24px)",
+  background: C.cardBg,
+  border: `1px solid ${C.borderFaint}`,
+  borderRadius: 12,
+  backdropFilter: "blur(8px)",
+  WebkitBackdropFilter: "blur(8px)",
+};
+
+const sectionTitle: CSSProperties = {
+  margin: 0,
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: C.textFaint,
+};
+
+const DRINK_LABELS: Record<DrinkCategoryKey, string> = {
+  bier: "Bier",
+  softdrinks: "Softdrinks",
+  spirits: "Spirits & Wein",
+  hot: "Heißgetränke",
+};
+
+const DRINK_COLORS: Record<DrinkCategoryKey, string> = {
+  bier: C.yellow,
+  softdrinks: C.teal,
+  spirits: C.red,
+  hot: C.orange,
 };
 
 function csvEscape(cell: string): string {
@@ -35,7 +68,6 @@ function csvEscape(cell: string): string {
   return cell;
 }
 
-/** Anzeige wie „22. März – 28. März“ (ohne Jahr wenn gleiches Jahr). */
 function formatRangeLabel(fromYmd: string, toYmd: string): string {
   const [fy, fm, fd] = fromYmd.split("-").map(Number);
   const [ty, tm, td] = toYmd.split("-").map(Number);
@@ -51,18 +83,18 @@ function formatRangeLabel(fromYmd: string, toYmd: string): string {
   return `${left} – ${right}`;
 }
 
-function formatBerlinDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("de-DE", {
-    timeZone: "Europe/Berlin",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "—";
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${String(s).padStart(2, "0")}s`;
+}
+
+function formatHourRange(fromHour: number, toHour: number): string {
+  const f = `${String(fromHour).padStart(2, "0")}:00`;
+  const t = `${String(toHour + 1).padStart(2, "0")}:00`;
+  return `${f}–${t}`;
 }
 
 type Props = {
@@ -102,7 +134,6 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
     [router, restaurantId],
   );
 
-  /** Skeleton sofort vor dem ersten Paint nach Zeitraum-/Restaurant-Wechsel (auch Browser-Zurück). */
   useLayoutEffect(() => {
     const cached = cacheRef.current.get(cacheKey);
     if (cached) {
@@ -151,50 +182,41 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
   const exportCsv = useCallback(() => {
     if (!data?.restaurant) return;
     const slug = data.restaurant.slug;
+    const c = data.computed;
     const lines: string[] = [];
     lines.push("SCANS_PRO_TAG");
-    lines.push(["Kalendertag_Berlin", "QR_Scans"].map(csvEscape).join(","));
+    lines.push(["Kalendertag_Berlin", "Sessions"].map(csvEscape).join(","));
     const days = iterateBerlinDaysInclusive(data.fromYmd, data.toYmd);
     for (const d of days) {
-      lines.push([d, String(data.computed.scansByBerlinDay[d] ?? 0)].map(csvEscape).join(","));
+      lines.push([d, String(c.scansByBerlinDay[d] ?? 0)].map(csvEscape).join(","));
     }
     lines.push("");
-    lines.push("TISCHE");
-    lines.push(
-      ["Tisch_Nr", "Bereich", "QR_Scans_Zeitraum", "Letzter_Scan_ISO", "QR_URL"].map(csvEscape).join(","),
-    );
-    for (const t of data.computed.tableCards) {
-      lines.push(
-        [String(t.tisch_nummer), t.bereich ?? "", String(t.scanCount), t.lastScanAt ?? "", t.qr_url ?? ""]
-          .map(csvEscape)
-          .join(","),
-      );
-    }
-    lines.push("");
-    lines.push("TOP_ITEMS");
+    lines.push("TOP_GERICHTE");
     lines.push(["item_name", "klicks"].map(csvEscape).join(","));
-    for (const it of data.computed.topItems) {
-      lines.push([it.name, String(it.count)].map(csvEscape).join(","));
-    }
+    for (const it of c.topItems) lines.push([it.name, String(it.count)].map(csvEscape).join(","));
     lines.push("");
-    lines.push("TOP_KATEGORIEN");
+    lines.push("TOP_DRINKS");
+    lines.push(["item_name", "klicks"].map(csvEscape).join(","));
+    for (const it of c.topDrinks) lines.push([it.name, String(it.count)].map(csvEscape).join(","));
+    lines.push("");
+    lines.push("DRINK_KATEGORIEN");
     lines.push(["kategorie", "klicks"].map(csvEscape).join(","));
-    for (const c of data.computed.topCategories) {
-      lines.push([c.name, String(c.count)].map(csvEscape).join(","));
+    for (const k of ["bier", "softdrinks", "spirits", "hot"] as const) {
+      lines.push([DRINK_LABELS[k], String(c.drinkCategoryBreakdown[k])].map(csvEscape).join(","));
     }
     lines.push("");
-    lines.push("CONSENT");
-    lines.push(["besucher_gesamt", "mit_consent", "ohne_consent", "rate_prozent"].map(csvEscape).join(","));
+    lines.push("INSIGHTS");
+    lines.push(["metric", "value"].map(csvEscape).join(","));
+    lines.push(["bounce_rate_prozent", String(c.bounce.rate)].map(csvEscape).join(","));
+    lines.push(["avg_session_duration_seconds", String(c.avgSessionDurationSeconds)].map(csvEscape).join(","));
+    lines.push(["peak_day_of_week", c.peakDayOfWeek?.dayLabel ?? ""].map(csvEscape).join(","));
     lines.push(
-      [
-        String(data.computed.consent.totalSessions),
-        String(data.computed.consent.withConsent),
-        String(data.computed.consent.withoutConsent),
-        String(data.computed.consent.ratePct),
-      ]
+      ["peak_hour_window", c.peakHourWindow ? formatHourRange(c.peakHourWindow.fromHour, c.peakHourWindow.toHour) : ""]
         .map(csvEscape)
         .join(","),
     );
+    lines.push(["consent_rate_prozent", String(c.consent.ratePct)].map(csvEscape).join(","));
+    lines.push(["impressionen_total", String(c.totalImpressions)].map(csvEscape).join(","));
 
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -211,18 +233,36 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
   };
 
   const computed = data?.computed;
-  const maxChart = Math.max(1, ...(computed?.chartScanCounts ?? [0]));
   const ready = Boolean(!loading && data?.restaurant && computed);
+
+  const noiseDataUri = useNoiseDataUri();
 
   return (
     <div
-      className={`min-h-screen pb-12 ${roboto.className}`}
-      style={{ background: BG, color: fp.tx }}
+      className={`${dmSans.className} relative min-h-screen pb-12`}
+      style={{ background: C.bg, color: "#fff" }}
       aria-busy={loading}
       aria-live="polite"
     >
-      <div className="mx-auto max-w-3xl px-4 pt-4">
-        {/* Zeile 1: Zurück | Zeitraum + Export rechts */}
+      <div className="founder-bg-blobs" aria-hidden>
+        <div className="founder-blob founder-blob--1" />
+        <div className="founder-blob founder-blob--2" />
+        <div className="founder-blob founder-blob--3" />
+      </div>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          opacity: 0.04,
+          zIndex: 0,
+          pointerEvents: "none",
+          backgroundImage: `url("${noiseDataUri}")`,
+          backgroundRepeat: "repeat",
+        }}
+        aria-hidden
+      />
+
+      <div style={{ position: "relative", zIndex: 1 }} className="mx-auto max-w-3xl px-4 pt-4">
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/founder"
@@ -233,8 +273,8 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
                 /* ignore */
               }
             }}
-            className="inline-flex items-center gap-2 text-sm font-bold"
-            style={{ color: "rgba(255,255,255,0.55)" }}
+            className="inline-flex items-center gap-2 text-sm font-semibold"
+            style={{ color: C.textMuted }}
           >
             ← Restaurants
           </Link>
@@ -243,11 +283,14 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
             <button
               type="button"
               onClick={() => setCalendarOpen(true)}
-              className={`min-h-[48px] flex-1 rounded-2xl px-4 py-3 text-left text-sm font-bold sm:min-w-[200px] sm:flex-none ${loading ? "animate-pulse" : ""}`}
+              className={`min-h-[48px] flex-1 rounded-xl px-4 py-3 text-left text-sm font-semibold sm:min-w-[200px] sm:flex-none ${loading ? "animate-pulse" : ""}`}
               style={card}
             >
-              <span className="block text-[10px] font-extrabold tracking-wide" style={{ color: "rgba(255,255,255,0.4)" }}>
-                ZEITRAUM
+              <span
+                className="block text-[10px] font-bold tracking-wider uppercase"
+                style={{ color: C.textFaint }}
+              >
+                Zeitraum
               </span>
               <span className="mt-0.5 block text-white">{rangeLabel}</span>
             </button>
@@ -255,10 +298,11 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
               type="button"
               onClick={exportCsv}
               disabled={!data?.restaurant || loading}
-              className="min-h-[48px] rounded-2xl px-4 py-3 text-sm font-extrabold whitespace-nowrap"
+              className="min-h-[48px] rounded-xl px-4 py-3 text-sm font-bold whitespace-nowrap"
               style={{
                 ...card,
-                border: `0.5px solid ${OR}55`,
+                border: `1px solid ${C.orange}55`,
+                color: C.orange,
                 cursor: loading || !data?.restaurant ? "not-allowed" : "pointer",
                 opacity: loading || !data?.restaurant ? 0.45 : 1,
               }}
@@ -277,299 +321,544 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
           onQuick7={quick7}
         />
 
-        {loading ? (
-          <p className="sr-only">Analytics werden geladen …</p>
-        ) : null}
-
         {loadError ? (
           <div
-            className="mb-4 rounded-2xl px-4 py-3 text-sm"
-            style={{ border: `1px solid ${fp.red}55`, background: "rgba(255,75,110,0.1)", color: fp.red }}
+            className="mb-4 rounded-xl px-4 py-3 text-sm"
+            style={{ border: `1px solid ${C.red}55`, background: "rgba(255,75,110,0.1)", color: C.red }}
           >
             {loadError}
           </div>
         ) : null}
 
         {!loading && !data?.restaurant && !loadError ? (
-          <p className="text-sm" style={{ color: fp.mu }}>
+          <p className="text-sm" style={{ color: C.textMuted }}>
             Restaurant nicht gefunden.
           </p>
         ) : null}
 
         {data?.restaurant ? (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-xl font-black text-white">{data.restaurant.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">{data.restaurant.name}</h1>
             <span
-              className="rounded-full px-3 py-1 text-xs font-extrabold uppercase"
+              className="rounded-full px-3 py-1 text-xs font-bold uppercase"
               style={{
                 background: data.restaurant.aktiv ? "rgba(52,232,158,0.15)" : "rgba(255,255,255,0.08)",
-                color: data.restaurant.aktiv ? GREEN : fp.mu,
-                border: `1px solid ${data.restaurant.aktiv ? `${GREEN}44` : "rgba(255,255,255,0.12)"}`,
+                color: data.restaurant.aktiv ? C.green : C.textMuted,
+                border: `1px solid ${data.restaurant.aktiv ? `${C.green}44` : "rgba(255,255,255,0.12)"}`,
               }}
             >
               {data.restaurant.aktiv ? "Live" : "Offline"}
             </span>
           </div>
         ) : loading ? (
-          <div className="mb-6 h-8 w-48 animate-pulse rounded-lg" style={{ background: "rgba(255,255,255,0.06)" }} />
+          <div
+            className="mb-6 h-8 w-48 animate-pulse rounded-lg"
+            style={{ background: "rgba(255,255,255,0.06)" }}
+          />
         ) : null}
 
-        {/* 2. CHART */}
-        <section style={{ ...card, padding: 20 }} className="mb-4">
-          <h2 className="mb-4 text-[11px] font-extrabold tracking-wide" style={{ color: fp.mu }}>
-            SCANS · {rangeLabel}
-          </h2>
+        {/* 1. SCANS PRO TAG */}
+        <Section title="Scans pro Tag">
           {loading ? (
             <ChartSkeleton />
-          ) : ready && computed && data?.restaurant ? (
-            <>
-              <div className="flex min-h-[180px] items-end gap-0.5 overflow-x-auto pb-1 sm:gap-1">
-                {computed.chartLabels.map((lbl, i) => {
-                  const c = computed.chartScanCounts[i] ?? 0;
-                  const h = c === 0 ? 6 : Math.max(12, (c / maxChart) * 150);
-                  const peak = c === maxChart && c > 0;
-                  return (
-                    <div key={`${lbl}-${i}`} className="flex min-w-[22px] flex-1 flex-col items-center justify-end gap-1">
-                      <div
-                        className="w-full max-w-[36px] rounded-t-lg sm:max-w-[40px]"
-                        style={{
-                          height: h,
-                          background: `linear-gradient(180deg, ${OR}, rgba(255,92,26,0.35))`,
-                          boxShadow: peak ? `0 0 12px ${OR}` : "none",
-                        }}
-                      />
-                      <span
-                        className="max-w-full truncate text-center text-[8px] font-semibold leading-tight sm:text-[9px]"
-                        style={{ color: fp.mu }}
-                      >
-                        {lbl}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+          ) : ready && computed ? (
+            <ScansChart labels={computed.chartLabels} counts={computed.chartScanCounts} />
           ) : (
-            <p className="text-sm" style={{ color: fp.mu }}>
-              {loadError ? "Daten konnten nicht geladen werden." : "Keine Daten."}
-            </p>
+            <Empty />
           )}
-        </section>
+        </Section>
 
-        {/* 3. TAGESZEIT */}
-        <section style={{ ...card, padding: 20 }} className="mb-4">
-          <h2 className="mb-4 text-[11px] font-extrabold tracking-wide" style={{ color: fp.mu }}>
-            SCANS NACH TAGESZEIT (EUROPE/BERLIN)
-          </h2>
+        {/* 2. SCANS NACH TAGESZEIT */}
+        <Section title="Scans nach Tageszeit (Europe/Berlin)">
           {loading ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[0, 1, 2, 3].map((k) => (
-                <div key={k} className="h-28 animate-pulse rounded-2xl" style={{ background: "rgba(0,0,0,0.2)" }} />
+                <div
+                  key={k}
+                  className="h-28 animate-pulse rounded-xl"
+                  style={{ background: C.cardBgInner }}
+                />
               ))}
             </div>
           ) : ready && computed ? (
             <TimeBlocksRow blocks={computed.timeBlocks} />
           ) : (
-            <p className="text-sm" style={{ color: fp.mu }}>—</p>
+            <Empty />
           )}
-        </section>
+        </Section>
 
-        {/* 4. TISCHE — kompakte 4er-Grid mit Farbcodierung
-              grün ≥ 6 Scans · gelb 1–5 · rot 0 (kein Scan) */}
-        <section style={{ ...card, padding: 20 }} className="mb-4">
-          <h2 className="mb-3 text-[11px] font-extrabold tracking-wide" style={{ color: fp.mu }}>
-            TISCHE
-          </h2>
+        {/* 3. GETRÄNKE-PERFORMANCE */}
+        <Section title="Getränke-Performance" accent={C.teal}>
           {loading ? (
-            <div className="grid grid-cols-4 gap-2">
-              {Array.from({ length: 8 }).map((_, k) => (
-                <div
-                  key={k}
-                  className="aspect-square animate-pulse rounded-xl"
-                  style={{ background: "rgba(0,0,0,0.25)" }}
-                />
-              ))}
-            </div>
+            <DrinkSkeleton />
           ) : ready && computed ? (
-            computed.tableCards.length === 0 ? (
-              <p className="text-sm" style={{ color: fp.mu }}>
-                Noch keine Tische angelegt
-              </p>
-            ) : (
-              <>
-                <ul className="m-0 grid list-none grid-cols-4 gap-2 p-0">
-                  {computed.tableCards.map((t) => {
-                    const level: "off" | "low" | "ok" =
-                      t.scanCount === 0 ? "off" : t.scanCount <= 5 ? "low" : "ok";
-                    const palette =
-                      level === "ok"
-                        ? {
-                            bg: "rgba(0,200,160,0.12)",
-                            border: "rgba(0,200,160,0.45)",
-                            count: "#34e89e",
-                          }
-                        : level === "low"
-                          ? {
-                              bg: "rgba(255,212,38,0.12)",
-                              border: "rgba(255,212,38,0.45)",
-                              count: "#ffd426",
-                            }
-                          : {
-                              bg: "rgba(255,75,110,0.12)",
-                              border: "rgba(255,75,110,0.4)",
-                              count: "#ff4b6e",
-                            };
-                    const title = `Tisch ${t.tisch_nummer}${
-                      t.bereich ? ` · ${t.bereich}` : ""
-                    } — ${t.scanCount} Scan${t.scanCount === 1 ? "" : "s"}${
-                      t.lastScanAt ? ` (letzter: ${formatBerlinDateTime(t.lastScanAt)})` : ""
-                    }`;
-                    return (
-                      <li
-                        key={t.id}
-                        title={title}
-                        className="relative aspect-square rounded-xl border"
-                        style={{ background: palette.bg, borderColor: palette.border }}
-                      >
-                        <div className="flex h-full flex-col items-center justify-center px-1 text-center">
-                          <span className="text-[10px] font-bold" style={{ color: fp.mu }}>
-                            T{t.tisch_nummer}
-                          </span>
-                          <span
-                            className="text-2xl font-extrabold tabular-nums"
-                            style={{ color: palette.count }}
-                          >
-                            {t.scanCount}
-                          </span>
-                          {t.bereich ? (
-                            <span
-                              className="mt-0.5 max-w-full truncate text-[9px]"
-                              style={{ color: fp.mu }}
-                            >
-                              {t.bereich}
-                            </span>
-                          ) : null}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px]" style={{ color: fp.mu }}>
-                  <Legend bg="rgba(0,200,160,0.12)" border="rgba(0,200,160,0.45)" label="aktiv (≥ 6)" />
-                  <Legend bg="rgba(255,212,38,0.12)" border="rgba(255,212,38,0.45)" label="wenig (1–5)" />
-                  <Legend bg="rgba(255,75,110,0.12)" border="rgba(255,75,110,0.4)" label="kein Scan" />
-                </div>
-              </>
-            )
+            <DrinkPerformance
+              top={computed.topDrinks}
+              breakdown={computed.drinkCategoryBreakdown}
+            />
           ) : (
-            <p className="text-sm" style={{ color: fp.mu }}>
-              —
-            </p>
+            <Empty />
           )}
-        </section>
+        </Section>
 
-        {/* 5. MENU PERFORMANCE */}
-        <section style={{ ...card, padding: 20 }} className="mb-4">
-          <h2 className="mb-4 text-[11px] font-extrabold tracking-wide" style={{ color: fp.mu }}>
-            MENU PERFORMANCE
-          </h2>
+        {/* 4. MENU PERFORMANCE */}
+        <Section title="Menu Performance">
           {loading ? (
             <MenuSkeleton />
           ) : ready && computed ? (
             <div className="grid gap-6 sm:grid-cols-2">
-              <div>
-                <p className="mb-2 text-xs font-bold text-white">Meistgeklickte Gerichte</p>
-                <ul className="m-0 list-none space-y-2 p-0">
-                  {computed.topItems.length === 0 ? (
-                    <li className="text-sm" style={{ color: fp.mu }}>
-                      Keine Klicks im Zeitraum
-                    </li>
-                  ) : (
-                    computed.topItems.map((it) => (
-                      <li key={it.name} className="flex justify-between gap-2 text-sm">
-                        <span className="min-w-0 truncate">{it.name}</span>
-                        <span className="shrink-0 font-extrabold tabular-nums" style={{ color: OR }}>
-                          {it.count}
-                        </span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-              <div>
-                <p className="mb-2 text-xs font-bold text-white">Meistbesuchte Kategorien</p>
-                <ul className="m-0 list-none space-y-2 p-0">
-                  {computed.topCategories.length === 0 ? (
-                    <li className="text-sm" style={{ color: fp.mu }}>
-                      Keine Klicks im Zeitraum
-                    </li>
-                  ) : (
-                    computed.topCategories.map((c) => (
-                      <li key={c.name} className="flex justify-between gap-2 text-sm">
-                        <span className="min-w-0 truncate">{c.name}</span>
-                        <span className="shrink-0 font-extrabold tabular-nums" style={{ color: OR }}>
-                          {c.count}
-                        </span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
+              <RankList
+                title="Meistgeklickte Gerichte"
+                rows={computed.topItems}
+                color={C.orange}
+                emptyText="Keine Klicks im Zeitraum"
+              />
+              <RankList
+                title="Meistbesuchte Kategorien"
+                rows={computed.topCategories}
+                color={C.orange}
+                emptyText="Keine Klicks im Zeitraum"
+              />
             </div>
           ) : (
-            <p className="text-sm" style={{ color: fp.mu }}>—</p>
+            <Empty />
           )}
-        </section>
+        </Section>
 
-        {/* 6. CONSENT */}
-        <section style={{ ...card, padding: 20 }} className="mb-4">
-          <h2 className="mb-4 text-[11px] font-extrabold tracking-wide" style={{ color: fp.mu }}>
-            CONSENT-FUNNEL
-          </h2>
+        {/* 5. BESUCHER-INSIGHTS */}
+        <Section title="Besucher-Insights">
           {loading ? (
-            <div className="h-32 animate-pulse rounded-xl" style={{ background: "rgba(0,0,0,0.2)" }} />
+            <InsightsSkeleton />
           ) : ready && computed ? (
-            <>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-                <div className="rounded-xl p-3 text-center" style={{ background: "rgba(0,0,0,0.2)" }}>
-                  <p className="text-[10px] font-bold" style={{ color: fp.mu }}>
-                    Besucher gesamt
-                  </p>
-                  <p className="text-xl font-extrabold text-white">{computed.consent.totalSessions}</p>
-                </div>
-                <div className="rounded-xl p-3 text-center" style={{ background: "rgba(52,232,158,0.1)" }}>
-                  <p className="text-[10px] font-bold" style={{ color: fp.mu }}>
-                    Mit Consent
-                  </p>
-                  <p className="text-xl font-extrabold" style={{ color: GREEN }}>
-                    {computed.consent.withConsent}
-                  </p>
-                </div>
-                <div className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.05)" }}>
-                  <p className="text-[10px] font-bold" style={{ color: fp.mu }}>
-                    Ohne Consent
-                  </p>
-                  <p className="text-xl font-extrabold text-white">{computed.consent.withoutConsent}</p>
-                </div>
-              </div>
-              <p className="mt-4 text-sm font-extrabold text-white">
-                Consent-Rate: {computed.consent.ratePct}%
-              </p>
-              <div className="mt-2 h-3 overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
-                <div
-                  className="h-full rounded-full transition-[width] duration-300"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, computed.consent.ratePct))}%`,
-                    background: OR,
-                  }}
-                />
-              </div>
-            </>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <InsightTile
+                label="Bounce-Rate"
+                value={
+                  computed.bounce.available
+                    ? `${computed.bounce.rate}%`
+                    : "—"
+                }
+                hint={
+                  computed.bounce.available
+                    ? `${computed.bounce.bounced} von ${computed.bounce.totalSessions} Sessions ohne Item-Klick`
+                    : "Zu wenig Daten — mind. 5 Sessions nötig"
+                }
+                color={C.red}
+              />
+              <InsightTile
+                label="Ø Session-Dauer"
+                value={formatDuration(computed.avgSessionDurationSeconds)}
+                hint={
+                  computed.avgSessionDurationSeconds > 0
+                    ? "Aus session_end-Events"
+                    : "Wird erst gemessen, sobald Gäste die Karte verlassen"
+                }
+                color={C.teal}
+              />
+              <InsightTile
+                label="Wiederkehrer"
+                value={
+                  computed.returningVisitor.available
+                    ? `${computed.returningVisitor.returningPct}%`
+                    : "—"
+                }
+                hint={
+                  computed.returningVisitor.available
+                    ? `Erstbesuch ${computed.returningVisitor.firstVisitPct}%`
+                    : "Tracker setzt return_visit noch nicht (persistenter localStorage-Visitor-ID benötigt)"
+                }
+                color={C.blue}
+              />
+              <InsightTile
+                label="Peak-Tag"
+                value={computed.peakDayOfWeek?.dayLabel ?? "—"}
+                hint={
+                  computed.peakDayOfWeek
+                    ? `${computed.peakDayOfWeek.count} Sessions an diesem Wochentag`
+                    : "Keine Daten"
+                }
+                color={C.yellow}
+              />
+            </div>
           ) : (
-            <p className="text-sm" style={{ color: fp.mu }}>—</p>
+            <Empty />
           )}
-        </section>
+        </Section>
+
+        {/* 6. CONSENT-FUNNEL */}
+        <Section title="Consent-Funnel">
+          {loading ? (
+            <div className="h-32 animate-pulse rounded-xl" style={{ background: C.cardBgInner }} />
+          ) : ready && computed ? (
+            <ConsentFunnel
+              total={computed.consent.totalSessions}
+              withConsent={computed.consent.withConsent}
+              withoutConsent={computed.consent.withoutConsent}
+              ratePct={computed.consent.ratePct}
+            />
+          ) : (
+            <Empty />
+          )}
+        </Section>
+
+        {/* 7. WERBEPARTNER-KENNZAHLEN */}
+        <Section title="Werbepartner-Kennzahlen" accent={C.orange}>
+          {loading ? (
+            <InsightsSkeleton />
+          ) : ready && computed ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <InsightTile
+                label="Dominante Drink-Kategorie"
+                value={
+                  computed.dominantDrinkCategory
+                    ? DRINK_LABELS[computed.dominantDrinkCategory]
+                    : "—"
+                }
+                hint={
+                  computed.dominantDrinkCategory
+                    ? `${computed.drinkCategoryBreakdown[computed.dominantDrinkCategory]} Klicks im Zeitraum`
+                    : "Keine Drink-Klicks erfasst"
+                }
+                color={
+                  computed.dominantDrinkCategory
+                    ? DRINK_COLORS[computed.dominantDrinkCategory]
+                    : C.textMuted
+                }
+              />
+              <InsightTile
+                label="Peak-Slot"
+                value={
+                  computed.peakDayOfWeek && computed.peakHourWindow
+                    ? `${computed.peakDayOfWeek.dayLabel.slice(0, 2).toUpperCase()} ${formatHourRange(computed.peakHourWindow.fromHour, computed.peakHourWindow.toHour)}`
+                    : "—"
+                }
+                hint={
+                  computed.peakHourWindow
+                    ? `${computed.peakHourWindow.sessionsInWindow} Sessions im 3h-Fenster`
+                    : "Keine Daten"
+                }
+                color={C.yellow}
+              />
+              <InsightTile
+                label="Impressionen"
+                value={computed.totalImpressions.toLocaleString("de-DE")}
+                hint="Item-Detail-Klicks im Zeitraum"
+                color={C.teal}
+              />
+              <InsightTile
+                label="Consent-Qualität"
+                value={`${computed.consent.ratePct}%`}
+                hint={
+                  computed.consent.ratePct >= 60
+                    ? "Hohe Qualität für Targeting"
+                    : computed.consent.ratePct >= 30
+                      ? "Mittlere Targeting-Qualität"
+                      : "Niedrige Targeting-Qualität"
+                }
+                color={
+                  computed.consent.ratePct >= 60
+                    ? C.green
+                    : computed.consent.ratePct >= 30
+                      ? C.yellow
+                      : C.red
+                }
+              />
+            </div>
+          ) : (
+            <Empty />
+          )}
+        </Section>
       </div>
+    </div>
+  );
+}
+
+function Section({
+  title,
+  accent,
+  children,
+}: {
+  title: string;
+  accent?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section style={{ ...card, padding: 18, marginBottom: 14 }}>
+      <h2
+        style={{
+          ...sectionTitle,
+          marginBottom: 14,
+          color: accent ?? C.textFaint,
+        }}
+      >
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Empty() {
+  return (
+    <p className="text-sm" style={{ color: C.textMuted }}>
+      Keine Daten im Zeitraum.
+    </p>
+  );
+}
+
+function ScansChart({ labels, counts }: { labels: string[]; counts: number[] }) {
+  const max = Math.max(1, ...counts);
+  return (
+    <div className="flex min-h-[180px] items-end gap-0.5 overflow-x-auto pb-1 sm:gap-1">
+      {labels.map((lbl, i) => {
+        const c = counts[i] ?? 0;
+        const h = c === 0 ? 6 : Math.max(12, (c / max) * 150);
+        const peak = c === max && c > 0;
+        return (
+          <div key={`${lbl}-${i}`} className="flex min-w-[22px] flex-1 flex-col items-center justify-end gap-1">
+            <div
+              className="w-full max-w-[36px] rounded-t-md sm:max-w-[40px]"
+              style={{
+                height: h,
+                background: `linear-gradient(180deg, ${C.teal}, rgba(0,200,160,0.25))`,
+                boxShadow: peak ? `0 0 12px ${C.teal}` : "none",
+              }}
+              title={`${lbl} · ${c} Session${c === 1 ? "" : "s"}`}
+            />
+            <span
+              className="max-w-full truncate text-center text-[8px] font-medium leading-tight sm:text-[9px]"
+              style={{ color: C.textFaint }}
+            >
+              {lbl}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TimeBlocksRow({
+  blocks,
+}: {
+  blocks: { morning: number; midday: number; evening: number; night: number };
+}) {
+  const max = Math.max(1, blocks.morning, blocks.midday, blocks.evening, blocks.night);
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <TimeBlock label="Morgen" sub="6–11 Uhr" n={blocks.morning} max={max} color={C.teal} />
+      <TimeBlock label="Mittag" sub="11–15 Uhr" n={blocks.midday} max={max} color={C.yellow} />
+      <TimeBlock label="Abend" sub="15–22 Uhr" n={blocks.evening} max={max} color={C.orange} />
+      <TimeBlock label="Nacht" sub="22–6 Uhr" n={blocks.night} max={max} color={C.blue} />
+    </div>
+  );
+}
+
+function TimeBlock({
+  label,
+  sub,
+  n,
+  max,
+  color,
+}: {
+  label: string;
+  sub: string;
+  n: number;
+  max: number;
+  color: string;
+}) {
+  const pct = Math.round((n / max) * 100);
+  return (
+    <div
+      className="rounded-xl p-3 text-center"
+      style={{ background: C.cardBgInner, border: `1px solid ${C.borderFaint}` }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wider leading-tight" style={{ color: C.textFaint }}>
+        {label}
+      </p>
+      <p className="text-[10px]" style={{ color: C.textMuted }}>
+        {sub}
+      </p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums" style={{ color }}>
+        {n}
+      </p>
+      <div
+        className="mx-auto mt-2 h-1.5 max-w-[80px] overflow-hidden rounded-full"
+        style={{ background: "rgba(255,255,255,0.08)" }}
+      >
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+function RankList({
+  title,
+  rows,
+  color,
+  emptyText,
+}: {
+  title: string;
+  rows: Array<{ name: string; count: number }>;
+  color: string;
+  emptyText: string;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-bold text-white">{title}</p>
+      <ul className="m-0 list-none space-y-2 p-0">
+        {rows.length === 0 ? (
+          <li className="text-sm" style={{ color: C.textMuted }}>
+            {emptyText}
+          </li>
+        ) : (
+          rows.map((it, i) => (
+            <li key={`${it.name}-${i}`} className="flex justify-between gap-2 text-sm">
+              <span className="min-w-0 truncate" style={{ color: "rgba(255,255,255,0.85)" }}>
+                {i + 1}. {it.name}
+              </span>
+              <span className="shrink-0 font-bold tabular-nums" style={{ color }}>
+                {it.count}
+              </span>
+            </li>
+          ))
+        )}
+      </ul>
+    </div>
+  );
+}
+
+function DrinkPerformance({
+  top,
+  breakdown,
+}: {
+  top: Array<{ name: string; count: number }>;
+  breakdown: Record<DrinkCategoryKey, number>;
+}) {
+  const totalBreakdown =
+    breakdown.bier + breakdown.softdrinks + breakdown.spirits + breakdown.hot;
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <RankList
+        title="Top 10 Getränke"
+        rows={top}
+        color={C.teal}
+        emptyText="Keine Getränke-Klicks im Zeitraum"
+      />
+      <div>
+        <p className="mb-2 text-xs font-bold text-white">Verteilung nach Subkategorie</p>
+        {totalBreakdown === 0 ? (
+          <p className="text-sm" style={{ color: C.textMuted }}>
+            Keine Drink-Klicks erfasst
+          </p>
+        ) : (
+          <ul className="m-0 list-none space-y-3 p-0">
+            {(["bier", "softdrinks", "spirits", "hot"] as const).map((k) => {
+              const v = breakdown[k];
+              const pct = totalBreakdown > 0 ? Math.round((v / totalBreakdown) * 100) : 0;
+              return (
+                <li key={k}>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span style={{ color: "rgba(255,255,255,0.85)" }}>{DRINK_LABELS[k]}</span>
+                    <span className="tabular-nums font-bold" style={{ color: DRINK_COLORS[k] }}>
+                      {v} · {pct}%
+                    </span>
+                  </div>
+                  <div
+                    className="h-2 overflow-hidden rounded-full"
+                    style={{ background: "rgba(255,255,255,0.06)" }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, background: DRINK_COLORS[k] }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InsightTile({
+  label,
+  value,
+  hint,
+  color,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  color: string;
+}) {
+  return (
+    <div
+      className="rounded-xl p-3"
+      style={{ background: C.cardBgInner, border: `1px solid ${C.borderFaint}` }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textFaint }}>
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums leading-tight" style={{ color }}>
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] leading-snug" style={{ color: C.textMuted }}>
+        {hint}
+      </p>
+    </div>
+  );
+}
+
+function ConsentFunnel({
+  total,
+  withConsent,
+  withoutConsent,
+  ratePct,
+}: {
+  total: number;
+  withConsent: number;
+  withoutConsent: number;
+  ratePct: number;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
+        <FunnelTile label="Besucher gesamt" value={total} color="#fff" />
+        <FunnelTile label="Mit Consent" value={withConsent} color={C.green} />
+        <FunnelTile label="Ohne Consent" value={withoutConsent} color={C.textMuted} />
+      </div>
+      <p className="mt-4 text-sm font-semibold text-white">Consent-Rate: {ratePct}%</p>
+      <div
+        className="mt-2 h-3 overflow-hidden rounded-full"
+        style={{ background: "rgba(255,255,255,0.08)" }}
+      >
+        <div
+          className="h-full rounded-full transition-[width] duration-300"
+          style={{
+            width: `${Math.min(100, Math.max(0, ratePct))}%`,
+            background: C.teal,
+          }}
+        />
+      </div>
+    </>
+  );
+}
+
+function FunnelTile({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div
+      className="rounded-xl p-3 text-center"
+      style={{ background: C.cardBgInner, border: `1px solid ${C.borderFaint}` }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textFaint }}>
+        {label}
+      </p>
+      <p className="text-2xl font-semibold tabular-nums" style={{ color }}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -584,6 +873,28 @@ function ChartSkeleton() {
           style={{ height: `${20 + ((i * 7) % 80)}px`, background: "rgba(255,255,255,0.08)" }}
         />
       ))}
+    </div>
+  );
+}
+
+function DrinkSkeleton() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <div className="space-y-2">
+        <div className="h-4 w-32 animate-pulse rounded" style={{ background: "rgba(255,255,255,0.08)" }} />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex justify-between gap-2">
+            <div className="h-4 flex-1 animate-pulse rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
+            <div className="h-4 w-8 animate-pulse rounded" style={{ background: "rgba(255,255,255,0.08)" }} />
+          </div>
+        ))}
+      </div>
+      <div className="space-y-3">
+        <div className="h-4 w-40 animate-pulse rounded" style={{ background: "rgba(255,255,255,0.08)" }} />
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-3 animate-pulse rounded-full" style={{ background: "rgba(255,255,255,0.06)" }} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -606,50 +917,20 @@ function MenuSkeleton() {
   );
 }
 
-function TimeBlocksRow({
-  blocks,
-}: {
-  blocks: { morning: number; midday: number; evening: number; night: number };
-}) {
-  const max = Math.max(1, blocks.morning, blocks.midday, blocks.evening, blocks.night);
+function InsightsSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <TimeBlock label="Morgen (6–11 Uhr)" n={blocks.morning} max={max} />
-      <TimeBlock label="Mittag (11–15 Uhr)" n={blocks.midday} max={max} />
-      <TimeBlock label="Abend (15–22 Uhr)" n={blocks.evening} max={max} />
-      <TimeBlock label="Nacht (22–6 Uhr)" n={blocks.night} max={max} />
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {[0, 1, 2, 3].map((k) => (
+        <div key={k} className="h-24 animate-pulse rounded-xl" style={{ background: C.cardBgInner }} />
+      ))}
     </div>
   );
 }
 
-function TimeBlock({ label, n, max }: { label: string; n: number; max: number }) {
-  const pct = Math.round((n / max) * 100);
-  return (
-    <div
-      className="rounded-2xl p-3 text-center"
-      style={{ background: "rgba(0,0,0,0.22)", border: "0.5px solid rgba(255,255,255,0.08)" }}
-    >
-      <p className="text-[10px] font-bold leading-tight" style={{ color: "rgba(255,255,255,0.45)" }}>
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-extrabold tabular-nums" style={{ color: OR }}>
-        {n}
-      </p>
-      <div className="mx-auto mt-2 h-1.5 max-w-[80px] overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: OR }} />
-      </div>
-    </div>
-  );
-}
-
-function Legend({ bg, border, label }: { bg: string; border: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        className="inline-block h-3 w-3 rounded-sm border"
-        style={{ background: bg, borderColor: border }}
-      />
-      {label}
-    </span>
-  );
+function useNoiseDataUri(): string {
+  return useRef(
+    `data:image/svg+xml;utf8,${encodeURIComponent(
+      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(#n)' opacity='1'/></svg>",
+    )}`,
+  ).current;
 }
