@@ -362,7 +362,7 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
           {loading ? (
             <ChartSkeleton />
           ) : ready && computed ? (
-            <ScansChart labels={computed.chartLabels} counts={computed.chartScanCounts} />
+            <ScansLineChart labels={computed.chartLabels} counts={computed.chartScanCounts} />
           ) : (
             <Empty />
           )}
@@ -606,34 +606,275 @@ function Empty() {
   );
 }
 
-function ScansChart({ labels, counts }: { labels: string[]; counts: number[] }) {
-  const max = Math.max(1, ...counts);
+/** „Schöne" obere Achsen-Grenze: 4 → 5, 14 → 20, 25 → 50 etc. */
+function niceMaxValue(v: number): number {
+  if (!Number.isFinite(v) || v <= 0) return 5;
+  if (v < 5) return 5;
+  const exponent = Math.floor(Math.log10(v));
+  const fraction = v / Math.pow(10, exponent);
+  const niceFraction = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+  return niceFraction * Math.pow(10, exponent);
+}
+
+function ScansLineChart({ labels, counts }: { labels: string[]; counts: number[] }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const pathRef = useRef<SVGPathElement>(null);
+  const fillRef = useRef<SVGPathElement>(null);
+  const [width, setWidth] = useState(640);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  // Container-Breite messen, damit das SVG responsiv ist.
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const update = () => setWidth(Math.max(280, Math.round(el.clientWidth)));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const PAD_L = 36;
+  const PAD_R = 12;
+  const PAD_T = 14;
+  const PAD_B = 26;
+  const H = 220;
+  const chartW = Math.max(60, width - PAD_L - PAD_R);
+  const chartH = H - PAD_T - PAD_B;
+
+  const rawMax = counts.length > 0 ? Math.max(0, ...counts) : 0;
+  const yMax = niceMaxValue(rawMax);
+  const Y_TICKS = 4;
+
+  const xPos = (i: number): number => {
+    if (counts.length <= 1) return PAD_L + chartW / 2;
+    return PAD_L + (i / (counts.length - 1)) * chartW;
+  };
+  const yPos = (c: number): number => {
+    if (yMax === 0) return PAD_T + chartH;
+    return PAD_T + chartH - (Math.max(0, c) / yMax) * chartH;
+  };
+
+  const pathD =
+    counts.length === 0
+      ? ""
+      : counts
+          .map((c, i) => `${i === 0 ? "M" : "L"}${xPos(i).toFixed(2)},${yPos(c).toFixed(2)}`)
+          .join(" ");
+  const fillD =
+    counts.length === 0
+      ? ""
+      : `${pathD} L${xPos(counts.length - 1).toFixed(2)},${(PAD_T + chartH).toFixed(2)} L${xPos(0).toFixed(2)},${(PAD_T + chartH).toFixed(2)} Z`;
+
+  // Linie zeichnet sich von links nach rechts ein (stroke-dashoffset).
+  // Reagiert auf Daten- und Breitenwechsel.
+  useLayoutEffect(() => {
+    const p = pathRef.current;
+    const f = fillRef.current;
+    if (!p) return;
+    const len = p.getTotalLength();
+    if (!Number.isFinite(len) || len === 0) return;
+    p.style.transition = "none";
+    p.style.strokeDasharray = `${len}`;
+    p.style.strokeDashoffset = `${len}`;
+    if (f) {
+      f.style.transition = "none";
+      f.style.opacity = "0";
+    }
+    // Reflow erzwingen, damit der zweite Style-Block die Animation triggert.
+    void p.getBoundingClientRect();
+    requestAnimationFrame(() => {
+      p.style.transition = "stroke-dashoffset 1.4s cubic-bezier(0.4, 0, 0.2, 1)";
+      p.style.strokeDashoffset = "0";
+      if (f) {
+        f.style.transition = "opacity 1.4s ease 0.2s";
+        f.style.opacity = "1";
+      }
+    });
+  }, [pathD, width]);
+
+  // X-Achse: maximal ~8 Labels — bei mehr Tagen werden Zwischen-Labels ausgeblendet.
+  const labelStep = counts.length > 0 ? Math.max(1, Math.ceil(counts.length / 8)) : 1;
+
+  const hoverX = hoverIdx != null ? xPos(hoverIdx) : 0;
+  const hoverY = hoverIdx != null ? yPos(counts[hoverIdx] ?? 0) : 0;
+  const hoverCount = hoverIdx != null ? counts[hoverIdx] ?? 0 : 0;
+  const hoverLabel = hoverIdx != null ? labels[hoverIdx] ?? "" : "";
+
   return (
-    <div className="flex min-h-[180px] items-end gap-0.5 overflow-x-auto pb-1 sm:gap-1">
-      {labels.map((lbl, i) => {
-        const c = counts[i] ?? 0;
-        const h = c === 0 ? 6 : Math.max(12, (c / max) * 150);
-        const peak = c === max && c > 0;
-        return (
-          <div key={`${lbl}-${i}`} className="flex min-w-[22px] flex-1 flex-col items-center justify-end gap-1">
-            <div
-              className="w-full max-w-[36px] rounded-t-md sm:max-w-[40px]"
-              style={{
-                height: h,
-                background: `linear-gradient(180deg, ${C.teal}, rgba(0,200,160,0.25))`,
-                boxShadow: peak ? `0 0 12px ${C.teal}` : "none",
-              }}
-              title={`${lbl} · ${c} Session${c === 1 ? "" : "s"}`}
+    <div ref={wrapperRef} style={{ position: "relative", width: "100%" }}>
+      {counts.length === 0 ? (
+        <div style={{ height: H, display: "grid", placeItems: "center", color: C.textMuted, fontSize: 13 }}>
+          Keine Daten.
+        </div>
+      ) : (
+        <svg
+          width={width}
+          height={H}
+          viewBox={`0 0 ${width} ${H}`}
+          style={{ display: "block", overflow: "visible" }}
+          role="img"
+          aria-label="Scans pro Tag — Liniendiagramm"
+          onMouseLeave={() => setHoverIdx(null)}
+        >
+          <defs>
+            <linearGradient id="qr-chart-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={C.teal} stopOpacity="0.42" />
+              <stop offset="100%" stopColor={C.teal} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* Y-Achse: Grid + Werte */}
+          {Array.from({ length: Y_TICKS + 1 }).map((_, i) => {
+            const v = (yMax / Y_TICKS) * (Y_TICKS - i);
+            const y = PAD_T + (chartH / Y_TICKS) * i;
+            return (
+              <g key={`y-${i}`}>
+                <line
+                  x1={PAD_L}
+                  x2={width - PAD_R}
+                  y1={y}
+                  y2={y}
+                  stroke="rgba(255,255,255,0.06)"
+                  strokeWidth={1}
+                  strokeDasharray={i === Y_TICKS ? undefined : "2 4"}
+                />
+                <text
+                  x={PAD_L - 6}
+                  y={y + 3.5}
+                  textAnchor="end"
+                  fill="rgba(255,255,255,0.4)"
+                  fontSize={10}
+                  fontFamily="inherit"
+                >
+                  {Math.round(v)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* X-Achse: Datums-Labels */}
+          {labels.map((lbl, i) => {
+            if (i % labelStep !== 0 && i !== labels.length - 1) return null;
+            return (
+              <text
+                key={`x-${i}`}
+                x={xPos(i)}
+                y={H - 8}
+                textAnchor="middle"
+                fill="rgba(255,255,255,0.45)"
+                fontSize={10}
+                fontFamily="inherit"
+              >
+                {lbl}
+              </text>
+            );
+          })}
+
+          {/* Gradient-Fill unter der Linie */}
+          {fillD ? (
+            <path
+              ref={fillRef}
+              d={fillD}
+              fill="url(#qr-chart-fill)"
+              style={{ opacity: 0 }}
             />
-            <span
-              className="max-w-full truncate text-center text-[8px] font-medium leading-tight sm:text-[9px]"
-              style={{ color: C.textFaint }}
-            >
-              {lbl}
-            </span>
+          ) : null}
+
+          {/* Linie */}
+          {pathD ? (
+            <path
+              ref={pathRef}
+              d={pathD}
+              fill="none"
+              stroke={C.teal}
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ filter: `drop-shadow(0 0 6px ${C.teal}55)` }}
+            />
+          ) : null}
+
+          {/* Vertikale Hover-Linie */}
+          {hoverIdx != null ? (
+            <line
+              x1={hoverX}
+              x2={hoverX}
+              y1={PAD_T}
+              y2={PAD_T + chartH}
+              stroke={C.teal}
+              strokeOpacity={0.35}
+              strokeWidth={1}
+              strokeDasharray="3 3"
+              pointerEvents="none"
+            />
+          ) : null}
+
+          {/* Datenpunkte mit Hover */}
+          {counts.map((c, i) => {
+            const cx = xPos(i);
+            const cy = yPos(c);
+            const isActive = hoverIdx === i;
+            return (
+              <g key={`pt-${i}`}>
+                {/* Sichtbarer Punkt */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={isActive ? 5 : 3}
+                  fill={C.teal}
+                  stroke={C.bg}
+                  strokeWidth={1.5}
+                  style={{
+                    transition: "r 180ms ease",
+                    filter: isActive ? `drop-shadow(0 0 6px ${C.teal})` : "none",
+                  }}
+                />
+                {/* Größere Hover-Hitbox */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={Math.max(10, chartW / counts.length / 2)}
+                  fill="transparent"
+                  style={{ cursor: "pointer" }}
+                  onMouseEnter={() => setHoverIdx(i)}
+                  onMouseMove={() => setHoverIdx(i)}
+                />
+              </g>
+            );
+          })}
+        </svg>
+      )}
+
+      {hoverIdx != null ? (
+        <div
+          style={{
+            position: "absolute",
+            left: hoverX,
+            top: hoverY,
+            transform: "translate(-50%, calc(-100% - 12px))",
+            pointerEvents: "none",
+            background: "rgba(12,12,15,0.96)",
+            border: `1px solid ${C.teal}55`,
+            borderRadius: 10,
+            padding: "6px 10px",
+            fontSize: 11,
+            color: "#fff",
+            whiteSpace: "nowrap",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            zIndex: 10,
+          }}
+        >
+          <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, marginBottom: 1 }}>
+            {hoverLabel}
           </div>
-        );
-      })}
+          <div style={{ color: C.teal, fontWeight: 700, fontSize: 13 }}>
+            {hoverCount} {hoverCount === 1 ? "Scan" : "Scans"}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
