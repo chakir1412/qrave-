@@ -33,6 +33,21 @@ export function useSpeisekarteTier1Tracking({
   const safeTrack = useCallback(
     async (partial: Omit<TrackEventParams, "restaurantId" | "sessionId">) => {
       if (!restaurantId || !sessionId) return;
+      // DSGVO: Tier-1 Events nur senden, wenn der Gast aktiv eingewilligt hat.
+      // `declined` und „noch nicht entschieden" werden gleich behandelt — kein
+      // Tracking bis explizites accepted.
+      if (typeof window !== "undefined") {
+        try {
+          if (window.localStorage.getItem("qrave_consent") !== "accepted") {
+            return;
+          }
+        } catch {
+          // localStorage nicht verfügbar (z. B. Privacy-Modus) → nicht tracken.
+          return;
+        }
+      } else {
+        return;
+      }
       try {
         await trackEvent({
           restaurantId,

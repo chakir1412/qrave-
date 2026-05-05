@@ -4,14 +4,55 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type ConsentValue = "accepted" | "declined";
 
+type ConsentTheme = "default" | "warm";
+
 type ConsentBannerProps = {
   onConsent: (value: ConsentValue) => void;
+  /** "warm" passt sich dem FrankfurterWirtshaus-Look an
+   *  (cremeweiß #F5F0E8, Kupfer #C8894E). Default ist neutrales Weiß. */
+  theme?: ConsentTheme;
 };
 
 const STORAGE_KEY = "qrave_consent";
 const ANIM_MS = 400;
 
-export default function ConsentBanner({ onConsent }: ConsentBannerProps) {
+const THEMES = {
+  default: {
+    panel: "#ffffff",
+    panelBorder: "transparent",
+    headline: "#111111",
+    subText: "#555555",
+    cardBg: "#f7f6f2",
+    cardBorder: "#e8e4dc",
+    cardTitle: "#111111",
+    cardSub: "#8a8378",
+    accent: "#111111",
+    linkColor: "#111111",
+    footerLink: "#777777",
+    btnBorder: "#cccccc",
+    btnText: "#333333",
+    headlineFontFamily: "inherit",
+  },
+  warm: {
+    panel: "#F5F0E8",
+    panelBorder: "rgba(200,137,78,0.25)",
+    headline: "#1A1209",
+    subText: "#6E665C",
+    cardBg: "rgba(200,137,78,0.08)",
+    cardBorder: "rgba(200,137,78,0.2)",
+    cardTitle: "#1A1209",
+    cardSub: "#8B7355",
+    accent: "#C8894E",
+    linkColor: "#1A1209",
+    footerLink: "#8B7355",
+    btnBorder: "rgba(200,137,78,0.4)",
+    btnText: "#1A1209",
+    headlineFontFamily: 'Georgia, "Times New Roman", ui-serif, serif',
+  },
+} as const;
+
+export default function ConsentBanner({ onConsent, theme = "default" }: ConsentBannerProps) {
+  const t = THEMES[theme];
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -76,12 +117,24 @@ export default function ConsentBanner({ onConsent }: ConsentBannerProps) {
           transition: `transform ${ANIM_MS}ms ease`,
         }}
       >
-        <div className="mx-auto w-full max-w-[560px] rounded-3xl bg-white shadow-[0_18px_60px_rgba(0,0,0,0.35)] overflow-hidden">
+        <div
+          className="mx-auto w-full max-w-[560px] rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.35)] overflow-hidden"
+          style={{
+            backgroundColor: t.panel,
+            border: `1px solid ${t.panelBorder}`,
+          }}
+        >
           <div className="p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="text-[1.1rem] font-extrabold text-[#111] leading-snug">
+            <div
+              className="text-[1.1rem] font-extrabold leading-snug"
+              style={{ color: t.headline, fontFamily: t.headlineFontFamily }}
+            >
               Hilf uns die Karte besser zu machen. 🙌
             </div>
-            <div className="mt-2 text-[0.82rem] text-[#555] leading-relaxed">
+            <div
+              className="mt-2 text-[0.82rem] leading-relaxed"
+              style={{ color: t.subText }}
+            >
               Wir speichern anonym wie du die Karte nutzt — kein Name, kein Profil, kein Standort. 🤝 Einmalig gefragt, nie wieder.
             </div>
 
@@ -93,11 +146,20 @@ export default function ConsentBanner({ onConsent }: ConsentBannerProps) {
               ].map((c) => (
                 <div
                   key={c.title}
-                  className="rounded-2xl border border-[#e8e4dc] bg-[#f7f6f2] px-3 py-3 text-center"
+                  className="rounded-2xl border px-3 py-3 text-center"
+                  style={{ borderColor: t.cardBorder, backgroundColor: t.cardBg }}
                 >
                   <div className="text-[1.4rem]">{c.emoji}</div>
-                  <div className="mt-1 text-[0.74rem] font-bold text-[#111]">{c.title}</div>
-                  <div className="mt-0.5 text-[0.7rem] text-[#8a8378] leading-snug">
+                  <div
+                    className="mt-1 text-[0.74rem] font-bold"
+                    style={{ color: t.cardTitle }}
+                  >
+                    {c.title}
+                  </div>
+                  <div
+                    className="mt-0.5 text-[0.7rem] leading-snug"
+                    style={{ color: t.cardSub }}
+                  >
                     {c.sub}
                   </div>
                 </div>
@@ -106,7 +168,8 @@ export default function ConsentBanner({ onConsent }: ConsentBannerProps) {
 
             <button
               type="button"
-              className="mt-4 text-[0.78rem] font-semibold text-[#111] underline underline-offset-4"
+              className="mt-4 text-[0.78rem] font-semibold underline underline-offset-4"
+              style={{ color: t.linkColor }}
               onClick={() => window.open("/datenschutz", "_blank")}
             >
               🔍 Volle Transparenz →
@@ -123,9 +186,9 @@ export default function ConsentBanner({ onConsent }: ConsentBannerProps) {
                   borderRadius: "8px",
                   fontSize: "14px",
                   fontWeight: "500",
-                  border: "1.5px solid #ccc",
+                  border: `1.5px solid ${t.btnBorder}`,
                   background: "transparent",
-                  color: "#333",
+                  color: t.btnText,
                   cursor: "pointer",
                 }}
               >
@@ -141,9 +204,9 @@ export default function ConsentBanner({ onConsent }: ConsentBannerProps) {
                   borderRadius: "8px",
                   fontSize: "14px",
                   fontWeight: "500",
-                  border: "1.5px solid #ccc",
+                  border: `1.5px solid ${t.btnBorder}`,
                   background: "transparent",
-                  color: "#333",
+                  color: t.btnText,
                   cursor: "pointer",
                 }}
               >
@@ -151,12 +214,27 @@ export default function ConsentBanner({ onConsent }: ConsentBannerProps) {
               </button>
             </div>
 
-            <div className="mt-4 flex items-center justify-center gap-4 text-[0.72rem] text-[#777]">
-              <a className="underline underline-offset-4" href="/datenschutz" target="_blank" rel="noreferrer">
+            <div
+              className="mt-4 flex items-center justify-center gap-4 text-[0.72rem]"
+              style={{ color: t.footerLink }}
+            >
+              <a
+                className="underline underline-offset-4"
+                href="/datenschutz"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: t.footerLink }}
+              >
                 Datenschutzerklärung
               </a>
               <span>·</span>
-              <a className="underline underline-offset-4" href="/impressum" target="_blank" rel="noreferrer">
+              <a
+                className="underline underline-offset-4"
+                href="/impressum"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: t.footerLink }}
+              >
                 Impressum
               </a>
             </div>

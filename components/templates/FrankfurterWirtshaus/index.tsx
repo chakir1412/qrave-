@@ -311,7 +311,7 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
       style={{ backgroundColor: COL.bg, color: COL.text }}
     >
       {!consentGiven && (
-        <ConsentBanner onConsent={() => setConsentGiven(true)} />
+        <ConsentBanner theme="warm" onConsent={() => setConsentGiven(true)} />
       )}
 
       {/* Header — gedruckte Speisekarte */}
