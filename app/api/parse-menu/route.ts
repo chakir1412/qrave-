@@ -1,3 +1,5 @@
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { parseMenuJsonFromModel, type ParsedMenuItemDto } from "@/lib/parse-menu";
 import {
@@ -11,6 +13,38 @@ import {
 /** Vercel Serverless Timeout (PDF-Rendering + KI). */
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
+
+/** Founder-Auth: Endpoint nutzt Anthropic-Calls, daher nur für den
+ *  konfigurierten Founder freigegeben. */
+async function assertFounderOrUnauthorized(): Promise<NextResponse | null> {
+  const founderId = process.env.FOUNDER_USER_ID;
+  if (!founderId) {
+    return NextResponse.json(
+      { success: false, error: "Server nicht konfiguriert (FOUNDER_USER_ID fehlt)." },
+      { status: 500 },
+    );
+  }
+  const cookieStore = await cookies();
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll() {},
+      },
+    },
+  );
+  const {
+    data: { user },
+  } = await supabaseAuth.auth.getUser();
+  if (!user || user.id !== founderId) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
 
 /** Grober Schutz vor riesigem Form-Body (Vercel ~4,5 MB Request-Limit). */
 const MAX_EXTRACTED_TEXT_CHARS = 3_500_000;
@@ -494,6 +528,9 @@ async function anthropicExtractMenuItems(
 }
 
 export async function POST(req: Request) {
+  const denied = await assertFounderOrUnauthorized();
+  if (denied) return denied;
+
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey?.trim()) {

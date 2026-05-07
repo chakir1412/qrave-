@@ -138,6 +138,47 @@ export function iterateBerlinMonthDays(year: number, month1to12: number): string
   return out;
 }
 
+/** Kalender-Bestandteile für `d` in Europe/Berlin.
+ *  - `hour`: 0..23 in Berlin
+ *  - `weekdayMon1`: 1=Mo … 7=So (passt zur DB-Spalte `wochentag` und zu
+ *    `WEEKDAY_LABELS` in `lib/restaurant-analytics-aggregate.ts`)
+ *  - `month`: 1..12 in Berlin
+ *  - `year`: vierstellig in Berlin
+ */
+export function berlinDateParts(d: Date = new Date()): {
+  hour: number;
+  weekdayMon1: number;
+  month: number;
+  year: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+    weekday: "short",
+  }).formatToParts(d);
+  const lookup = Object.fromEntries(parts.map((p) => [p.type, p.value])) as Record<string, string>;
+  const hourRaw = Number(lookup.hour);
+  // Intl liefert in einigen Locales/Browsern `24:00` für Mitternacht — wir
+  // mappen auf 0, damit die DB-Spalte (`int 0..23`) konsistent bleibt.
+  const hour = Number.isFinite(hourRaw) ? hourRaw % 24 : 0;
+  const month = Number(lookup.month);
+  const year = Number(lookup.year);
+  const weekdayMap: Record<string, number> = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7,
+  };
+  const weekdayMon1 = weekdayMap[(lookup.weekday ?? "").slice(0, 3)] ?? 1;
+  return { hour, weekdayMon1, month, year };
+}
+
 /** Letzte `n` Kalendertage in Berlin, ältester zuerst (letzter Eintrag = heute Berlin). */
 export function lastNCalendarDaysBerlin(n: number, ref: Date = new Date()): string[] {
   const out: string[] = [];

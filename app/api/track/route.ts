@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { berlinDateParts } from "@/lib/berlin-time";
 
 const EVENT_TYPES = [
   "item_view",
@@ -86,17 +87,20 @@ export async function POST(req: Request) {
     const returnVisit = readOptionalBoolean(o.returnVisit) ?? null;
     const bounce = readOptionalBoolean(o.bounce) ?? null;
 
-    const now = new Date();
+    // Vercel-Functions laufen in UTC. Tracking-Felder müssen Europe/Berlin
+    // sein, sonst stimmen Tagesblöcke / Peak-Hour / Wochentag-Aggregationen
+    // nicht. wochentag = 1=Mo … 7=So (passend zu WEEKDAY_LABELS).
+    const { hour, weekdayMon1, month, year } = berlinDateParts(new Date());
 
     const { error } = await supabase.from("scan_events").insert({
       restaurant_id: restaurantId,
       tisch_nummer: tischNummer ?? null,
       tier: 1,
       event_type: eventTypeRaw,
-      stunde: now.getHours(),
-      wochentag: now.getDay(),
-      monat: now.getMonth() + 1,
-      jahr: now.getFullYear(),
+      stunde: hour,
+      wochentag: weekdayMon1,
+      monat: month,
+      jahr: year,
       session_id: sessionId,
       item_id: itemId,
       item_name: itemName,
