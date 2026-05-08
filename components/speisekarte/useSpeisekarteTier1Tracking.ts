@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { MenuItem } from "@/lib/supabase";
 import { getOrCreateSessionId, trackEvent, type TrackEventParams } from "@/lib/tracking";
+import { filterTrackingItemTags, mapBeverageSubcategory } from "@/lib/beverage-classification";
 import type { FilterKey } from "./constants";
 
 type UseSpeisekarteTier1TrackingArgs = {
@@ -72,12 +73,21 @@ export function useSpeisekarteTier1Tracking({
   useEffect(() => {
     if (!modalItem) return;
     const start = Date.now();
+    const itemPrice =
+      typeof modalItem.preis === "number" && Number.isFinite(modalItem.preis)
+        ? modalItem.preis
+        : null;
+    const itemTags = filterTrackingItemTags(modalItem.tags);
+    const beverageSubcategory = mapBeverageSubcategory(modalItem.kategorie, modalItem.main_tab);
     void safeTrack({
       eventType: "item_detail",
       itemId: modalItem.id,
       itemName: modalItem.name,
       kategorie: modalItem.kategorie,
       mainTab: modalItem.main_tab ?? undefined,
+      itemPrice,
+      itemTags,
+      beverageSubcategory,
     });
     return () => {
       const d = Math.round((Date.now() - start) / 1000);

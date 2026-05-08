@@ -19,6 +19,10 @@ export type RawRestaurantEventRow = {
   device_type: string | null;
   tier: number;
   restaurant_id: string | null;
+  /** Käuferorientierte Felder — befüllt vom Tier-1-Tracker bei item_detail. */
+  item_price: number | null;
+  item_tags: string[] | null;
+  beverage_subcategory: string | null;
 };
 
 export type RestaurantAnalyticsGranularity = "day" | "month";

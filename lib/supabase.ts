@@ -34,6 +34,71 @@ export type Restaurant = {
   guest_note?: string | null;
   /** Öffentliche URL zum Logo (Supabase Storage, z. B. restaurant-assets) */
   logo_url?: string | null;
+  /** Stammdaten für Targeting (Werbepartner, Filter im Founder-Dashboard).
+   *  Werte cuisine_type: deutsch | italienisch | asiatisch | mediterran |
+   *  international | bar | cafe | sonstiges.
+   *  Werte restaurant_typ: restaurant | bar | cafe | bistro | imbiss. */
+  cuisine_type?: string | null;
+  stadtbezirk?: string | null;
+  sitzplaetze_ca?: number | null;
+  restaurant_typ?: string | null;
+};
+
+/** Roh-Eintrag aus `scan_events` — public API für Komponenten. */
+export type ScanEvent = {
+  id: string;
+  restaurant_id: string | null;
+  session_id: string | null;
+  event_type: string;
+  tier: number;
+  stunde: number | null;
+  wochentag: number | null;
+  monat: number | null;
+  jahr: number | null;
+  tisch_nummer: number | null;
+  item_id: string | null;
+  item_name: string | null;
+  kategorie: string | null;
+  main_tab: string | null;
+  filter_key: string | null;
+  duration_seconds: number | null;
+  scroll_pct: number | null;
+  partner_name: string | null;
+  produkt: string | null;
+  ad_position: string | null;
+  device_type: string | null;
+  ip_hash: string | null;
+  qr_scan_source: string | null;
+  bounce: boolean | null;
+  session_duration: number | null;
+  return_visit: boolean | null;
+  created_at: string;
+  /** Käuferorientierte Felder (nur bei item_detail befüllt). */
+  item_price: number | null;
+  item_tags: string[];
+  beverage_subcategory: string | null;
+};
+
+/** Aggregat-Zeile aus `restaurant_analytics_daily`. */
+export type RestaurantAnalyticsDaily = {
+  restaurant_id: string;
+  day_berlin: string;
+  scan_count: number;
+  item_detail_count: number;
+  category_enter_count: number;
+  scans_morning: number;
+  scans_midday: number;
+  scans_evening: number;
+  scans_night: number;
+  sessions_count: number;
+  sessions_with_consent: number;
+  category_clicks: Record<string, number> | null;
+  beverage_subcategory_clicks: Record<string, number> | null;
+  top_items: Array<{ name: string; clicks: number; price: number | null }> | null;
+  vegan_clicks: number;
+  vegetarian_clicks: number;
+  avg_item_price_clicked: number | null;
+  updated_at: string;
 };
 
 /** Mehrpreise z.B. 0,2l / 0,3l / 0,5l / Flasche */

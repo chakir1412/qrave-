@@ -4,7 +4,7 @@ import { buildDailyRowsFromEvents, type RestaurantAnalyticsDailyRow } from "@/li
 import type { RawRestaurantEventRow } from "@/lib/restaurant-analytics-aggregate";
 
 const EVENT_SELECT =
-  "id,session_id,event_type,created_at,stunde,tisch_nummer,item_name,kategorie,tier,restaurant_id";
+  "id,session_id,event_type,created_at,stunde,tisch_nummer,item_name,kategorie,tier,restaurant_id,item_price,item_tags,beverage_subcategory";
 
 async function fetchPage(
   supabase: SupabaseClient,

@@ -31,6 +31,10 @@ export type TrackEventParams = {
   sessionDuration?: number;
   returnVisit?: boolean;
   bounce?: boolean;
+  /** Käuferorientierte Felder — nur bei item_detail. */
+  itemPrice?: number | null;
+  itemTags?: string[];
+  beverageSubcategory?: string | null;
 };
 
 const CONSENT_KEY = "qrave_consent";

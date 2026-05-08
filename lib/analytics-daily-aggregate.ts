@@ -1,5 +1,12 @@
 import type { RawRestaurantEventRow } from "@/lib/restaurant-analytics-aggregate";
 
+export type TopItemEntry = {
+  name: string;
+  clicks: number;
+  /** Häufigster (modaler) Preis bei diesem Item; null wenn nie ein Preis erfasst wurde. */
+  price: number | null;
+};
+
 export type RestaurantAnalyticsDailyRow = {
   restaurant_id: string;
   day_berlin: string;
@@ -12,6 +19,13 @@ export type RestaurantAnalyticsDailyRow = {
   scans_night: number;
   sessions_count: number;
   sessions_with_consent: number;
+  /** Käufer-Metriken (additiv ergänzt) */
+  category_clicks: Record<string, number>;
+  beverage_subcategory_clicks: Record<string, number>;
+  top_items: TopItemEntry[];
+  vegan_clicks: number;
+  vegetarian_clicks: number;
+  avg_item_price_clicked: number | null;
   updated_at: string;
 };
 
@@ -39,6 +53,25 @@ function timeBlockForHour(h: number): "morning" | "midday" | "evening" | "night"
   if (h >= 11 && h < 15) return "midday";
   if (h >= 15 && h < 22) return "evening";
   return "night";
+}
+
+/** Modaler Preis (häufigster Wert) eines Items. Bei Gleichstand: höchster
+ *  Wert (deterministisch). Null wenn kein einziger Preis erfasst wurde. */
+function modePrice(prices: number[]): number | null {
+  if (prices.length === 0) return null;
+  const counts = new Map<number, number>();
+  for (const p of prices) {
+    counts.set(p, (counts.get(p) ?? 0) + 1);
+  }
+  let bestPrice: number | null = null;
+  let bestCount = 0;
+  for (const [price, count] of counts) {
+    if (count > bestCount || (count === bestCount && bestPrice != null && price > bestPrice)) {
+      bestPrice = price;
+      bestCount = count;
+    }
+  }
+  return bestPrice;
 }
 
 function metricsForRestaurantEvents(
@@ -80,6 +113,60 @@ function metricsForRestaurantEvents(
   const sessionsCount = sessions.size;
   const withConsent = [...sessions.values()].filter((s) => s.maxTier >= 1).length;
 
+  // ---- Käufer-Metriken ----
+  // category_clicks: zählt category_enter UND item_detail Events nach kategorie
+  // (User-Definition: "category_enter oder item_detail" — alle inhaltlichen Klicks).
+  const categoryClicks: Record<string, number> = {};
+  for (const e of events) {
+    if (e.event_type !== "category_enter" && e.event_type !== "item_detail") continue;
+    const k = e.kategorie?.trim();
+    if (!k) continue;
+    categoryClicks[k] = (categoryClicks[k] ?? 0) + 1;
+  }
+
+  // beverage_subcategory_clicks: alle Events mit gesetzter Subkategorie (nicht
+  // nur item_detail — wenn ein anderer Event-Typ sie mitführt, zählt er auch).
+  const beverageSubcategoryClicks: Record<string, number> = {};
+  for (const e of events) {
+    const sub = e.beverage_subcategory?.trim();
+    if (!sub) continue;
+    beverageSubcategoryClicks[sub] = (beverageSubcategoryClicks[sub] ?? 0) + 1;
+  }
+
+  // top_items: nur item_detail. Pro Item-Name: clicks + modaler Preis.
+  const itemClicks = new Map<string, { clicks: number; prices: number[] }>();
+  let veganClicks = 0;
+  let vegetarianClicks = 0;
+  const allPrices: number[] = [];
+  for (const e of events) {
+    if (e.event_type !== "item_detail") continue;
+    const name = e.item_name?.trim();
+    if (name) {
+      const cur = itemClicks.get(name) ?? { clicks: 0, prices: [] };
+      cur.clicks += 1;
+      if (e.item_price != null && Number.isFinite(e.item_price)) {
+        cur.prices.push(Number(e.item_price));
+      }
+      itemClicks.set(name, cur);
+    }
+    const tags = Array.isArray(e.item_tags) ? e.item_tags : [];
+    if (tags.includes("vegan")) veganClicks += 1;
+    if (tags.includes("vegetarisch")) vegetarianClicks += 1;
+    if (e.item_price != null && Number.isFinite(e.item_price)) {
+      allPrices.push(Number(e.item_price));
+    }
+  }
+
+  const topItems: TopItemEntry[] = [...itemClicks.entries()]
+    .map(([name, v]) => ({ name, clicks: v.clicks, price: modePrice(v.prices) }))
+    .sort((a, b) => b.clicks - a.clicks || a.name.localeCompare(b.name, "de"))
+    .slice(0, 10);
+
+  const avgItemPriceClicked =
+    allPrices.length === 0
+      ? null
+      : Math.round((allPrices.reduce((s, p) => s + p, 0) / allPrices.length) * 100) / 100;
+
   return {
     restaurant_id: restaurantId,
     day_berlin: dayYmd,
@@ -92,6 +179,12 @@ function metricsForRestaurantEvents(
     scans_night: blocks.night,
     sessions_count: sessionsCount,
     sessions_with_consent: withConsent,
+    category_clicks: categoryClicks,
+    beverage_subcategory_clicks: beverageSubcategoryClicks,
+    top_items: topItems,
+    vegan_clicks: veganClicks,
+    vegetarian_clicks: vegetarianClicks,
+    avg_item_price_clicked: avgItemPriceClicked,
     updated_at: new Date().toISOString(),
   };
 }
