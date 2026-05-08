@@ -61,18 +61,8 @@ function sqlNullableNumber(value: number | undefined | null): string {
   return String(Math.trunc(value));
 }
 
-/** Felder ohne eigene DB-Spalte landen als Klartext-Hinweis in `notiz`. */
-function buildNotiz(data: OnboardingData): string | null {
-  const parts: string[] = [];
-  if (data.website?.trim()) parts.push(`Website: ${data.website.trim()}`);
-  if (data.primary_color?.trim()) parts.push(`primary_color: ${data.primary_color.trim()}`);
-  if (data.font_family?.trim()) parts.push(`font_family: ${data.font_family.trim()}`);
-  return parts.length > 0 ? parts.join(" · ") : null;
-}
-
 /** Erzeugt den fertigen SQL-Block für ein Onboarding. */
 export function generateOnboardingSQL(data: OnboardingData): string {
-  const notiz = buildNotiz(data);
   const lines: string[] = [];
 
   lines.push(`-- Onboarding: ${data.name} (${data.slug})`);
@@ -82,8 +72,9 @@ export function generateOnboardingSQL(data: OnboardingData): string {
   lines.push("");
 
   lines.push("INSERT INTO restaurants (");
-  lines.push("  id, slug, name, aktiv, email, adresse, telefon, guest_note, notiz,");
-  lines.push("  cuisine_type, stadtbezirk, sitzplaetze_ca, restaurant_typ, accent_color");
+  lines.push("  id, slug, name, aktiv, email, adresse, telefon, guest_note,");
+  lines.push("  cuisine_type, stadtbezirk, sitzplaetze_ca, restaurant_typ,");
+  lines.push("  website, accent_color, primary_color, font_family");
   lines.push(") VALUES (");
   lines.push(`  gen_random_uuid(),`);
   lines.push(`  ${sqlString(data.slug)},`);
@@ -93,12 +84,14 @@ export function generateOnboardingSQL(data: OnboardingData): string {
   lines.push(`  ${sqlNullableString(data.adresse)},`);
   lines.push(`  ${sqlNullableString(data.telefon)},`);
   lines.push(`  ${sqlNullableString(data.beschreibung)},`);
-  lines.push(`  ${sqlNullableString(notiz)},`);
   lines.push(`  ${sqlString(data.cuisine_type)},`);
   lines.push(`  ${sqlString(data.stadtbezirk)},`);
   lines.push(`  ${sqlNullableNumber(data.sitzplaetze_ca)},`);
   lines.push(`  ${sqlString(data.restaurant_typ)},`);
-  lines.push(`  ${sqlNullableString(data.accent_color)}`);
+  lines.push(`  ${sqlNullableString(data.website)},`);
+  lines.push(`  ${sqlNullableString(data.accent_color)},`);
+  lines.push(`  ${sqlNullableString(data.primary_color)},`);
+  lines.push(`  ${sqlNullableString(data.font_family)}`);
   lines.push(");");
   lines.push("");
 

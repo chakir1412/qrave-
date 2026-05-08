@@ -42,6 +42,10 @@ export type Restaurant = {
   stadtbezirk?: string | null;
   sitzplaetze_ca?: number | null;
   restaurant_typ?: string | null;
+  /** CI-Felder (vom Onboarding-Template gesetzt). */
+  website?: string | null;
+  primary_color?: string | null;
+  font_family?: string | null;
 };
 
 /** Roh-Eintrag aus `scan_events` — public API für Komponenten. */
