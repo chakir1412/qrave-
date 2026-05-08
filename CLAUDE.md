@@ -1,94 +1,104 @@
-# CLAUDE.md
+# CLAUDE.md — Qrave Projekt
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Verhaltensregeln für Claude Code im Qrave-Projekt. Immer einhalten.
 
-## Commands
+---
 
-- `npm run dev` — start the Next.js dev server (default port 3000)
-- `npm run build` — production build; **must pass before any commit** (per project rules)
-- `npm run lint` — ESLint via `eslint-config-next`
-- No test runner is configured. Do not invent one.
+## 1. Erst denken, dann coden
 
-The Supabase CLI is **not** installed. SQL migrations under `supabase/migrations/` are executed manually in the Supabase SQL editor; the file in the repo is the source of truth, the editor just runs it.
+**Keine Annahmen. Keine versteckte Verwirrung. Tradeoffs benennen.**
 
-## Stack
+- Annahmen explizit nennen. Bei Unsicherheit fragen.
+- Wenn mehrere Interpretationen möglich sind: alle nennen, nicht still eine wählen.
+- Wenn ein einfacherer Weg existiert: sagen. Pushback ist erwünscht.
+- Wenn etwas unklar ist: stoppen, benennen, fragen.
 
-- Next.js 16 App Router, React 19, TypeScript strict (`any` is forbidden — use precise types).
-- Tailwind v4 (PostCSS plugin only — there is no `tailwind.config.js`, do not create one).
-- Supabase (`@supabase/supabase-js` 2.98.x). The legacy `@supabase/auth-helpers-nextjs` package is in `package.json` but **must not be used** for new code (see Auth below).
-- Path alias: `@/*` → repo root.
-- `next.config.ts` sets `output: "standalone"`, externalizes `canvas` and `pdfjs-dist`, and whitelists Supabase storage (`lkaxapfvkjwfchiqaiee.supabase.co`) for `next/image`.
+---
 
-## Big-picture architecture
+## 2. Simplicity First
 
-The app is a multi-tenant QR menu platform with three distinct surfaces, all served from one Next.js app:
+**Minimum Code der das Problem löst. Nichts Spekulatives.**
 
-1. **Public guest menu** — `app/[slug]/page.tsx` and `app/[slug]/[tischSegment]/page.tsx`.
-   - `loadPublicSpeisekarteBySlug` (in `lib/load-public-speisekarte.ts`) loads restaurant + active menu items + categories + daily push using the anon client, ordered by `sort_order` with a fallback select for older DB columns.
-   - The page picks a template component from a `templateMap` in the page file (`bar-soleil`, `kiosk-no7`, `compound-cafe`, `nami-sushi`, `da-mario`, `roots`) and renders it with shared `SpeisekarteProps`. Each template lives in `components/templates/<Brand>/` and composes the building blocks from `components/speisekarte/`.
-   - `[tischSegment]` carries a per-table identifier (QR/NFC) which is used by `lib/tracking.ts` and the analytics events table.
+- Keine Features die nicht explizit angefragt wurden.
+- Keine Abstraktionen für einmalig genutzten Code.
+- Keine "Flexibilität" oder "Konfigurierbarkeit" die nicht verlangt wurde.
+- Kein Error Handling für unmögliche Szenarien.
+- Wenn 200 Zeilen auch 50 sein könnten: neu schreiben.
 
-2. **Restaurant operator dashboard** — `app/dashboard/page.tsx`, mounted via `components/dashboard/DashboardApp.tsx` with tabs (`HomeTab`, `KarteTab`, `TischeTab`) and overlays. This is the per-restaurant editor.
+Frage: "Würde ein Senior Engineer das als überkompliziert bezeichnen?" Wenn ja: vereinfachen.
 
-3. **Founder/admin dashboard** — `app/founder/page.tsx` + `components/founder/FounderDashboard.tsx` with tabs (Overview, Restaurants, Analytics, Kontakte, Todo). `lib/load-founder-dashboard.ts` hydrates it via parallel queries against `restaurants`, `scan_events`, `pipeline`, `founder_todos`, `restaurant_tables`, and a per-period KPI loader; `dedupe-scan-sessions` collapses sessions before counting.
+---
 
-### Component layering (load-bearing rule)
+## 3. Surgical Changes
 
-- `components/speisekarte/` — functional building blocks for the guest menu (Grid, Filter, ItemModal, Wishlist, DailyPush, etc.).
-- `components/templates/<Brand>/` — visual/branding variants that consume those building blocks.
-- `components/shared/` — hooks and types reused across both worlds (`useAnalytics`, `useDailyPush`, `useWishlist`, shared `types`).
-- `components/dashboard/`, `components/founder/`, `components/legal/` — surface-specific UI.
-- `app/` is **routing + composition only**. New business or UI logic goes in `components/` (or `lib/` for pure functions / data loaders), and the page just wires it up.
+**Nur das Nötige anfassen. Nur den eigenen Mess aufräumen.**
 
-### `lib/` boundaries
+Beim Editieren von bestehendem Code:
+- Keinen "benachbarten" Code verbessern, Kommentare oder Formatierung nicht anpassen.
+- Nichts refactoren was nicht kaputt ist.
+- Bestehenden Stil übernehmen, auch wenn man es anders machen würde.
+- Ungenutzten Code erwähnen — nicht löschen.
 
-- `lib/supabase.ts` — anon client + shared domain types (`Restaurant`, `MenuItem`, `OpeningHours`, `RestaurantTable`, `DailyPush`, …) and small helpers like `parseOpeningHours` / `fetchDailyPush`. **All Supabase domain types live here**; do not redefine them locally.
-- `lib/supabase-service-role.ts` — `createServiceRoleClient()`. Server-only (route handlers / server actions), bypasses RLS, requires `SUPABASE_SERVICE_ROLE_KEY`.
-- `lib/server/` — code that may only run on the server (e.g. `pdf-scan.ts`).
-- `lib/load-*.ts` — page-level data loaders that do the multi-table fetches; pages call these instead of querying Supabase directly.
-- `lib/parse-menu.ts`, `lib/claude-menu-from-text.ts`, `lib/html-to-text.ts` — AI menu import pipeline (see API routes).
-- `lib/restaurant-analytics-aggregate.ts`, `lib/analytics-daily-aggregate.ts`, `lib/run-analytics-aggregation.ts`, `lib/founder-kpi-deltas.ts`, `lib/dedupe-scan-sessions.ts`, `lib/berlin-time.ts` — analytics pipeline (Berlin timezone is the canonical wall-clock).
+Wenn eigene Änderungen Orphans erzeugen:
+- Imports/Variablen/Funktionen entfernen die durch EIGENE Änderungen unused wurden.
+- Vorher existierenden toten Code nicht entfernen außer explizit angefragt.
 
-### API routes
+Test: Jede geänderte Zeile muss direkt auf die Anfrage zurückführbar sein.
 
-- `POST /api/parse-menu` — PDF (≤32 MB) or JPG/PNG → Claude (`ANTHROPIC_API_KEY`, model `claude-sonnet-4-20250514`). PDFs use the Anthropic beta header `pdfs-2024-09-25`. `vercel.json` raises this route's `maxDuration` to 120s.
-- `POST /api/import-url` — `{ url, restaurantId? }`; fetches HTML, extracts text, runs the same Claude pipeline.
-- `POST /api/track` — guest-side analytics ingestion (writes to `scan_events`).
-- `app/api/founder/*` — founder dashboard server endpoints (refresh, restaurant analytics/heatmap/tables, Unsplash assignment, backfill).
-- `GET /api/cron/aggregate-analytics` — daily Vercel cron (`vercel.json` → `0 0 * * *`) that rolls scan events into `restaurant_analytics_daily`.
+---
 
-## Auth (do not deviate)
+## 4. Goal-Driven Execution
 
-The only allowed pattern in this repo:
+**Erfolgskriterien definieren. Loop bis verifiziert.**
 
-```ts
-import { supabase } from "@/lib/supabase";
+Aufgaben in verifizierbare Ziele übersetzen:
+- "Fix the bug" → "Reproduziere den Bug, dann fix ihn, dann verifiziere"
+- "Baue Feature X" → klare Schritte mit Verifikation pro Schritt
 
-const { data: { session } } = await supabase.auth.getSession();
-if (!session) redirect("/login");          // server components / actions
-// or, in "use client" pages: router.replace("/login")
-```
+Bei Multi-Step Tasks: kurzen Plan nennen bevor gestartet wird.
 
-Never use, even where it would compile: `@supabase/auth-helpers-nextjs`, `createServerComponentClient`, `createBrowserClient`, `createRouteHandlerClient`, `createMiddlewareClient`, or a second `createClient` import alongside `@/lib/supabase`. Login/logout go through the same exported `supabase` (`signInWithPassword`, `signOut`, …).
+Nach jeder Änderung: `npm run build` prüfen bevor deployed wird.
 
-Server endpoints that legitimately need to bypass RLS use `createServiceRoleClient()` from `lib/supabase-service-role.ts`.
+---
 
-## Supabase / DB rules
+## Projekt: Qrave
 
-- Every schema change is a new file in `supabase/migrations/` named `YYYYMMDDhhmmss_<purpose>.sql`. Do not edit the DB through the Supabase UI without committing the matching migration.
-- Every new table **must** have RLS enabled with policies scoped by restaurant/user. Be additive when changing existing tables; prefer a new nullable column over a destructive change.
-- After a schema change, update the corresponding types in `lib/supabase.ts` and any loader in `lib/load-*.ts`.
+### Stack
+- Next.js App Router, React 19, TypeScript 5, Tailwind v4
+- Supabase (DB + Auth + Storage)
+- Vercel (Hosting)
+- Deploy: immer `npm run build` → wenn grün → `npx vercel --prod`
+- GitHub: github.com/chakir1412/qrave-
 
-## Product constraints (will surprise you otherwise)
+### Wichtige Konstanten
+- Supabase URL: `lkaxapfvkjwfchiqaiee.supabase.co`
+- Domain: `qrave.menu`
+- Founder User ID: `b48eeabc-0652-4b8c-8579-4286c0570d54`
+- Frankfurter Wirtshaus ID: `9a333508-fa4a-4586-9ed2-e79e4a79ba95`
+- Cron Secret: `qrave-cron-2026`
+- Analytics Endpoint: `https://qrave.menu/api/cron/aggregate-analytics`
+- Storage Bucket: `restaurant-assets` (NICHT 'public')
 
-- Demo restaurant slug is `qrave-demo`. Supabase project ID is `lkaxapfvkjwfchiqaiee`. Admin email: `chakir.elhaji@gmail.com`.
-- **Light mode only** — no dark mode toggles or `dark:` Tailwind variants unless the user explicitly asks for a design extension.
-- **Allergens** are surfaced as a free-text field on each menu item (`allergens_text`). The PDF/URL import pipeline auto-extracts allergen mentions from the source description into that field. The "ask staff" disclaimer is also shown in the item modal and allergen filter as an additional safety hint — both can coexist.
-- **No `alert()`** — use toasts/banners/inline UI states instead.
+### Design-Token Founder Dashboard
+- Hintergrund: `#0c0c0f`
+- Akzent Teal: `#00c8a0`
+- Akzent Orange: `#ff5c1a`
+- Font: DM Sans
+- Glasskarten: `backdrop-filter: blur`
 
-## Workflow
+### Entfernte Features — nicht zurückbauen
+- Tisch-Tracking (`/tisch-[nr]` URLs) — entfernt, alle Restaurants laufen auf `qrave.menu/[slug]`
+- QR-Code-Generator im Founder Dashboard — wird extern via QR Monkey gemacht
+- Öffnungszeiten-Feature — aus Dashboard, Speisekarte und DB entfernt
+- Tische-Button und QR-Codes-Button im Restaurant-Card — entfernt
 
-- Never push directly to `main`; use a feature/fix branch.
-- Commit messages are in **German** (e.g. `feat: Speisekarten-Filter für Kategorien hinzufügen`).
-- When the user asks for a refactor, do not change behavior or add/remove features — keep the public API of the touched module identical and split feature changes into separate steps.
-- Read the file before editing it.
+### Architektur-Entscheidungen
+- Kein Abo-Modell — Restaurants zahlen nie
+- DSGVO: localStorage Key `qrave_consent` → `'accepted'` oder `'declined'`
+- Tier-0 Tracking: server-seitig, kein Consent nötig
+- Tier-1 Tracking: nur wenn `qrave_consent === 'accepted'`
+- Vercel Hobby: kein 15-Min-Cron möglich — Cron läuft nightly via cron-job.org
+
+### SQL
+- Immer OHNE Markdown-Codeblöcke (Supabase SQL Editor)
+- `menu_items tags`: PostgreSQL `text[]` Format (nicht JSONB)
