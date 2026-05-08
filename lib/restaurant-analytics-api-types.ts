@@ -7,6 +7,11 @@ export type RestaurantAnalyticsApiRestaurant = {
   stadt: string | null;
   telefon: string | null;
   aktiv: boolean;
+  /** Stammdaten für Targeting (Werte siehe Migration 20260508140000). */
+  cuisine_type: string | null;
+  stadtbezirk: string | null;
+  sitzplaetze_ca: number | null;
+  restaurant_typ: string | null;
 };
 
 export type RestaurantAnalyticsApiPayload = {

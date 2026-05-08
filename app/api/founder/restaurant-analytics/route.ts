@@ -11,7 +11,10 @@ import {
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
 
 const EVENT_SELECT =
-  "id,session_id,event_type,created_at,stunde,wochentag,tisch_nummer,item_id,item_name,kategorie,main_tab,duration_seconds,session_duration,bounce,return_visit,device_type,tier,restaurant_id";
+  "id,session_id,event_type,created_at,stunde,wochentag,tisch_nummer,item_id,item_name,kategorie,main_tab,duration_seconds,session_duration,bounce,return_visit,device_type,tier,restaurant_id,item_price,item_tags,beverage_subcategory";
+
+const RESTAURANT_SELECT =
+  "id,name,slug,stadt,telefon,aktiv,cuisine_type,stadtbezirk,sitzplaetze_ca,restaurant_typ";
 
 export async function GET(req: Request) {
   const cookieStore = await cookies();
@@ -58,6 +61,10 @@ export async function GET(req: Request) {
     stadt: string | null;
     telefon: string | null;
     aktiv: boolean;
+    cuisine_type: string | null;
+    stadtbezirk: string | null;
+    sitzplaetze_ca: number | null;
+    restaurant_typ: string | null;
   };
 
   let restaurantRow: RestaurantRow;
@@ -66,7 +73,7 @@ export async function GET(req: Request) {
 
   try {
     const [rRes, frRes, eventsRes] = await Promise.all([
-      supabase.from("restaurants").select("id,name,slug,stadt,telefon,aktiv").eq("id", restaurantId).maybeSingle(),
+      supabase.from("restaurants").select(RESTAURANT_SELECT).eq("id", restaurantId).maybeSingle(),
       supabase
         .from("founder_restaurants")
         .select("next_visit,last_visit,note,sticker_tier,sticker_paid,sticker_count")
@@ -121,6 +128,11 @@ export async function GET(req: Request) {
     stadt: restaurantRow.stadt ?? null,
     telefon: restaurantRow.telefon ?? null,
     aktiv: Boolean(restaurantRow.aktiv),
+    cuisine_type: restaurantRow.cuisine_type ?? null,
+    stadtbezirk: restaurantRow.stadtbezirk ?? null,
+    sitzplaetze_ca:
+      typeof restaurantRow.sitzplaetze_ca === "number" ? restaurantRow.sitzplaetze_ca : null,
+    restaurant_typ: restaurantRow.restaurant_typ ?? null,
   };
 
   const payload: RestaurantAnalyticsApiPayload = {

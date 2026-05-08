@@ -76,6 +76,19 @@ export type RestaurantAnalyticsComputed = {
 
   /** Roh-Scans pro Berlin-Tag (für CSV). */
   scansByBerlinDay: Record<string, number>;
+
+  // ---- Käuferorientierte Felder (snake_case wie DB-Spalten). ----
+  /** Klick-Zählung pro Getränke-Subkategorie aus `scan_events.beverage_subcategory`.
+   *  Mögliche Keys: bier, wein, softdrinks, cocktails, wasser, kaffee, energy, sonstiges_getraenk. */
+  beverage_subcategory_clicks: Record<string, number>;
+  /** Top-10-Items nach Klickzahl mit modalem Preis. */
+  top_items: Array<{ name: string; clicks: number; price: number | null }>;
+  /** Anzahl item_detail-Events deren item_tags 'vegan' enthält. */
+  vegan_clicks: number;
+  /** Anzahl item_detail-Events deren item_tags 'vegetarisch' enthält. */
+  vegetarian_clicks: number;
+  /** Mittel aller item_price aus item_detail-Events; null wenn kein Preis erfasst. */
+  avg_item_price_clicked: number | null;
 };
 
 export function sessionKey(e: RawRestaurantEventRow): string {
@@ -181,6 +194,23 @@ export function isDrinkItem(
   const mt = (mainTab ?? "").toLowerCase();
   if (mt === "getraenke" || mt === "getränke" || mt === "drinks" || mt === "bar") return true;
   return classifyDrinkCategory(kategorie, name) !== null;
+}
+
+/** Modaler Preis (häufigster Wert) eines Items. Bei Gleichstand: höchster
+ *  Wert (deterministisch). Null wenn kein einziger Preis erfasst wurde. */
+function modePrice(prices: number[]): number | null {
+  if (prices.length === 0) return null;
+  const counts = new Map<number, number>();
+  for (const p of prices) counts.set(p, (counts.get(p) ?? 0) + 1);
+  let bestPrice: number | null = null;
+  let bestCount = 0;
+  for (const [price, count] of counts) {
+    if (count > bestCount || (count === bestCount && bestPrice != null && price > bestPrice)) {
+      bestPrice = price;
+      bestCount = count;
+    }
+  }
+  return bestPrice;
 }
 
 export function aggregateRestaurantAnalytics(
@@ -438,6 +468,52 @@ export function aggregateRestaurantAnalytics(
       }
     : null;
 
+  // ---- Käuferorientierte Felder (additiv ergänzt). ----
+  // beverage_subcategory_clicks: alle Events mit gesetzter Subkategorie.
+  const beverageSubcategoryClicks: Record<string, number> = {};
+  for (const e of events) {
+    const sub = e.beverage_subcategory?.trim();
+    if (!sub) continue;
+    beverageSubcategoryClicks[sub] = (beverageSubcategoryClicks[sub] ?? 0) + 1;
+  }
+
+  // top_items + vegan_clicks + vegetarian_clicks + avg_item_price_clicked
+  // — alle aus item_detail-Events.
+  const itemClicksMap = new Map<string, { clicks: number; prices: number[] }>();
+  let veganClicks = 0;
+  let vegetarianClicks = 0;
+  const allItemPrices: number[] = [];
+  for (const e of events) {
+    if (e.event_type !== "item_detail") continue;
+    const name = e.item_name?.trim();
+    if (name) {
+      const cur = itemClicksMap.get(name) ?? { clicks: 0, prices: [] };
+      cur.clicks += 1;
+      if (e.item_price != null && Number.isFinite(e.item_price)) {
+        cur.prices.push(Number(e.item_price));
+      }
+      itemClicksMap.set(name, cur);
+    }
+    const tags = Array.isArray(e.item_tags) ? e.item_tags : [];
+    if (tags.includes("vegan")) veganClicks += 1;
+    if (tags.includes("vegetarisch")) vegetarianClicks += 1;
+    if (e.item_price != null && Number.isFinite(e.item_price)) {
+      allItemPrices.push(Number(e.item_price));
+    }
+  }
+
+  const top_items = [...itemClicksMap.entries()]
+    .map(([name, v]) => ({ name, clicks: v.clicks, price: modePrice(v.prices) }))
+    .sort((a, b) => b.clicks - a.clicks || a.name.localeCompare(b.name, "de"))
+    .slice(0, 10);
+
+  const avgItemPriceClicked =
+    allItemPrices.length === 0
+      ? null
+      : Math.round(
+          (allItemPrices.reduce((s, p) => s + p, 0) / allItemPrices.length) * 100,
+        ) / 100;
+
   // ---- Consent ----
   const withConsent = [...sessions.values()].filter((s) => s.maxTier >= 1).length;
   const withoutConsent = totalSessions - withConsent;
@@ -471,5 +547,10 @@ export function aggregateRestaurantAnalytics(
       ratePct,
     },
     scansByBerlinDay,
+    beverage_subcategory_clicks: beverageSubcategoryClicks,
+    top_items,
+    vegan_clicks: veganClicks,
+    vegetarian_clicks: vegetarianClicks,
+    avg_item_price_clicked: avgItemPriceClicked,
   };
 }
