@@ -13,75 +13,40 @@ export default function DatenschutzPage() {
 
       <h2 className="mt-10 text-lg font-medium text-white">1. Verantwortlicher</h2>
       <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
-        Mohammed Chakir El Haji, Hortensienring 18, 65929 Frankfurt am Main
+        Mohammed Chakir El Haji
         <br />
-        E-Mail:{" "}
+        Hortensienring 18
+        <br />
+        65929 Frankfurt am Main
+        <br />
+        Telefon:{" "}
         <a
-          href="mailto:hallo@qrave.menu"
+          href="tel:+491738996449"
           className="text-white/80 underline-offset-4 hover:text-white hover:underline"
         >
-          hallo@qrave.menu
+          +49 173 8996449
         </a>
-      </p>
-
-      <h2 className="mt-10 text-lg font-medium text-white">2. Was wir erfassen</h2>
-      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
-        Beim Besuch unserer digitalen Speisekarte erfassen wir folgende anonyme
-        Nutzungsdaten:
-      </p>
-      <ul className="mt-3 list-disc space-y-2 pl-5 text-[15px] leading-[1.8] text-white/60">
-        <li>Zeitpunkt des Seitenaufrufs</li>
-        <li>Gerättyp (Mobil/Desktop)</li>
-        <li>Aufgerufene Kategorien und Menüpunkte</li>
-        <li>Tischnummer (sofern über QR-Code aufgerufen)</li>
-      </ul>
-      <p className="mt-4 text-[15px] leading-[1.8] text-white/60">
-        Wir erfassen keine personenbezogenen Daten wie Name, E-Mail-Adresse oder
-        Standort.
-      </p>
-
-      <h2 className="mt-10 text-lg font-medium text-white">3. Zweck der Datenerfassung</h2>
-      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
-        Die Daten werden ausschließlich verwendet um die Speisekarte zu
-        optimieren, beliebte Gerichte zu identifizieren und die technische
-        Funktionsfähigkeit sicherzustellen.
-      </p>
-
-      <h2 className="mt-10 text-lg font-medium text-white">4. Consent</h2>
-      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
-        Beim ersten Besuch werden Sie gefragt ob Sie der anonymen Datenerfassung
-        zustimmen. Ohne Zustimmung erfassen wir nur technisch notwendige Daten
-        (Tier 0). Ihre Wahl wird im localStorage Ihres Browsers gespeichert.
-      </p>
-
-      <h2 className="mt-10 text-lg font-medium text-white">5. Datenspeicherung</h2>
-      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
-        Alle Daten werden auf Servern von Supabase (EU-Region) und Vercel
-        gespeichert. Keine Weitergabe an Dritte.
-      </p>
-
-      <h2 className="mt-10 text-lg font-medium text-white">6. Ihre Rechte</h2>
-      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
-        Da wir keine personenbezogenen Daten speichern, ist eine individuelle
-        Zuordnung nicht möglich. Bei Fragen:{" "}
-        <a
-          href="mailto:hallo@qrave.menu"
-          className="text-white/80 underline-offset-4 hover:text-white hover:underline"
-        >
-          hallo@qrave.menu
-        </a>
-      </p>
-
-      <h2 className="mt-10 text-lg font-medium text-white">7. Cookies</h2>
-      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
-        Wir verwenden keine Cookies. Die Consent-Entscheidung wird ausschließlich
-        über localStorage gespeichert.
-      </p>
-
-      <h2 className="mt-10 text-lg font-medium text-white">8. Hosting</h2>
-      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
-        Vercel Inc., 340 Pine Street, Suite 701, San Francisco, CA 94104, USA.
         <br />
+        {/* TODO: E-Mail-Adresse eintragen sobald vorhanden */}
+        E-Mail: —
+      </p>
+
+      <h2 className="mt-10 text-lg font-medium text-white">
+        2. Allgemeines zur Datenverarbeitung
+      </h2>
+      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
+        Wir nehmen den Schutz Ihrer persönlichen Daten ernst. Diese Website verwendet
+        keine Tracking-Tools, keine Cookies zu Werbezwecken und keine externen
+        Analyse-Dienste.
+      </p>
+
+      <h2 className="mt-10 text-lg font-medium text-white">3. Hosting</h2>
+      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
+        Diese Website wird gehostet bei Vercel Inc., 340 Pine Street, Suite 801,
+        San Francisco, CA 94104, USA. Vercel verarbeitet beim Aufruf der Website
+        technisch notwendige Verbindungsdaten (IP-Adresse, Zeitstempel, aufgerufene
+        URL). Diese Daten werden ausschließlich zur Bereitstellung des Dienstes
+        verwendet und nicht von uns ausgewertet. Weitere Informationen:{" "}
         <a
           href="https://vercel.com/legal/privacy-policy"
           className="text-white/80 underline-offset-4 hover:text-white hover:underline"
@@ -89,6 +54,49 @@ export default function DatenschutzPage() {
           rel="noopener noreferrer"
         >
           https://vercel.com/legal/privacy-policy
+        </a>
+      </p>
+
+      <h2 className="mt-10 text-lg font-medium text-white">
+        4. Digitale Speisekarten (qrave.menu/[restaurant])
+      </h2>
+      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
+        Beim Aufruf einer digitalen Speisekarte werden anonymisierte Nutzungsdaten
+        erhoben (z. B. aufgerufene Kategorien, angeklickte Speisen, Tageszeit des
+        Besuchs). Es werden keine personenbezogenen Daten wie IP-Adressen,
+        Geräte-IDs oder Standortdaten gespeichert. Eine Identifizierung einzelner
+        Personen ist nicht möglich.
+      </p>
+      <p className="mt-3 text-[15px] leading-[1.8] text-white/60">
+        Die Erhebung dieser Daten erfolgt auf Basis von Art. 6 Abs. 1 lit. f DSGVO
+        (berechtigtes Interesse). Detaillierte Nutzungsanalysen werden nur nach
+        ausdrücklicher Einwilligung via Consent-Banner erhoben (Art. 6 Abs. 1
+        lit. a DSGVO).
+      </p>
+
+      <h2 className="mt-10 text-lg font-medium text-white">5. Betroffenenrechte</h2>
+      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
+        Sie haben das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung
+        der Verarbeitung Ihrer Daten sowie das Recht auf Datenübertragbarkeit. Da
+        wir keine personenbezogenen Daten speichern, können wir keine
+        personenbezogenen Auskünfte erteilen.
+        {/* TODO: E-Mail-Adresse eintragen sobald vorhanden */}
+        <br />
+        Bei Fragen wenden Sie sich an: —
+      </p>
+
+      <h2 className="mt-10 text-lg font-medium text-white">6. Beschwerderecht</h2>
+      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
+        Sie haben das Recht, sich bei der zuständigen Aufsichtsbehörde zu beschweren.
+        Zuständig ist der Hessische Beauftragte für Datenschutz und
+        Informationsfreiheit:{" "}
+        <a
+          href="https://datenschutz.hessen.de"
+          className="text-white/80 underline-offset-4 hover:text-white hover:underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          https://datenschutz.hessen.de
         </a>
       </p>
     </LegalPageShell>

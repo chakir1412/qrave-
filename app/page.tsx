@@ -391,8 +391,22 @@ export default function Home() {
         </main>
 
         <footer className="border-t border-white/10 px-4 py-10 sm:px-6">
-          <div className="mx-auto max-w-6xl text-left text-xs text-slate-500">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 text-left text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
             <p>© {new Date().getFullYear()} Qrave · Digitale Speisekarte</p>
+            <nav className="flex gap-5">
+              <Link
+                href="/impressum"
+                className="underline-offset-4 transition-colors hover:text-white hover:underline"
+              >
+                Impressum
+              </Link>
+              <Link
+                href="/datenschutz"
+                className="underline-offset-4 transition-colors hover:text-white hover:underline"
+              >
+                Datenschutz
+              </Link>
+            </nav>
           </div>
         </footer>
       </div>
