@@ -102,3 +102,17 @@ Nach jeder Änderung: `npm run build` prüfen bevor deployed wird.
 ### SQL
 - Immer OHNE Markdown-Codeblöcke (Supabase SQL Editor)
 - `menu_items tags`: PostgreSQL `text[]` Format (nicht JSONB)
+
+### Obsidian Auto-Update
+
+Nach jedem Deploy (`npx vercel --prod`) folgende Dateien aktualisieren:
+
+**Vault-Pfad:** `/Users/mohammedchakirelhaji/Library/Mobile Documents/iCloud~md~obsidian/Documents/Qrave Brain`
+
+- `05 - Tech/Offene Aufgaben.md` — erledigte Tasks abhaken, neue eintragen
+- `05 - Tech/Deployment.md` — wenn sich Deploy-Workflow oder ENV ändert
+- `02 - Produkt/Produkt-Stand.md` — wenn Features hinzukommen oder entfernt werden
+- `01 - Strategie/Finale Entscheidungen.md` — wenn neue Entscheidungen getroffen werden
+- `03 - Restaurants/Onboarding Workflow.md` — wenn sich Onboarding-Prozess ändert
+
+Regel: Nur die Dateien updaten die von der aktuellen Session betroffen sind. Nicht alle Dateien bei jedem Deploy neu schreiben.
