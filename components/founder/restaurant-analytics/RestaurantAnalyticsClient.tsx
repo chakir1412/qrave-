@@ -7,7 +7,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { CSSProperties } from "react";
 import { iterateBerlinDaysInclusive } from "@/lib/berlin-time";
 import type { RestaurantAnalyticsApiPayload } from "@/lib/restaurant-analytics-api-types";
-import type { DrinkCategoryKey } from "@/lib/restaurant-analytics-aggregate";
 import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
 import { RangeCalendarModal } from "./RangeCalendarModal";
 
@@ -49,19 +48,20 @@ const sectionTitle: CSSProperties = {
   color: C.textFaint,
 };
 
-const DRINK_LABELS: Record<DrinkCategoryKey, string> = {
-  bier: "Bier",
-  softdrinks: "Softdrinks",
-  spirits: "Spirits & Wein",
-  hot: "Heißgetränke",
+/** Getränke-Subkategorien aus `scan_events.beverage_subcategory`.
+ *  Die Reihenfolge bestimmt die Anzeige in der Drink-Performance-Liste
+ *  und im CSV-Export. */
+const DRINK_LABELS: Record<string, { label: string; color: string }> = {
+  bier: { label: "Bier", color: "#F59E0B" },
+  wein: { label: "Wein", color: "#8B5CF6" },
+  softdrinks: { label: "Softdrinks", color: "#10B981" },
+  cocktails: { label: "Cocktails", color: "#EC4899" },
+  wasser: { label: "Wasser", color: "#3B82F6" },
+  kaffee: { label: "Kaffee", color: "#92400E" },
+  energy: { label: "Energy", color: "#EF4444" },
+  sonstiges_getraenk: { label: "Sonstiges", color: "#6B7280" },
 };
-
-const DRINK_COLORS: Record<DrinkCategoryKey, string> = {
-  bier: C.yellow,
-  softdrinks: C.teal,
-  spirits: C.red,
-  hot: C.orange,
-};
+const DRINK_KEYS = Object.keys(DRINK_LABELS);
 
 function csvEscape(cell: string): string {
   if (/[",\r\n]/.test(cell)) return `"${cell.replace(/"/g, '""')}"`;
@@ -95,6 +95,23 @@ function formatHourRange(fromHour: number, toHour: number): string {
   const f = `${String(fromHour).padStart(2, "0")}:00`;
   const t = `${String(toHour + 1).padStart(2, "0")}:00`;
   return `${f}–${t}`;
+}
+
+const EUR_FORMATTER = new Intl.NumberFormat("de-DE", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function formatEur(p: number | null | undefined): string {
+  if (p == null || !Number.isFinite(p)) return "—";
+  return EUR_FORMATTER.format(p);
+}
+
+function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 type Props = {
@@ -201,8 +218,9 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
     lines.push("");
     lines.push("DRINK_KATEGORIEN");
     lines.push(["kategorie", "klicks"].map(csvEscape).join(","));
-    for (const k of ["bier", "softdrinks", "spirits", "hot"] as const) {
-      lines.push([DRINK_LABELS[k], String(c.drinkCategoryBreakdown[k])].map(csvEscape).join(","));
+    for (const k of DRINK_KEYS) {
+      const v = c.beverage_subcategory_clicks[k] ?? 0;
+      lines.push([DRINK_LABELS[k].label, String(v)].map(csvEscape).join(","));
     }
     lines.push("");
     lines.push("INSIGHTS");
@@ -337,19 +355,39 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
         ) : null}
 
         {data?.restaurant ? (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-white">{data.restaurant.name}</h1>
-            <span
-              className="rounded-full px-3 py-1 text-xs font-bold uppercase"
-              style={{
-                background: data.restaurant.aktiv ? "rgba(52,232,158,0.15)" : "rgba(255,255,255,0.08)",
-                color: data.restaurant.aktiv ? C.green : C.textMuted,
-                border: `1px solid ${data.restaurant.aktiv ? `${C.green}44` : "rgba(255,255,255,0.12)"}`,
-              }}
-            >
-              {data.restaurant.aktiv ? "Live" : "Offline"}
-            </span>
-          </div>
+          (() => {
+            const stammdaten: string[] = [];
+            if (data.restaurant.cuisine_type) stammdaten.push(capitalize(data.restaurant.cuisine_type));
+            if (data.restaurant.stadtbezirk) stammdaten.push(data.restaurant.stadtbezirk);
+            if (data.restaurant.restaurant_typ) stammdaten.push(capitalize(data.restaurant.restaurant_typ));
+            return (
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-semibold tracking-tight text-white">
+                    {data.restaurant.name}
+                  </h1>
+                  {stammdaten.length > 0 ? (
+                    <p
+                      className="mt-0.5 text-xs"
+                      style={{ color: C.textMuted }}
+                    >
+                      {stammdaten.join(" · ")}
+                    </p>
+                  ) : null}
+                </div>
+                <span
+                  className="rounded-full px-3 py-1 text-xs font-bold uppercase"
+                  style={{
+                    background: data.restaurant.aktiv ? "rgba(52,232,158,0.15)" : "rgba(255,255,255,0.08)",
+                    color: data.restaurant.aktiv ? C.green : C.textMuted,
+                    border: `1px solid ${data.restaurant.aktiv ? `${C.green}44` : "rgba(255,255,255,0.12)"}`,
+                  }}
+                >
+                  {data.restaurant.aktiv ? "Live" : "Offline"}
+                </span>
+              </div>
+            );
+          })()
         ) : loading ? (
           <div
             className="mb-6 h-8 w-48 animate-pulse rounded-lg"
@@ -394,7 +432,7 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
           ) : ready && computed ? (
             <DrinkPerformance
               top={computed.topDrinks}
-              breakdown={computed.drinkCategoryBreakdown}
+              breakdown={computed.beverage_subcategory_clicks}
             />
           ) : (
             <Empty />
@@ -406,24 +444,67 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
           {loading ? (
             <MenuSkeleton />
           ) : ready && computed ? (
-            <div className="grid gap-6 sm:grid-cols-2">
-              <RankList
-                title="Meistgeklickte Gerichte"
-                rows={computed.topItems}
-                color={C.orange}
-                emptyText="Keine Klicks im Zeitraum"
-              />
-              <RankList
-                title="Meistbesuchte Kategorien"
-                rows={computed.topCategories}
-                color={C.orange}
-                emptyText="Keine Klicks im Zeitraum"
-              />
-            </div>
+            (() => {
+              // Preis-Lookup aus `top_items` (snake_case API-Feld) — wird in
+              // der Top-Gerichte-Liste rechts neben der Klickzahl angezeigt.
+              const priceLookup = new Map<string, number | null>();
+              for (const it of computed.top_items ?? []) priceLookup.set(it.name, it.price);
+              return (
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <RankList
+                    title="Meistgeklickte Gerichte"
+                    rows={computed.topItems}
+                    color={C.orange}
+                    emptyText="Keine Klicks im Zeitraum"
+                    priceLookup={priceLookup}
+                  />
+                  <RankList
+                    title="Meistbesuchte Kategorien"
+                    rows={computed.topCategories}
+                    color={C.orange}
+                    emptyText="Keine Klicks im Zeitraum"
+                  />
+                </div>
+              );
+            })()
           ) : (
             <Empty />
           )}
         </Section>
+
+        {/* 4b. DIÄT & PREIS — nur sichtbar wenn mindestens eine der drei
+              Käufer-Metriken vorliegt. */}
+        {ready && computed && (
+          computed.vegan_clicks > 0 ||
+          computed.vegetarian_clicks > 0 ||
+          computed.avg_item_price_clicked != null
+        ) ? (
+          <Section title="Diät & Preis">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {computed.vegan_clicks > 0 ? (
+                <InsightTile
+                  label="Vegane Items angeklickt"
+                  value={computed.vegan_clicks.toLocaleString("de-DE")}
+                  color={C.green}
+                />
+              ) : null}
+              {computed.vegetarian_clicks > 0 ? (
+                <InsightTile
+                  label="Vegetarische Items angeklickt"
+                  value={computed.vegetarian_clicks.toLocaleString("de-DE")}
+                  color={C.teal}
+                />
+              ) : null}
+              {computed.avg_item_price_clicked != null ? (
+                <InsightTile
+                  label="Ø Preis angeklickter Items"
+                  value={formatEur(computed.avg_item_price_clicked)}
+                  color={C.orange}
+                />
+              ) : null}
+            </div>
+          </Section>
+        ) : null}
 
         {/* 5. BESUCHER-INSIGHTS */}
         <Section title="Besucher-Insights">
@@ -506,24 +587,29 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
           {loading ? (
             <InsightsSkeleton />
           ) : ready && computed ? (
+            (() => {
+              // Dominante Subkategorie aus dem 8-Werte-Schema neu berechnen.
+              let dominantKey: string | null = null;
+              let dominantCount = 0;
+              for (const k of DRINK_KEYS) {
+                const v = computed.beverage_subcategory_clicks[k] ?? 0;
+                if (v > dominantCount) {
+                  dominantCount = v;
+                  dominantKey = k;
+                }
+              }
+              const dominantMeta = dominantKey ? DRINK_LABELS[dominantKey] : null;
+              return (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <InsightTile
                 label="Dominante Drink-Kategorie"
-                value={
-                  computed.dominantDrinkCategory
-                    ? DRINK_LABELS[computed.dominantDrinkCategory]
-                    : "—"
-                }
+                value={dominantMeta ? dominantMeta.label : "—"}
                 hint={
-                  computed.dominantDrinkCategory
-                    ? `${computed.drinkCategoryBreakdown[computed.dominantDrinkCategory]} Klicks im Zeitraum`
+                  dominantMeta
+                    ? `${dominantCount} Klicks im Zeitraum`
                     : "Keine Drink-Klicks erfasst"
                 }
-                color={
-                  computed.dominantDrinkCategory
-                    ? DRINK_COLORS[computed.dominantDrinkCategory]
-                    : C.textMuted
-                }
+                color={dominantMeta ? dominantMeta.color : C.textMuted}
               />
               <InsightTile
                 label="Peak-Slot"
@@ -564,6 +650,8 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
                 }
               />
             </div>
+              );
+            })()
           ) : (
             <Empty />
           )}
@@ -938,11 +1026,14 @@ function RankList({
   rows,
   color,
   emptyText,
+  priceLookup,
 }: {
   title: string;
   rows: Array<{ name: string; count: number }>;
   color: string;
   emptyText: string;
+  /** Optional: zeigt rechts neben der Klickzahl den modalen Preis aus `top_items`. */
+  priceLookup?: Map<string, number | null>;
 }) {
   return (
     <div>
@@ -953,16 +1044,29 @@ function RankList({
             {emptyText}
           </li>
         ) : (
-          rows.map((it, i) => (
-            <li key={`${it.name}-${i}`} className="flex justify-between gap-2 text-sm">
-              <span className="min-w-0 truncate" style={{ color: "rgba(255,255,255,0.85)" }}>
-                {i + 1}. {it.name}
-              </span>
-              <span className="shrink-0 font-bold tabular-nums" style={{ color }}>
-                {it.count}
-              </span>
-            </li>
-          ))
+          rows.map((it, i) => {
+            const price = priceLookup?.get(it.name);
+            return (
+              <li key={`${it.name}-${i}`} className="flex justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate" style={{ color: "rgba(255,255,255,0.85)" }}>
+                  {i + 1}. {it.name}
+                </span>
+                <span className="flex shrink-0 items-baseline gap-2">
+                  <span className="font-bold tabular-nums" style={{ color }}>
+                    {it.count}
+                  </span>
+                  {price != null ? (
+                    <span
+                      className="text-xs font-medium tabular-nums"
+                      style={{ color: C.textMuted }}
+                    >
+                      {formatEur(price)}
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })
         )}
       </ul>
     </div>
@@ -974,10 +1078,9 @@ function DrinkPerformance({
   breakdown,
 }: {
   top: Array<{ name: string; count: number }>;
-  breakdown: Record<DrinkCategoryKey, number>;
+  breakdown: Record<string, number>;
 }) {
-  const totalBreakdown =
-    breakdown.bier + breakdown.softdrinks + breakdown.spirits + breakdown.hot;
+  const totalBreakdown = DRINK_KEYS.reduce((acc, k) => acc + (breakdown[k] ?? 0), 0);
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <RankList
@@ -994,14 +1097,15 @@ function DrinkPerformance({
           </p>
         ) : (
           <ul className="m-0 list-none space-y-3 p-0">
-            {(["bier", "softdrinks", "spirits", "hot"] as const).map((k) => {
-              const v = breakdown[k];
+            {DRINK_KEYS.map((k) => {
+              const v = breakdown[k] ?? 0;
+              const meta = DRINK_LABELS[k];
               const pct = totalBreakdown > 0 ? Math.round((v / totalBreakdown) * 100) : 0;
               return (
                 <li key={k}>
                   <div className="mb-1 flex justify-between text-xs">
-                    <span style={{ color: "rgba(255,255,255,0.85)" }}>{DRINK_LABELS[k]}</span>
-                    <span className="tabular-nums font-bold" style={{ color: DRINK_COLORS[k] }}>
+                    <span style={{ color: "rgba(255,255,255,0.85)" }}>{meta.label}</span>
+                    <span className="tabular-nums font-bold" style={{ color: meta.color }}>
                       {v} · {pct}%
                     </span>
                   </div>
@@ -1011,7 +1115,7 @@ function DrinkPerformance({
                   >
                     <div
                       className="h-full rounded-full transition-all"
-                      style={{ width: `${pct}%`, background: DRINK_COLORS[k] }}
+                      style={{ width: `${pct}%`, background: meta.color }}
                     />
                   </div>
                 </li>
@@ -1032,7 +1136,7 @@ function InsightTile({
 }: {
   label: string;
   value: string;
-  hint: string;
+  hint?: string;
   color: string;
 }) {
   return (
@@ -1046,9 +1150,11 @@ function InsightTile({
       <p className="mt-1 text-2xl font-semibold tabular-nums leading-tight" style={{ color }}>
         {value}
       </p>
-      <p className="mt-1 text-[11px] leading-snug" style={{ color: C.textMuted }}>
-        {hint}
-      </p>
+      {hint ? (
+        <p className="mt-1 text-[11px] leading-snug" style={{ color: C.textMuted }}>
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }
