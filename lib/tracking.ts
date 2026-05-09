@@ -70,3 +70,33 @@ export function getOrCreateSessionId(): string {
     return "";
   }
 }
+
+/**
+ * Persistente Browser-Identifier-ID für `return_visit`-Tracking.
+ *
+ * Anders als `qrave_session` (sessionStorage, pro Tab) liegt diese ID
+ * in `localStorage` und überlebt Tab-Schließungen, Page-Reloads und
+ * Browser-Neustarts. Dadurch kann der Server entscheiden, ob ein
+ * Besucher schon mal da war.
+ *
+ * Tier-0: kein Consent für die reine localStorage-Speicherung nötig
+ * (technisch notwendige, anonyme Identifier-ID, kein Cross-Site-Tracking).
+ * Das **Übermitteln** an den Server bleibt aber Tier-1: passiert nur
+ * über `trackEvent()`, das vorher `qrave_consent === 'accepted'` prüft.
+ *
+ * Rückgabe: `{ visitorId, returnVisit }`. `returnVisit` ist `true`,
+ * wenn die ID beim Aufruf bereits in localStorage existierte.
+ */
+export function getOrCreateVisitorId(): { visitorId: string; returnVisit: boolean } {
+  if (typeof window === "undefined") return { visitorId: "", returnVisit: false };
+  try {
+    const key = "qrave_visitor_id";
+    const existing = window.localStorage.getItem(key);
+    if (existing) return { visitorId: existing, returnVisit: true };
+    const id = crypto.randomUUID();
+    window.localStorage.setItem(key, id);
+    return { visitorId: id, returnVisit: false };
+  } catch {
+    return { visitorId: "", returnVisit: false };
+  }
+}

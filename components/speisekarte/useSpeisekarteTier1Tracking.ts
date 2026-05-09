@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { MenuItem } from "@/lib/supabase";
-import { getOrCreateSessionId, trackEvent, type TrackEventParams } from "@/lib/tracking";
+import {
+  getOrCreateSessionId,
+  getOrCreateVisitorId,
+  trackEvent,
+  type TrackEventParams,
+} from "@/lib/tracking";
 import { filterTrackingItemTags, mapBeverageSubcategory } from "@/lib/beverage-classification";
 import type { FilterKey } from "./constants";
 
@@ -22,6 +27,9 @@ export function useSpeisekarteTier1Tracking({
   modalItem,
 }: UseSpeisekarteTier1TrackingArgs) {
   const sessionId = useMemo(() => getOrCreateSessionId(), []);
+  // Persistente Browser-ID (localStorage). returnVisit = true wenn der
+  // Browser schon mal hier war — wird an jedem Tier-1-Event mitgeschickt.
+  const { returnVisit } = useMemo(() => getOrCreateVisitorId(), []);
 
   const categoryEnterTimeRef = useRef<Record<string, number>>({});
   const visibleCatsRef = useRef<Set<string>>(new Set());
@@ -54,13 +62,14 @@ export function useSpeisekarteTier1Tracking({
           restaurantId,
           tischNummer,
           sessionId,
+          returnVisit,
           ...partial,
         });
       } catch {
         /* nie crashen */
       }
     },
-    [restaurantId, tischNummer, sessionId],
+    [restaurantId, tischNummer, sessionId, returnVisit],
   );
 
   useEffect(() => {
