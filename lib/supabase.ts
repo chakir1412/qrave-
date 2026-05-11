@@ -118,6 +118,8 @@ export type MenuItem = {
   bild_url: string | null;
   tags: string[] | null;
   aktiv: boolean;
+  /** Kurzfristiges Ausverkauft-Flag. Auto-Reset täglich um 4:00 Berlin via Cron. */
+  sold_out?: boolean;
   /** Verfügbarkeit (Zeit/Datum je nach DB-Typ, meist ISO-String) */
   verfuegbar_von?: string | null;
   verfuegbar_bis?: string | null;

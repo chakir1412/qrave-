@@ -34,7 +34,7 @@ export async function GET(req: Request) {
   try {
     const supabase = createServiceRoleClient();
 
-    // Expliziter ?day=… Parameter: nur diesen Tag aggregieren.
+    // Expliziter ?day=… Parameter: nur diesen Tag aggregieren (kein Sold-Out-Reset).
     if (dayParam && isYmd(dayParam)) {
       const result = await aggregateAnalyticsForBerlinDay(supabase, dayParam);
       return NextResponse.json({ ok: true, days: [dayParam], ...result });
@@ -48,11 +48,32 @@ export async function GET(req: Request) {
       aggregateAnalyticsForBerlinDay(supabase, today),
       aggregateAnalyticsForBerlinDay(supabase, yesterday),
     ]);
+
+    // Tages-Reset für menu_items.sold_out — idempotent (UPDATE wo sold_out=true).
+    // Sollte vom externen Scheduler um ~4:00 Berlin getriggert werden;
+    // läuft aber bei jedem Cron-Aufruf mit, kein Schaden.
+    let soldOutReset = 0;
+    try {
+      const { data: reset, error: resetErr } = await supabase
+        .from("menu_items")
+        .update({ sold_out: false })
+        .eq("sold_out", true)
+        .select("id");
+      if (resetErr) {
+        console.error("sold_out reset:", resetErr);
+      } else {
+        soldOutReset = reset?.length ?? 0;
+      }
+    } catch (e) {
+      console.error("sold_out reset exception:", e);
+    }
+
     return NextResponse.json({
       ok: true,
       days: [today, yesterday],
       today: todayResult,
       yesterday: yesterdayResult,
+      soldOutReset,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Aggregation fehlgeschlagen";

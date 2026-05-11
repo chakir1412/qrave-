@@ -731,6 +731,7 @@ function ItemList({
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {items.map((item) => {
                 const hasImage = Boolean(item.bild_url);
+                const soldOut = item.sold_out === true;
                 return (
                   <li key={item.id} style={{ borderBottom: `1px dotted ${COL.dividerSoft}` }}>
                     <button
@@ -746,6 +747,7 @@ function ItemList({
                         background: "transparent",
                         border: "none",
                         cursor: "pointer",
+                        opacity: soldOut ? 0.5 : 1,
                       }}
                     >
                       {hasImage ? (
@@ -759,6 +761,7 @@ function ItemList({
                             borderRadius: 8,
                             objectFit: "cover",
                             flexShrink: 0,
+                            filter: soldOut ? "grayscale(1)" : undefined,
                           }}
                         />
                       ) : null}
@@ -778,9 +781,31 @@ function ItemList({
                               color: COL.text,
                               flex: 1,
                               letterSpacing: "-0.005em",
+                              textDecoration: soldOut ? "line-through" : undefined,
                             }}
                           >
                             {item.name}
+                            {soldOut ? (
+                              <span
+                                style={{
+                                  display: "inline-block",
+                                  marginLeft: 8,
+                                  padding: "2px 8px",
+                                  borderRadius: 999,
+                                  fontFamily: "system-ui, sans-serif",
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.06em",
+                                  color: "#c44b6e",
+                                  background: "rgba(255,75,110,0.12)",
+                                  border: "1px solid rgba(255,75,110,0.3)",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                Ausverkauft
+                              </span>
+                            ) : null}
                           </span>
                           <span
                             style={{
@@ -790,6 +815,7 @@ function ItemList({
                               color: COL.accent,
                               whiteSpace: "nowrap",
                               letterSpacing: "-0.01em",
+                              textDecoration: soldOut ? "line-through" : undefined,
                             }}
                           >
                             {getDisplayPrice(item)}

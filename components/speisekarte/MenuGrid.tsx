@@ -146,14 +146,15 @@ export default function MenuGrid({
                     const emoji = getItemEmoji(item, sec.kategorie);
                     const tags = (item.tags ?? []).map((t) => t.toLowerCase());
                     const allergenWarn = activeAllergens.size > 0 && (item.allergen_ids ?? []).some((a) => activeAllergens.has(a as string));
+                    const soldOut = item.sold_out === true;
                     return (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => !allergenWarn && onItemClick(item)}
-                        className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-all active:opacity-90 ${item.sponsored && !dark ? "bg-[rgba(184,150,106,0.02)]" : ""} ${allergenWarn ? "opacity-30 pointer-events-none" : ""} ${dark ? "hover:bg-white/[0.05]" : "hover:bg-[rgba(184,150,106,0.06)]"}`}
+                        className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-all active:opacity-90 ${item.sponsored && !dark ? "bg-[rgba(184,150,106,0.02)]" : ""} ${allergenWarn ? "opacity-30 pointer-events-none" : ""} ${soldOut ? "opacity-50" : ""} ${dark ? "hover:bg-white/[0.05]" : "hover:bg-[rgba(184,150,106,0.06)]"}`}
                       >
-                        <div className="flex-shrink-0 w-[68px] h-[68px] rounded-[10px] overflow-hidden flex items-center justify-center" style={{ borderWidth: 1, borderStyle: "solid", borderColor: cl.thumbBorder, background: emojiGradient(emoji) }}>
+                        <div className={`flex-shrink-0 w-[68px] h-[68px] rounded-[10px] overflow-hidden flex items-center justify-center ${soldOut ? "grayscale" : ""}`} style={{ borderWidth: 1, borderStyle: "solid", borderColor: cl.thumbBorder, background: emojiGradient(emoji) }}>
                           {item.bild_url ? (
                             <Image src={item.bild_url} alt={item.name} width={68} height={68} className="w-full h-full object-cover" unoptimized />
                           ) : (
@@ -165,7 +166,12 @@ export default function MenuGrid({
                             <div className="text-[0.55rem] uppercase tracking-wider font-medium mb-0.5" style={{ color: barSoleil.copper2 }}>★ Empfohlen von {item.partner_name}</div>
                           )}
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="font-serif text-[1.06rem]" style={{ color: cl.itemName }}>{item.name}</span>
+                            <span className={`font-serif text-[1.06rem] ${soldOut ? "line-through" : ""}`} style={{ color: cl.itemName }}>{item.name}</span>
+                            {soldOut && (
+                              <span className="text-[0.52rem] font-semibold px-1.5 py-0.5 rounded-full uppercase bg-[rgba(255,75,110,0.12)] text-[#c44b6e] border border-[rgba(255,75,110,0.3)]">
+                                Ausverkauft
+                              </span>
+                            )}
                             {tags.map((t) => BADGE_LABELS[t] && <span key={t} className={`text-[0.52rem] font-semibold px-1.5 py-0.5 rounded-full uppercase ${BADGE_STYLES[t]}`}>{BADGE_LABELS[t]}</span>)}
                           </div>
                         </div>

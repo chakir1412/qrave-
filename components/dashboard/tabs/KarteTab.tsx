@@ -27,7 +27,7 @@ import {
 } from "@/lib/category-sort-order";
 
 const DASHBOARD_MENU_ITEM_SELECT =
-  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text";
+  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, sold_out, tags, emoji, main_tab, sort_order, allergens_text";
 
 function menuItemKategorieLabel(m: MenuItem): string {
   return m.kategorie?.trim() || "Sonstiges";
@@ -541,6 +541,23 @@ export function KarteTab({
     }
     const next = menuItems.map((x) => (x.id === item.id ? (data as MenuItem) : x));
     onItemsChange(next);
+  }
+
+  async function toggleSoldOut(item: MenuItem) {
+    const nextValue = !(item.sold_out === true);
+    const { data, error } = await supabase
+      .from("menu_items")
+      .update({ sold_out: nextValue })
+      .eq("id", item.id)
+      .select(DASHBOARD_MENU_ITEM_SELECT)
+      .single();
+    if (error || !data) {
+      onToast(error?.message ?? "Update fehlgeschlagen");
+      return;
+    }
+    const next = menuItems.map((x) => (x.id === item.id ? (data as MenuItem) : x));
+    onItemsChange(next);
+    onToast(nextValue ? "Als ausverkauft markiert" : "Wieder verfügbar");
   }
 
   function commitParsedItems(bodyItems: ParsedMenuItemDto[]) {
@@ -1576,7 +1593,7 @@ export function KarteTab({
                             className="min-w-0 flex-1 text-left"
                           >
                             <div
-                              className={`truncate text-sm font-semibold ${!m.aktiv ? "text-white/40 line-through" : ""}`}
+                              className={`truncate text-sm font-semibold ${!m.aktiv ? "text-white/40 line-through" : m.sold_out ? "line-through" : ""}`}
                             >
                               {m.name}
                             </div>
@@ -1586,9 +1603,24 @@ export function KarteTab({
                               </div>
                             )}
                           </button>
-                          <span className="text-sm font-bold" style={{ color: m.aktiv ? dash.or : dash.mu }}>
+                          <span className={`text-sm font-bold ${m.sold_out ? "line-through" : ""}`} style={{ color: m.aktiv ? dash.or : dash.mu }}>
                             {formatPreisEUR(m.preis)}
                           </span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); void toggleSoldOut(m); }}
+                            disabled={!m.aktiv}
+                            className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors disabled:opacity-30"
+                            style={{
+                              background: m.sold_out ? "rgba(255,75,110,0.18)" : "transparent",
+                              color: m.sold_out ? dash.re : dash.mu,
+                              border: `1px solid ${m.sold_out ? "rgba(255,75,110,0.5)" : dash.bo}`,
+                            }}
+                            aria-label={m.sold_out ? "Wieder verfügbar machen" : "Als ausverkauft markieren"}
+                            title={m.sold_out ? "Wieder verfügbar machen" : "Als ausverkauft markieren"}
+                          >
+                            {m.sold_out ? "● Aus" : "Aus?"}
+                          </button>
                           <button
                             type="button"
                             onClick={() => void toggleAktiv(m)}

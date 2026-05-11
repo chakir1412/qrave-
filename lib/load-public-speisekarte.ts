@@ -6,10 +6,10 @@ const RESTAURANT_SELECT_PUBLIC =
   "id, slug, name, template, accent_color, logo_url, guest_note";
 
 const MENU_EXTENDED_SELECT =
-  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, allergen_ids, allergens_text, sponsored, partner_name, preis_volumen, sort_order, is_highlight, main_tab, section_subtitle, zutaten, geschmacksprofil, story_text";
+  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, sold_out, tags, emoji, allergen_ids, allergens_text, sponsored, partner_name, preis_volumen, sort_order, is_highlight, main_tab, section_subtitle, zutaten, geschmacksprofil, story_text";
 
 const MENU_BASE_SELECT =
-  "id, restaurant_id, name, beschreibung, preis, kategorie, main_tab, bild_url, aktiv, tags, zutaten, geschmacksprofil, story_text, sort_order, allergens_text";
+  "id, restaurant_id, name, beschreibung, preis, kategorie, main_tab, bild_url, aktiv, sold_out, tags, zutaten, geschmacksprofil, story_text, sort_order, allergens_text";
 
 export type PublicSpeisekarteRestaurant = Restaurant & {
   accent_color?: string | null;
