@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
+import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 const MAX_LEN = {
   name: 200,
@@ -24,6 +25,17 @@ function readOptionalTrimmed(v: unknown, max: number): string | null {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  // Rate-Limit: 5 Kontaktanfragen pro Stunde pro IP — gegen Spam/Flutung
+  // der kontakt_anfragen-Tabelle (Service-Role-Insert pro Request).
+  const ip = getClientIp(request);
+  const rl = await checkRateLimit("contact", ip, 5, "1 h");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Zu viele Anfragen. Bitte später erneut versuchen." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

@@ -5,30 +5,27 @@ import { aggregateAnalyticsForBerlinDay } from "@/lib/run-analytics-aggregation"
 import { isYmd } from "@/lib/restaurant-analytics-presets";
 
 /**
- * Vercel Cron / externer Scheduler: GET mit Header
+ * Cron / externer Scheduler: GET mit Header
  *   Authorization: Bearer <CRON_SECRET>
  * Optional: ?day=YYYY-MM-DD (sonst HEUTE + GESTERN, Europe/Berlin).
  *
- * Vercel-Hobby erlaubt nur tägliche Crons → läuft 1× pro Tag um 0:00 UTC.
- * Aggregiert dann heute UND gestern, damit am Tageswechsel keine Events
- * verloren gehen. Tagsüber kommen Live-Daten direkt aus `scan_events`
- * (siehe Founder-„Besucher pro Tag"-Chart) — nicht aus dem Aggregat.
+ * Trigger über cron-job.org (Vercel Hobby erlaubt kein 15-Min-Cron).
+ * Aggregiert pro Lauf heute UND gestern, damit am Tageswechsel keine
+ * Events verloren gehen. Tagsüber kommen Live-Daten direkt aus
+ * `scan_events` (Founder-Charts), nicht aus dem Aggregat.
+ *
+ * Auth: Bearer-Token wird IMMER geprüft. Der vorherige
+ * User-Agent-Bypass für `vercel-cron` ist entfernt — der User-Agent
+ * ist trivial fälschbar.
  */
 export async function GET(req: Request) {
-  // Vercel Cron sendet keinen Authorization-Header — schickt aber den
-  // user-agent "vercel-cron/1.0". Externe Scheduler bleiben mit
-  // Bearer <CRON_SECRET> erlaubt.
-  const ua = req.headers.get("user-agent") ?? "";
-  const isVercelCron = ua.toLowerCase().includes("vercel-cron");
-  if (!isVercelCron) {
-    const secret = process.env.CRON_SECRET;
-    if (!secret) {
-      return NextResponse.json({ error: "CRON_SECRET ist nicht gesetzt" }, { status: 500 });
-    }
-    const auth = req.headers.get("authorization") ?? "";
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    return NextResponse.json({ error: "CRON_SECRET ist nicht gesetzt" }, { status: 500 });
+  }
+  const auth = req.headers.get("authorization") ?? "";
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { searchParams } = new URL(req.url);

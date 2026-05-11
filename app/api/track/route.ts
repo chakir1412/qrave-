@@ -1,6 +1,30 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { berlinDateParts } from "@/lib/berlin-time";
+import {
+  checkRateLimit,
+  getClientIp,
+  isUuid,
+  rateLimitHeaders,
+} from "@/lib/rate-limit";
+
+/** In-Memory-Cache existierender Restaurant-IDs (5 min TTL).
+ *  Eine Function-Instance hält den Cache; bei Cache-Miss → DB-Lookup. */
+const restaurantExistsCache = new Map<string, { exists: boolean; expiresAt: number }>();
+const RESTAURANT_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function restaurantExists(id: string): Promise<boolean> {
+  const cached = restaurantExistsCache.get(id);
+  if (cached && cached.expiresAt > Date.now()) return cached.exists;
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  const exists = !error && Boolean(data);
+  restaurantExistsCache.set(id, { exists, expiresAt: Date.now() + RESTAURANT_CACHE_TTL_MS });
+  return exists;
+}
 
 const EVENT_TYPES = [
   "item_view",
@@ -95,6 +119,19 @@ function readItemPrice(v: unknown): number | null {
 
 export async function POST(req: Request) {
   try {
+    // ---- 1. Rate-Limit pro Client-IP. ----
+    // 120 Events / Minute reicht für legitime Sessions
+    // (item_detail + scroll_depth + tab_switch + session_end + …),
+    // blockt aber Spam-Bots zuverlässig.
+    const ip = getClientIp(req);
+    const rl = await checkRateLimit("track", ip, 120, "1 m");
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      );
+    }
+
     let body: unknown;
     try {
       body = await req.json();
@@ -112,8 +149,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
+    // ---- 2. UUID-Format-Check für restaurant_id und session_id. ----
+    if (!isUuid(restaurantId)) {
+      return NextResponse.json({ error: "Invalid restaurantId" }, { status: 400 });
+    }
+
     const tischNummer = readOptionalNumber(o.tischNummer);
     const sessionId = readOptionalString(o.sessionId) ?? null;
+    if (sessionId !== null && !isUuid(sessionId)) {
+      return NextResponse.json({ error: "Invalid sessionId" }, { status: 400 });
+    }
+
+    // ---- 3. Existenz-Check für restaurant_id. ----
+    // Verhindert dass Spammer fake-IDs probieren und die DB mit
+    // FK-Constraint-Errors belasten. 5-min Cache vorgeschaltet.
+    if (!(await restaurantExists(restaurantId))) {
+      return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
+    }
     const itemId = readOptionalString(o.itemId) ?? null;
     const itemName = readOptionalString(o.itemName) ?? null;
     const kategorie = readOptionalString(o.kategorie) ?? null;
