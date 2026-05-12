@@ -7,6 +7,7 @@ import type { DailyPush, LunchOffer } from "@/lib/supabase";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
+import { compressImageFile } from "@/lib/compress-image";
 import { useRestaurantTables } from "@/hooks/useTische";
 import { fetchDashboardAnalytics, type DashboardAnalytics } from "@/hooks/useAnalytics";
 import { DashboardBottomNav } from "./BottomNav";
@@ -321,22 +322,36 @@ export function DashboardApp({
   }
 
   async function handleSplashMediaChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const isVideo = (file.type || "").toLowerCase().startsWith("video/");
-    const isImage = (file.type || "").toLowerCase().startsWith("image/");
+    const original = e.target.files?.[0];
+    if (!original) return;
+    const isVideo = (original.type || "").toLowerCase().startsWith("video/");
+    const isImage = (original.type || "").toLowerCase().startsWith("image/");
     if (!isVideo && !isImage) {
       showToast("Nur JPG/PNG oder MP4 erlaubt.");
       e.target.value = "";
       return;
     }
-    const maxBytes = isVideo ? 30 * 1024 * 1024 : 5 * 1024 * 1024;
-    if (file.size > maxBytes) {
-      showToast(
-        isVideo ? "Video zu groß (max. 30 MB)." : "Bild zu groß (max. 5 MB).",
-      );
+    // Videos: hartes 30-MB-Limit (keine Client-Compression möglich).
+    if (isVideo && original.size > 30 * 1024 * 1024) {
+      showToast("Video zu groß — bitte unter 30MB");
       e.target.value = "";
       return;
+    }
+    // Bilder: vor dem Upload via Canvas auf max 1920px Breite skalieren
+    // und als JPEG 80% encoden. Spart Storage + Bandbreite, und das harte
+    // 5-MB-Limit ist auf das komprimierte Resultat anzuwenden.
+    let file: File = original;
+    if (isImage) {
+      try {
+        file = await compressImageFile(original, { maxWidth: 1920, quality: 0.8 });
+      } catch {
+        file = original;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast("Bild zu groß — bitte unter 5MB");
+        e.target.value = "";
+        return;
+      }
     }
     setSplashUploading(true);
     try {
