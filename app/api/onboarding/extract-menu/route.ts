@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PARSE_MENU_PROMPT, parseMenuJsonFromModel, type ParsedMenuItemDto } from "@/lib/parse-menu";
 import { extractPdfTextFromBuffer, MIN_TEXT_CHARS_TEXT_PATH } from "@/lib/server/pdf-scan";
 import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
+import { enrichItemsWithDescriptions } from "@/lib/auto-describe";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -128,6 +129,10 @@ export async function POST(req: Request) {
         { status: 500 },
       );
     }
+    // Für alle Items ohne Beschreibung automatisch eine via Claude Haiku
+    // generieren (Batch 10 parallel). Fehler werden still geschluckt — der
+    // Wirt kann im Wizard manuell nachtragen.
+    await enrichItemsWithDescriptions(items, apiKey);
     return NextResponse.json({ ok: true, items });
   } catch (err) {
     console.error("[onboarding/extract-menu] fetch:", err);

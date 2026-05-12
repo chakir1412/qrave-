@@ -9,6 +9,7 @@ import {
   pdfBufferToPngBase64Pages,
   pdfBufferToPngBase64PagesRange,
 } from "@/lib/server/pdf-scan";
+import { enrichItemsWithDescriptions } from "@/lib/auto-describe";
 
 /** Vercel Serverless Timeout (PDF-Rendering + KI). */
 export const maxDuration = 120;
@@ -624,6 +625,7 @@ export async function POST(req: Request) {
         if (pageCount > 1) {
           const pageChunkItems = await parsePdfByPageChunks(pdfBuf, apiKey);
           if (pageChunkItems.length > 0) {
+            await enrichItemsWithDescriptions(pageChunkItems, apiKey);
             return NextResponse.json({ success: true, items: pageChunkItems });
           }
         }
@@ -649,6 +651,7 @@ export async function POST(req: Request) {
         }
 
         if (merged.length > 0) {
+          await enrichItemsWithDescriptions(merged, apiKey);
           return NextResponse.json({ success: true, items: merged });
         }
 
@@ -680,6 +683,7 @@ export async function POST(req: Request) {
               maxTokens: 8192,
             });
             if (imgItems.length > 0) {
+              await enrichItemsWithDescriptions(imgItems, apiKey);
               return NextResponse.json({ success: true, items: imgItems });
             }
           }
@@ -708,6 +712,7 @@ export async function POST(req: Request) {
             { status: 422 },
           );
         }
+        await enrichItemsWithDescriptions(docItems, apiKey);
         return NextResponse.json({ success: true, items: docItems });
       } catch (err) {
         console.error("parse-menu pdfDocument:", err);
@@ -752,6 +757,7 @@ export async function POST(req: Request) {
           { status: 422 },
         );
       }
+      await enrichItemsWithDescriptions(merged, apiKey);
       return NextResponse.json({ success: true, items: merged });
     }
 
@@ -842,6 +848,7 @@ export async function POST(req: Request) {
           { status: 422 },
         );
       }
+      await enrichItemsWithDescriptions(imgItems, apiKey);
       return NextResponse.json({ success: true, items: imgItems });
     } catch (err) {
       console.error("parse-menu image:", err);
