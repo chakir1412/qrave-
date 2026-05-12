@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { PublicRestaurant } from "@/lib/load-restaurant-public";
+import { AnimatedBackLink } from "./AnimatedBackLink";
 
 type Props = {
   restaurant: PublicRestaurant;
@@ -37,13 +38,13 @@ export default function ContactPage({ restaurant }: Props) {
       <div className="mx-auto w-full max-w-md px-5 pb-12 pt-6">
         {/* Header mit Back */}
         <header className="mb-6 flex items-center justify-between">
-          <Link
+          <AnimatedBackLink
             href={`/${restaurant.slug}`}
             className="inline-flex items-center gap-1.5 text-sm font-semibold"
             style={{ color: "rgba(255,255,255,0.55)" }}
           >
             ← Zurück
-          </Link>
+          </AnimatedBackLink>
           <Link
             href={`/${restaurant.slug}/karte`}
             className="text-xs font-semibold underline-offset-4 hover:underline"

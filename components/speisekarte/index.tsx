@@ -282,6 +282,9 @@ export default function Speisekarte({
       ) : null}
 
       <main className="max-w-[880px] mx-auto px-[22px] pt-7 pb-28">
+        {/* key={effectiveMainTab} → bei Tab-Wechsel mountet der Block neu
+            und die CSS-Klasse qrave-cat-fade greift erneut (180ms ease-out). */}
+        <div key={effectiveMainTab} className="qrave-cat-fade">
         {effectiveMainTab === LUNCH_TAB_KEY ? (
           <LunchSection
             offers={lunchOffers}
@@ -314,6 +317,7 @@ export default function Speisekarte({
             }
           />
         )}
+        </div>
       </main>
 
       {modalItem && (

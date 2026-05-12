@@ -417,3 +417,64 @@ body {
   position: relative;
   z-index: 1;
 }
+
+/* ===== Gäste-Seiten Page-Transitions ===== */
+
+/* Forward: neue Seite kommt von unten rein. */
+@keyframes qrave-slide-up-in {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.qrave-slide-up-in {
+  animation: qrave-slide-up-in 260ms cubic-bezier(0.32, 0.72, 0.32, 1) both;
+  will-change: transform, opacity;
+}
+
+/* Back: aktuelle Seite rutscht nach unten weg. */
+@keyframes qrave-slide-down-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(40%);
+    opacity: 0;
+  }
+}
+
+.qrave-slide-down-out {
+  animation: qrave-slide-down-out 260ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  will-change: transform, opacity;
+}
+
+/* Kategorien-Wechsel in der Speisekarte: sanftes Fade. */
+@keyframes qrave-cat-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.qrave-cat-fade {
+  animation: qrave-cat-fade 180ms ease-out both;
+}
+
+/* Reduced-Motion: alle Page-Transitions deaktivieren (Accessibility). */
+@media (prefers-reduced-motion: reduce) {
+  .qrave-slide-up-in,
+  .qrave-slide-down-out,
+  .qrave-cat-fade {
+    animation: none;
+  }
+}
