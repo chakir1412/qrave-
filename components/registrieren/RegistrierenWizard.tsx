@@ -141,6 +141,25 @@ export default function RegistrierenWizard() {
   async function onPickPdf(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Client-side Size-Check VOR dem API-Call: spart Anthropic-Roundtrip
+    // bei zu großen PDFs (Server würde mit 413 antworten, aber so ist die
+    // UX schneller und das Bandwidth-Limit von Vercel wird gar nicht erst
+    // strapaziert).
+    const MAX_PDF_BYTES_CLIENT = 3_000_000; // 3 MB
+    if (file.size > MAX_PDF_BYTES_CLIENT) {
+      // Input zurücksetzen, damit der User dieselbe Datei nicht
+      // versehentlich erneut auswählt (Browser merkt sich sonst).
+      e.target.value = "";
+      setS((prev) => ({
+        ...prev,
+        pdfFile: null,
+        extracting: false,
+        extractedItems: [],
+        extractError:
+          "PDF zu groß — bitte unter 3 MB. Du kannst Items auch später im Dashboard ergänzen.",
+      }));
+      return;
+    }
     setS((prev) => ({ ...prev, pdfFile: file, extracting: true, extractError: null, extractedItems: [] }));
     try {
       const fd = new FormData();

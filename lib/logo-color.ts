@@ -1,9 +1,17 @@
-/** Extrahiert eine dominante Akzentfarbe aus einem Logo-Image-URL.
+/** Extrahiert die dominante Akzentfarbe aus einem Logo-Image-URL.
  *  Client-only — nutzt Canvas-Sampling.
  *
- *  Strategie: ein 64×64-Sample des Bildes, alle nicht-weißen/nicht-schwarzen
- *  Pixel grob (in 32er-Schritten) quantisieren, häufigster Bucket gewinnt.
- *  Liefert Hex wie `#c9a84c`. Bei Fehler/Fallback: `null`. */
+ *  Strategie: ein 64×64-Sample des Bildes, alle Pixel im
+ *  HSL-Lightness-Band 20%–80% (also weder fast-schwarz noch fast-weiß)
+ *  grob in 32er-Buckets quantisieren, häufigster Bucket gewinnt.
+ *
+ *  So funktioniert das auch bei Logos mit dunklem Hintergrund + heller
+ *  CI-Farbe (z. B. weiße Schrift auf dunkelgrün): der dunkle Hintergrund
+ *  fällt unter die 20%-Schwelle, die CI-Farbe wird gefunden, anstatt dass
+ *  der dominante schwarze/weiße Anteil das Ergebnis verzerrt.
+ *
+ *  Optional Saturation-Floor 0.08 filtert reines Grau. Liefert Hex
+ *  wie `#c9a84c`. Bei Fehler/Fallback: `null`. */
 export async function extractAccentColorFromImage(
   src: string,
 ): Promise<string | null> {
@@ -26,12 +34,17 @@ export async function extractAccentColorFromImage(
       const b = data[i + 2];
       const a = data[i + 3];
       if (a < 128) continue; // transparente Pixel skippen
-      // schwarzes/weißes Spektrum (Logos mit reinem Schwarz auf Weiß) ignorieren
+
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
+      // HSL-Lightness in [0, 1].
+      const lightness = (max + min) / (2 * 255);
+      // 20%–80% Band: filtert fast-schwarz UND fast-weiß heraus.
+      if (lightness < 0.2 || lightness > 0.8) continue;
+      // Reines Grau (sehr niedrige Saturation) auch ausschließen — sonst
+      // gewinnt bei farbarmen Logos eine graue Mittelton-Fläche.
       const saturation = max === 0 ? 0 : (max - min) / max;
-      if (max < 30) continue; // fast schwarz
-      if (saturation < 0.18 && max > 220) continue; // fast weiß / sehr blass
+      if (saturation < 0.08) continue;
 
       const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
       const cur = buckets.get(key) ?? { r: 0, g: 0, b: 0, count: 0 };
