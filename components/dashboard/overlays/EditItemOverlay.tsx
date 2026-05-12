@@ -43,6 +43,7 @@ export function EditItemOverlay({
   const [preisStr, setPreisStr] = useState("");
   const [kategorie, setKategorie] = useState("");
   const [busy, setBusy] = useState(false);
+  const [genBusy, setGenBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -130,6 +131,36 @@ export function EditItemOverlay({
     onClose();
   }
 
+  async function handleGenerateDescription() {
+    const trimmedName = name.trim();
+    if (genBusy || trimmedName.length === 0) return;
+    setGenBusy(true);
+    try {
+      const res = await fetch("/api/dashboard/generate-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId,
+          name: trimmedName,
+          kategorie: kategorie.trim() || undefined,
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { success?: boolean; description?: string; error?: string }
+        | null;
+      if (!res.ok || !json?.success || !json.description) {
+        onToast(json?.error ?? "Konnte keine Beschreibung generieren");
+        return;
+      }
+      setDesc(json.description);
+      onToast("✨ Beschreibung generiert");
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : "Konnte keine Beschreibung generieren");
+    } finally {
+      setGenBusy(false);
+    }
+  }
+
   async function handleDelete() {
     if (!editing) return;
     setBusy(true);
@@ -182,9 +213,27 @@ export function EditItemOverlay({
             color: dash.tx,
           }}
         />
-        <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
-          Beschreibung
-        </label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
+            Beschreibung
+          </label>
+          {name.trim().length > 0 && desc.trim().length === 0 ? (
+            <button
+              type="button"
+              disabled={genBusy}
+              onClick={() => void handleGenerateDescription()}
+              className="rounded-full border px-2.5 py-1 text-[11px] font-semibold transition active:scale-95"
+              style={{
+                borderColor: genBusy ? dash.bo : "rgba(0,200,160,0.35)",
+                backgroundColor: genBusy ? dash.s2 : "rgba(0,200,160,0.12)",
+                color: genBusy ? dash.mu : dash.teal,
+                cursor: genBusy ? "wait" : "pointer",
+              }}
+            >
+              {genBusy ? "✨ Generiert …" : "✨ Beschreibung generieren"}
+            </button>
+          ) : null}
+        </div>
         <textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
