@@ -488,20 +488,23 @@ export function DashboardApp({
           {activeTab === "home" && (
             <HomeTab
               key={`home-${slideClass}`}
-              slideClass={slideClass}
               userFirstName={userFirstName}
               restaurantName={restaurant.name}
               viewsToday={analytics.viewsToday}
               viewsYesterday={analytics.viewsYesterday}
               weekSeries={analytics.weekSeries}
+              monthTotal={analytics.monthTotal}
               topItemsWeek={analytics.topItemsWeek}
               menuItems={menuItems}
               peaksToday={analytics.peaksToday}
+              hourBuckets={analytics.hourBuckets}
               dailyPushes={dailyPushes}
+              activeLanguagesCount={(restaurant.active_languages ?? ["de"]).length}
               onGoKarte={(sub) => {
                 setActiveKarteSub(sub);
                 goTab("karte");
               }}
+              onOpenSettings={() => setOverlays((o) => ({ ...o, settings: true }))}
             />
           )}
           {activeTab === "karte" && (

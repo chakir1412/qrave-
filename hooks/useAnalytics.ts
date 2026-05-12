@@ -4,6 +4,13 @@ import {
   type PeakRow,
 } from "@/components/dashboard/analytics";
 
+export type HourBuckets = {
+  /** 8–12h */ morning: number;
+  /** 12–15h */ midday: number;
+  /** 17–21h */ evening: number;
+  /** 21–24h */ night: number;
+};
+
 export type DashboardAnalytics = {
   events: AnalyticsEventRow[];
   viewsToday: number | null;
@@ -14,7 +21,12 @@ export type DashboardAnalytics = {
    *  views = item_view-Events (Card im Viewport ≥ 0.5 / ≥ 500ms, 1× pro Session). */
   topItemsWeek: { name: string; count: number; views: number }[];
   weekSeries: number[];
+  /** Eindeutige Sessions in den letzten 30 Tagen (rolling). Für die
+   *  "Dieser Monat"-Stat-Karte im HomeTab. */
+  monthTotal: number;
   peaksToday: PeakRow[];
+  /** Sessions pro Tagesabschnitt heute (für die Peak-Zeiten-Balken). */
+  hourBuckets: HourBuckets;
   topFilter: string | null;
 };
 
@@ -60,10 +72,12 @@ export async function fetchDashboardAnalytics(
   const monday = startOfWeekMonday(today);
   const sundayEnd = new Date(monday);
   sundayEnd.setDate(monday.getDate() + 7);
-  // Fenster für Top-Items / Charts: aktuelle Woche (Mo–So) plus die Vor-
-  // woche, damit der Hook auch Montagmorgens nicht leer ist.
-  const fetchFrom = new Date(monday);
-  fetchFrom.setDate(fetchFrom.getDate() - 7);
+  // Fenster: aktuelle Woche (Mo–So), Vorwoche (für montagmorgens) und
+  // 30 Tage rolling für die "Dieser Monat"-Karte. Wir nehmen das Maximum.
+  const fetchFrom = new Date(startToday);
+  fetchFrom.setDate(fetchFrom.getDate() - 30);
+  const monthFrom = new Date(startToday);
+  monthFrom.setDate(monthFrom.getDate() - 29);
 
   const { data, error } = await supabase
     .from("scan_events")
@@ -79,7 +93,9 @@ export async function fetchDashboardAnalytics(
       topItemToday: null,
       topItemsWeek: [],
       weekSeries: [0, 0, 0, 0, 0, 0, 0],
+      monthTotal: 0,
       peaksToday: [],
+      hourBuckets: { morning: 0, midday: 0, evening: 0, night: 0 },
       topFilter: null,
     };
   }
@@ -183,6 +199,39 @@ export async function fetchDashboardAnalytics(
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
+  // Tagesabschnitt-Buckets heute (Sessions, deduped pro Bucket).
+  const bucketSessions = {
+    morning: new Set<string>(),
+    midday: new Set<string>(),
+    evening: new Set<string>(),
+    night: new Set<string>(),
+  };
+  for (const e of events) {
+    const t = new Date(e.created_at);
+    if (t < startToday) continue;
+    const sk = sessionKey(e);
+    const h = t.getHours();
+    if (h >= 8 && h < 12) bucketSessions.morning.add(sk);
+    else if (h >= 12 && h < 15) bucketSessions.midday.add(sk);
+    else if (h >= 17 && h < 21) bucketSessions.evening.add(sk);
+    else if (h >= 21 && h < 24) bucketSessions.night.add(sk);
+  }
+  const hourBuckets: HourBuckets = {
+    morning: bucketSessions.morning.size,
+    midday: bucketSessions.midday.size,
+    evening: bucketSessions.evening.size,
+    night: bucketSessions.night.size,
+  };
+
+  // Rolling-30-Tage-Sessions: für die "Dieser Monat"-Stat-Karte.
+  const monthSessions = new Set<string>();
+  for (const e of events) {
+    const t = new Date(e.created_at);
+    if (t < monthFrom) continue;
+    monthSessions.add(sessionKey(e));
+  }
+  const monthTotal = monthSessions.size;
+
   // Top-Filter: filter_set-Events der letzten Woche.
   const byFilter = new Map<string, number>();
   for (const e of events) {
@@ -200,7 +249,9 @@ export async function fetchDashboardAnalytics(
     topItemToday,
     topItemsWeek,
     weekSeries,
+    monthTotal,
     peaksToday,
+    hourBuckets,
     topFilter,
   };
 }

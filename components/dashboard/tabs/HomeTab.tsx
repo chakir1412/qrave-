@@ -1,104 +1,106 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { MenuItem } from "@/lib/supabase";
+import { useMemo } from "react";
+import type { DailyPush, MenuItem } from "@/lib/supabase";
 import type { KarteSub } from "../types";
-import { isLikelyDrinkCategory } from "../analytics";
-import {
-  formatDateLongDe,
-  greetingLabel,
-  todayIsoDate,
-} from "../utils";
-
-function formatActiveDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  if (!y || !m || !d) return iso;
-  return `${d}.${m}.${y.slice(2)}`;
-}
-import { DASH_GLASS_CARD_CLASS, dash } from "../constants";
-import type { DailyPush } from "@/lib/supabase";
+import type { HourBuckets } from "@/hooks/useAnalytics";
 import type { PeakRow } from "../analytics";
-
-type InsightPeriod = "week" | "month" | "all";
+import { formatDateLongDe, greetingLabel } from "../utils";
 
 type Props = {
-  slideClass: string;
   userFirstName: string;
   restaurantName: string;
   viewsToday: number | null;
   viewsYesterday: number | null;
   weekSeries: number[];
+  monthTotal: number;
   topItemsWeek: { name: string; count: number; views: number }[];
   menuItems: MenuItem[];
   peaksToday: PeakRow[];
+  hourBuckets: HourBuckets;
   dailyPushes: DailyPush[];
+  activeLanguagesCount: number;
   onGoKarte: (sub: KarteSub) => void;
+  onOpenSettings: () => void;
 };
 
-function useAnimatedCount(target: number, durationMs: number): number {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    const start = performance.now();
-    const from = 0;
-    const to = Math.max(0, target);
-    let raf = 0;
-    function tick(now: number) {
-      const t = Math.min(1, (now - start) / durationMs);
-      const eased = 1 - (1 - t) * (1 - t);
-      setV(Math.round(from + (to - from) * eased));
-      if (t < 1) raf = requestAnimationFrame(tick);
-    }
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, durationMs]);
-  return v;
+const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"] as const;
+const CHART_W = 560;
+const CHART_H = 145;
+
+/** Bestimmt eine sinnvolle Y-Achsen-Skala (max + 4 Stops in 25er/50er/100er-Schritten). */
+function buildYScale(maxValue: number): { max: number; stops: number[] } {
+  const m = Math.max(maxValue, 1);
+  // Aufrunden auf die nächste sinnvolle "schöne" Zahl.
+  const candidates = [4, 8, 10, 20, 40, 60, 80, 100, 150, 200, 300, 500, 750, 1000, 1500, 2000];
+  const max = candidates.find((c) => c >= m) ?? Math.ceil(m / 100) * 100;
+  return { max, stops: [max, Math.round((max * 2) / 3), Math.round(max / 3), 0] };
 }
 
-function buildChartPath(values: number[], w: number, h: number): { line: string; fill: string } {
-  if (values.length === 0) return { line: "", fill: "" };
-  const max = Math.max(1, ...values);
-  const pad = 8;
-  const step = (w - pad * 2) / (values.length - 1 || 1);
-  const pts = values.map((v, i) => {
-    const x = pad + i * step;
-    const y = h - pad - (v / max) * (h - pad * 2);
-    return { x, y };
-  });
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
-  const fill = `${line} L ${pts[pts.length - 1]?.x.toFixed(1) ?? 0} ${h} L ${pts[0]?.x.toFixed(1) ?? 0} ${h} Z`;
-  return { line, fill };
+/** Catmull-Rom-Approximation als Cubic-Bezier — gibt eine geschmeidige Kurve. */
+function buildSmoothPath(values: number[], max: number, w: number, h: number, padBottom: number): { line: string; area: string } {
+  const n = values.length;
+  if (n === 0) return { line: "", area: "" };
+  const stepX = w / Math.max(1, n - 1);
+  const usableH = h - padBottom - 6;
+  const pts = values.map((v, i) => ({
+    x: i * stepX,
+    y: 6 + (1 - Math.min(1, v / max)) * usableH,
+  }));
+  if (pts.length === 1) {
+    const p = pts[0];
+    return { line: `M ${p.x} ${p.y}`, area: `M ${p.x} ${p.y} L ${p.x} ${h - padBottom} Z` };
+  }
+  let line = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    line += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  const last = pts[pts.length - 1];
+  const first = pts[0];
+  const area = `${line} L ${last.x} ${h - padBottom} L ${first.x} ${h - padBottom} Z`;
+  return { line, area };
+}
+
+function categoryOf(item: MenuItem | undefined): string {
+  if (!item) return "—";
+  return item.kategorie?.trim() || "—";
+}
+
+function deltaPct(today: number | null, yesterday: number | null): { pct: number | null; trend: "up" | "down" | "flat" } {
+  if (today == null || yesterday == null || yesterday === 0) {
+    return { pct: null, trend: "flat" };
+  }
+  const pct = Math.round(((today - yesterday) / yesterday) * 100);
+  return { pct, trend: pct > 0 ? "up" : pct < 0 ? "down" : "flat" };
 }
 
 export function HomeTab({
-  slideClass,
   userFirstName,
   restaurantName,
   viewsToday,
   viewsYesterday,
   weekSeries,
+  monthTotal,
   topItemsWeek,
   menuItems,
   peaksToday,
+  hourBuckets,
   dailyPushes,
+  activeLanguagesCount,
   onGoKarte,
+  onOpenSettings,
 }: Props) {
-  const primaryDailyPush = dailyPushes[0] ?? null;
-  const [chartReady, setChartReady] = useState(false);
-  const [insightPeriod, setInsightPeriod] = useState<InsightPeriod>("week");
-  const [top3Mode, setTop3Mode] = useState<"food" | "drink">("food");
-
   const vt = viewsToday ?? 0;
-  const animatedViews = useAnimatedCount(vt, 1000);
-
-  const { line: lineD, fill: fillD } = useMemo(
-    () => buildChartPath(weekSeries.length ? weekSeries : [0, 0, 0, 0, 0, 0, 0], 300, 100),
-    [weekSeries],
-  );
-
-  useEffect(() => {
-    const t = requestAnimationFrame(() => setChartReady(true));
-    return () => cancelAnimationFrame(t);
-  }, [lineD]);
+  const weekTotal = weekSeries.reduce((a, b) => a + b, 0);
+  const todayDelta = deltaPct(viewsToday, viewsYesterday);
 
   const nameToItem = useMemo(() => {
     const m = new Map<string, MenuItem>();
@@ -106,539 +108,573 @@ export function HomeTab({
     return m;
   }, [menuItems]);
 
-  const topFood = useMemo(() => {
-    for (const row of topItemsWeek) {
-      const mi = nameToItem.get(row.name);
-      if (!mi || !isLikelyDrinkCategory(mi.kategorie)) return row.name;
-    }
-    return topItemsWeek[0]?.name ?? "—";
-  }, [topItemsWeek, nameToItem]);
+  const topItem = topItemsWeek[0] ?? null;
 
-  const topDrink = useMemo(() => {
-    for (const row of topItemsWeek) {
-      const mi = nameToItem.get(row.name);
-      if (mi && isLikelyDrinkCategory(mi.kategorie)) return row.name;
-    }
-    return topItemsWeek.find((r) => isLikelyDrinkCategory(nameToItem.get(r.name)?.kategorie))
-      ?.name ?? "—";
-  }, [topItemsWeek, nameToItem]);
+  const { max: yMax, stops: yStops } = useMemo(
+    () => buildYScale(Math.max(0, ...(weekSeries.length ? weekSeries : [0]))),
+    [weekSeries],
+  );
+  const series = weekSeries.length ? weekSeries : [0, 0, 0, 0, 0, 0, 0];
+  const { line: chartLine, area: chartArea } = useMemo(
+    () => buildSmoothPath(series, yMax, CHART_W, CHART_H, 16),
+    [series, yMax],
+  );
 
-  const top3List = useMemo(() => {
-    const filtered = topItemsWeek.filter((r) => {
-      const mi = nameToItem.get(r.name);
-      if (top3Mode === "drink") return mi ? isLikelyDrinkCategory(mi.kategorie) : false;
-      return mi ? !isLikelyDrinkCategory(mi.kategorie) : true;
-    });
-    return filtered.slice(0, 3);
-  }, [topItemsWeek, top3Mode, nameToItem]);
+  const soldOutCount = menuItems.filter((m) => m.sold_out).length;
+  const primaryDailyPush = dailyPushes[0] ?? null;
 
-  const klickRows = useMemo(() => {
-    const max = Math.max(1, ...topItemsWeek.slice(0, 4).map((r) => r.count));
-    return topItemsWeek.slice(0, 4).map((r) => {
-      const w = Math.round((r.count / max) * 100);
-      let level: "hi" | "md" | "lo" = "md";
-      if (w >= 85) level = "hi";
-      else if (w < 35) level = "lo";
-      return { ...r, w, level };
-    });
-  }, [topItemsWeek]);
-
-  const peakRows =
-    peaksToday.length > 0
-      ? peaksToday
-      : [
-          { label: "12–13h", count: 0 },
-          { label: "18–19h", count: 0 },
-        ];
-  const peakMax = Math.max(1, ...peakRows.map((p) => p.count));
-
-  const weekTotal = weekSeries.reduce((a, b) => a + b, 0);
-
-  const insightTitle =
-    insightPeriod === "week"
-      ? "Diese Woche"
-      : insightPeriod === "month"
-        ? "Dieser Monat"
-        : "Gesamt";
+  // Peak-Buckets als Anteil vom Maximum (für Bar-Breite).
+  const peakMax = Math.max(
+    hourBuckets.morning,
+    hourBuckets.midday,
+    hourBuckets.evening,
+    hourBuckets.night,
+    1,
+  );
+  const peakRows = [
+    {
+      key: "morning" as const,
+      label: "8–12 Uhr",
+      sub: "Morgens",
+      icon: "fa-solid fa-sun",
+      tone: "blue" as const,
+      count: hourBuckets.morning,
+    },
+    {
+      key: "midday" as const,
+      label: "12–15 Uhr",
+      sub: "Mittags",
+      icon: "fa-solid fa-fire",
+      tone: "purple" as const,
+      count: hourBuckets.midday,
+    },
+    {
+      key: "evening" as const,
+      label: "17–21 Uhr",
+      sub: "Abends",
+      icon: "fa-solid fa-fire",
+      tone: "purple" as const,
+      count: hourBuckets.evening,
+    },
+    {
+      key: "night" as const,
+      label: "21–24 Uhr",
+      sub: "Nachts",
+      icon: "fa-solid fa-moon",
+      tone: "blue" as const,
+      count: hourBuckets.night,
+    },
+  ];
 
   return (
-    <div className={slideClass}>
-      <section className="px-0 pt-5">
-        <h1 className="text-[22px] font-semibold leading-tight tracking-tight text-white">
+    <div className="space-y-4">
+      <header className="mb-2">
+        <h2 className="qrave-font-display text-[22px] font-black leading-tight tracking-tight">
           Guten {greetingLabel()},{" "}
-          <span style={{ color: dash.teal }}>{userFirstName}</span>
-        </h1>
-        <p className="mt-1 text-[13px]" style={{ color: dash.mu }}>
-          {restaurantName}
-        </p>
-        <p className="mt-1 text-xs" style={{ color: dash.mu }}>
+          <span style={{ color: "var(--qrave-accent-strong)" }}>{restaurantName || userFirstName}</span>
+        </h2>
+        <div className="mt-1 text-[12px]" style={{ color: "rgba(242,242,242,0.32)" }}>
           {formatDateLongDe()}
-        </p>
+        </div>
+      </header>
+
+      {/* STAT-KARTEN */}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
+        <StatCard
+          variant="hero"
+          label="Aufrufe heute"
+          valueLarge={vt.toLocaleString("de-DE")}
+          delta={
+            todayDelta.pct == null ? null : `${todayDelta.pct > 0 ? "+" : ""}${todayDelta.pct}% vs. gestern`
+          }
+          deltaTrend={todayDelta.trend}
+        />
+        <StatCard
+          label="Diese Woche"
+          valueLarge={weekTotal.toLocaleString("de-DE")}
+          delta={null}
+        />
+        <StatCard
+          label="Dieser Monat"
+          valueLarge={monthTotal.toLocaleString("de-DE")}
+          delta={null}
+        />
+        <StatCard
+          label="Top Gericht"
+          valueText={topItem?.name ?? "—"}
+          delta={topItem ? `${topItem.count} Aufrufe` : "Noch keine Daten"}
+          icon="fa-solid fa-fire"
+          iconColor="#fb923c"
+        />
       </section>
 
-      <div className="mt-4 flex flex-col space-y-3">
-      <section className="grid grid-cols-2 gap-3 px-0">
-        <div
-          className={`${DASH_GLASS_CARD_CLASS} col-span-2 flex min-h-[140px] flex-col justify-between p-4`}
-        >
-          <div className="text-[11px] font-medium uppercase tracking-widest" style={{ color: dash.kpiLabel }}>
-            Aufrufe heute
-          </div>
-          <div className="text-[36px] font-semibold leading-none text-white">{animatedViews}</div>
-          <div>
-            <div className="text-[11px]" style={{ color: dash.kpiLabel }}>
-              vs. gestern ({viewsYesterday ?? "–"})
-            </div>
-            <div
-              className="mt-2 h-px w-full rounded-full"
-              style={{
-                backgroundColor: "#00c8a0",
-                boxShadow: "0 0 10px rgba(0,200,160,0.45)",
-              }}
-            />
-          </div>
-        </div>
-
-        <div className={`${DASH_GLASS_CARD_CLASS} flex min-h-[100px] flex-col justify-between p-4`}>
-          <div className="text-[20px] leading-none">🔥</div>
-          <div>
-            <div className="line-clamp-2 text-[15px] font-semibold leading-tight text-white">{topFood}</div>
-            <div className="mt-1 text-[11px] uppercase tracking-widest" style={{ color: dash.kpiLabel }}>
-              Top Gericht
-            </div>
-          </div>
-        </div>
-
-        <div className={`${DASH_GLASS_CARD_CLASS} flex min-h-[100px] flex-col justify-between p-4`}>
-          <div className="text-[20px] leading-none">🥤</div>
-          <div>
-            <div className="line-clamp-2 text-[15px] font-semibold leading-tight text-white">{topDrink}</div>
-            <div className="mt-1 text-[11px] uppercase tracking-widest" style={{ color: dash.kpiLabel }}>
-              Top Getränk
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="px-0">
-        <div className="mb-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-widest" style={{ color: dash.mu }}>
-          Schnellzugriff
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => onGoKarte("heute")}
-            className={`${DASH_GLASS_CARD_CLASS} min-h-0 px-4 py-3.5 text-left transition active:scale-[0.98]`}
-          >
-            <div className="mb-1.5 text-lg">⭐</div>
-            <div className="text-[13px] font-bold">Tages-Special</div>
-            {primaryDailyPush ? (
-              <>
-                <div className="text-[11px] font-semibold" style={{ color: dash.gr }}>
-                  {primaryDailyPush.item_emoji} {primaryDailyPush.item_name}
-                </div>
-                <div className="text-[10px]" style={{ color: dash.mu }}>
-                  {dailyPushes.length > 1
-                    ? `${dailyPushes.length} Specials aktiv heute`
-                    : primaryDailyPush.active_date === todayIsoDate()
-                      ? "Aktiv heute"
-                      : `Vom ${formatActiveDate(primaryDailyPush.active_date)}`}
-                </div>
-              </>
-            ) : (
-              <div className="text-[11px] font-semibold" style={{ color: dash.teal }}>
-                Noch nicht gesetzt
+      {/* MAIN GRID: Line Chart + Top Gerichte */}
+      <section className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.6fr_1fr]">
+        <Card>
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-[11px]" style={{ color: "rgba(242,242,242,0.3)" }}>
+                Scans diese Woche
               </div>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => onGoKarte("notiz")}
-            className={`${DASH_GLASS_CARD_CLASS} min-h-0 px-4 py-3.5 text-left transition active:scale-[0.98]`}
-          >
-            <div className="mb-1.5 text-lg">📝</div>
-            <div className="text-[13px] font-bold">Gäste-Notiz</div>
-            <div className="text-[11px]" style={{ color: dash.mu }}>
-              Hinweis für heute setzen
+              <div className="mt-1 flex items-center gap-2.5">
+                <div className="qrave-font-display text-[36px] font-black leading-none tracking-[-2px]">
+                  {weekTotal.toLocaleString("de-DE")}
+                </div>
+                {todayDelta.pct != null ? (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-[11px] font-semibold"
+                    style={{
+                      background: todayDelta.trend === "up" ? "rgba(74,222,128,0.12)" : "rgba(248,113,113,0.12)",
+                      color: todayDelta.trend === "up" ? "#4ade80" : "#f87171",
+                      border: `1px solid ${todayDelta.trend === "up" ? "rgba(74,222,128,0.2)" : "rgba(248,113,113,0.2)"}`,
+                    }}
+                  >
+                    <i className={`fa-solid fa-arrow-${todayDelta.trend === "up" ? "up" : "down"} text-[10px]`} />
+                    {todayDelta.pct > 0 ? "+" : ""}{todayDelta.pct}%
+                  </span>
+                ) : null}
+              </div>
             </div>
-          </button>
-        </div>
-      </section>
-
-      <section className="px-0">
-        <div className={`${DASH_GLASS_CARD_CLASS} w-full px-5 py-5`}>
-          <div className="mb-0.5 text-[15px] font-semibold text-white">Scans diese Woche</div>
-          <div className="mb-4 text-xs" style={{ color: dash.mu }}>
-            Mo–So · Gesamt {weekTotal}
           </div>
-          <div className="relative z-[1] mb-2 h-[180px] w-full">
-            <svg viewBox="0 0 300 100" className="h-full w-full overflow-visible" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00c8a0" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#00c8a0" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              {[20, 40, 60, 80].map((y) => (
-                <line
-                  key={y}
-                  x1={8}
-                  y1={y}
-                  x2={292}
-                  y2={y}
-                  stroke={dash.chartGrid}
-                  strokeWidth={1}
-                />
+
+          <div className="mt-5 flex gap-2">
+            <div className="flex flex-col justify-between pb-4">
+              {yStops.map((s) => (
+                <div
+                  key={s}
+                  className="w-7 text-right text-[9px]"
+                  style={{ color: "rgba(242,242,242,0.22)" }}
+                >
+                  {s}
+                </div>
               ))}
-              <path d={fillD} fill="url(#cg)" className={chartReady ? "opacity-100" : "opacity-0"} style={{ transition: "opacity 0.8s ease 0.3s" }} />
-              <path
-                d={lineD}
-                fill="none"
-                stroke={dash.teal}
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{
-                  strokeDasharray: 1000,
-                  strokeDashoffset: chartReady ? 0 : 1000,
-                  transition: "stroke-dashoffset 1s ease-out",
-                }}
-              />
-              {weekSeries.map((_, i) => {
-                const max = Math.max(1, ...weekSeries);
-                const pad = 8;
-                const step = (300 - pad * 2) / (weekSeries.length - 1 || 1);
-                const x = pad + i * step;
-                const y = 100 - pad - (weekSeries[i] / max) * (100 - pad * 2);
-                return (
-                  <circle
-                    key={i}
-                    cx={x}
-                    cy={y}
-                    r={i === 6 ? 4.5 : 3.5}
-                    fill={i === 6 ? "#ffffff" : dash.teal}
-                    stroke={i === 6 ? dash.teal : dash.bg}
-                    strokeWidth={i === 6 ? 2.5 : 2}
-                    className={chartReady ? "opacity-100" : "opacity-0"}
-                    style={{ transition: `opacity 0.2s ease ${0.4 + i * 0.05}s` }}
-                  />
-                );
-              })}
-            </svg>
-          </div>
-          <div className="relative z-[1] flex justify-between px-0.5">
-            {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((d) => (
-              <span
-                key={d}
-                className="flex-1 text-center text-[10px] font-medium"
-                style={{ color: dash.chartAxis }}
-              >
-                {d}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-0">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: dash.mu }}>
-            {insightTitle}
-          </span>
-          <div className="flex gap-1.5">
-            {(
-              [
-                ["week", "Woche"],
-                ["month", "Monat"],
-                ["all", "Gesamt"],
-              ] as const
-            ).map(([k, label]) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setInsightPeriod(k)}
-                className="rounded-[10px] border px-2.5 py-1 text-[11px] font-medium transition"
-                style={
-                  insightPeriod === k
-                    ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.teal }
-                    : {
-                        backgroundColor: dash.secondaryBg,
-                        borderColor: dash.secondaryBorder,
-                        color: dash.secondaryFg,
-                        opacity: 0.85,
-                      }
-                }
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-col gap-2">
-          {topItemsWeek[0] && (
-            <div
-              className="flex gap-3 rounded-[14px] border px-3.5 py-3"
-              style={{ backgroundColor: "rgba(52,232,158,0.08)", borderColor: "rgba(52,232,158,0.2)" }}
-            >
-              <div
-                className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg text-[15px]"
-                style={{ backgroundColor: "rgba(52,232,158,0.15)" }}
-              >
-                🔥
-              </div>
-              <div>
-                <div className="text-[13px] font-semibold leading-snug" style={{ color: dash.gr }}>
-                  {topItemsWeek[0].name} — {topItemsWeek[0].count} Aufrufe
-                </div>
-                <div className="text-[11px] leading-snug" style={{ color: dash.mu }}>
-                  Starkes Interesse in der {insightPeriod === "week" ? "Woche" : "Periode"}.
-                </div>
-              </div>
             </div>
+            <div className="relative h-[160px] flex-1">
+              <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
+                <defs>
+                  <linearGradient id="qrave-chart-fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--qrave-accent)" stopOpacity="0.28" />
+                    <stop offset="100%" stopColor="var(--qrave-accent)" stopOpacity="0" />
+                  </linearGradient>
+                  <filter id="qrave-chart-glow">
+                    <feGaussianBlur stdDeviation="3" result="b" />
+                    <feMerge>
+                      <feMergeNode in="b" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                {/* Gridlines */}
+                {yStops.map((_, i) => {
+                  const y = (i / (yStops.length - 1)) * (CHART_H - 16) + 6;
+                  return (
+                    <line
+                      key={i}
+                      x1="0"
+                      y1={y}
+                      x2={CHART_W}
+                      y2={y}
+                      stroke="rgba(255,255,255,0.04)"
+                      strokeWidth="1"
+                    />
+                  );
+                })}
+                <path d={chartArea} fill="url(#qrave-chart-fill)" />
+                <path
+                  d={chartLine}
+                  fill="none"
+                  stroke="var(--qrave-accent)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  filter="url(#qrave-chart-glow)"
+                />
+                {series.map((v, i) => {
+                  const stepX = CHART_W / Math.max(1, series.length - 1);
+                  const x = i * stepX;
+                  const usableH = CHART_H - 16 - 6;
+                  const y = 6 + (1 - Math.min(1, v / yMax)) * usableH;
+                  const isLast = i === series.length - 1;
+                  return (
+                    <g key={i}>
+                      {isLast ? (
+                        <>
+                          <circle cx={x} cy={y} r={9} fill="rgba(147,51,234,0.18)" />
+                          <circle cx={x} cy={y} r={5} fill="var(--qrave-accent)" filter="url(#qrave-chart-glow)" />
+                        </>
+                      ) : null}
+                    </g>
+                  );
+                })}
+                {WEEKDAY_LABELS.map((label, i) => {
+                  const stepX = CHART_W / Math.max(1, WEEKDAY_LABELS.length - 1);
+                  const x = Math.min(CHART_W - 14, Math.max(0, i * stepX));
+                  return (
+                    <text
+                      key={label}
+                      x={x}
+                      y={CHART_H - 2}
+                      fill="rgba(242,242,242,0.22)"
+                      fontSize="9"
+                      fontFamily="DM Sans"
+                    >
+                      {label}
+                    </text>
+                  );
+                })}
+              </svg>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="mb-4 flex items-start justify-between">
+            <div className="qrave-font-display text-[14px] font-bold">Top Gerichte</div>
+            <button
+              type="button"
+              onClick={() => onGoKarte("menu")}
+              className="text-[12px] font-medium"
+              style={{ color: "color-mix(in srgb, var(--qrave-accent) 75%, white)" }}
+            >
+              Alle ansehen
+            </button>
+          </div>
+          {topItemsWeek.length === 0 ? (
+            <p className="text-[12px]" style={{ color: "rgba(242,242,242,0.4)" }}>
+              Noch keine Daten dieser Woche.
+            </p>
+          ) : (
+            topItemsWeek.slice(0, 5).map((row, i) => (
+              <div
+                key={`${row.name}-${i}`}
+                className="flex items-center gap-3 border-b py-2.5 last:border-b-0 last:pb-0"
+                style={{ borderColor: "rgba(255,255,255,0.05)" }}
+              >
+                <span
+                  className="qrave-font-display w-4 text-[11px] font-bold"
+                  style={{ color: "rgba(242,242,242,0.2)" }}
+                >
+                  #{i + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate text-[13px] font-medium">{row.name}</div>
+                  <div className="text-[10px]" style={{ color: "rgba(242,242,242,0.28)" }}>
+                    {categoryOf(nameToItem.get(row.name))}
+                  </div>
+                </div>
+                <div
+                  className="qrave-font-display text-[13px] font-bold"
+                  style={{ color: "rgba(242,242,242,0.58)" }}
+                >
+                  {row.count}
+                </div>
+              </div>
+            ))
           )}
-        </div>
+        </Card>
       </section>
 
-      <section className="px-0">
-        <div className="mb-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: dash.mu }}>
-          Top 3 dieser Woche
-        </div>
-        <div className="mb-3 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setTop3Mode("food")}
-            className="flex-1 rounded-[10px] border py-2 text-center text-xs font-medium"
-            style={
-              top3Mode === "food"
-                ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.teal }
-                : {
-                    backgroundColor: dash.secondaryBg,
-                    borderColor: dash.secondaryBorder,
-                    color: dash.mu,
-                  }
-            }
-          >
-            🍽 Gerichte
-          </button>
-          <button
-            type="button"
-            onClick={() => setTop3Mode("drink")}
-            className="flex-1 rounded-[10px] border py-2 text-center text-xs font-medium"
-            style={
-              top3Mode === "drink"
-                ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.teal }
-                : {
-                    backgroundColor: dash.secondaryBg,
-                    borderColor: dash.secondaryBorder,
-                    color: dash.mu,
-                  }
-            }
-          >
-            🍺 Getränke
-          </button>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {[0, 1, 2].map((rank) => {
-            const row = top3List[rank];
-            const rClass = rank === 0 ? "r1" : rank === 1 ? "r2" : "r3";
+      {/* BOTTOM: Schnellzugriff + Peak-Zeiten */}
+      <section className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+        <Card>
+          <div className="mb-4 qrave-font-display text-[14px] font-bold">Schnellzugriff</div>
+          <QuickAction
+            icon="fa-solid fa-star"
+            tone="purple"
+            title="Tages-Special setzen"
+            sub={primaryDailyPush ? `${primaryDailyPush.item_emoji} ${primaryDailyPush.item_name}` : "Noch nicht gesetzt"}
+            onClick={() => onGoKarte("heute")}
+          />
+          <QuickAction
+            icon="fa-solid fa-pen-to-square"
+            tone="green"
+            title="Gäste-Notiz"
+            sub="Hinweis für heute setzen"
+            onClick={() => onGoKarte("notiz")}
+          />
+          <QuickAction
+            icon="fa-solid fa-ban"
+            tone="orange"
+            title="Ausverkauft markieren"
+            sub={`${soldOutCount} ${soldOutCount === 1 ? "Gericht" : "Gerichte"} ausverkauft`}
+            onClick={() => onGoKarte("menu")}
+          />
+          <QuickAction
+            icon="fa-solid fa-language"
+            tone="blue"
+            title="Speisekarte übersetzen"
+            sub={`${activeLanguagesCount} von 7 Sprachen aktiv`}
+            onClick={onOpenSettings}
+          />
+        </Card>
+
+        <Card>
+          <div className="mb-5 qrave-font-display text-[14px] font-bold">Peak-Zeiten heute</div>
+          {peakRows.map((p) => {
+            const width = Math.max(2, Math.round((p.count / peakMax) * 100));
+            const isHi = p.count > 0 && p.count >= peakMax * 0.7;
             return (
-              <div
-                key={rank}
-                className={`relative flex min-h-[108px] flex-col items-center justify-between overflow-hidden rounded-2xl border px-2.5 py-3.5 text-center transition active:scale-95 ${rClass}`}
-                style={
-                  rank === 0
-                    ? {
-                        background: "linear-gradient(145deg,rgba(0,200,160,0.12),rgba(8,8,16,0.95))",
-                        borderColor: "rgba(0,200,160,0.35)",
-                        boxShadow: "0 8px 24px rgba(0,200,160,.12)",
-                      }
-                    : rank === 1
-                      ? {
-                          background: "linear-gradient(145deg,rgba(255,255,255,0.06),rgba(8,8,16,0.9))",
-                          borderColor: "rgba(255,255,255,0.1)",
-                        }
-                      : {
-                          background: "linear-gradient(145deg,rgba(255,255,255,0.04),rgba(8,8,16,0.92))",
-                          borderColor: "rgba(255,255,255,0.07)",
-                        }
-                }
-              >
-                {rank === 0 && (
-                  <div
-                    className="pointer-events-none absolute -top-8 left-1/2 h-20 w-20 -translate-x-1/2 rounded-full"
-                    style={{ background: "radial-gradient(circle,rgba(0,200,160,.22),transparent 70%)" }}
-                  />
-                )}
-                <span
-                  className="self-start text-[10px] font-extrabold tracking-wider"
+              <div key={p.key} className="mb-3.5 flex items-center gap-3 last:mb-0">
+                <div
+                  className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px]"
                   style={{
-                    color:
-                      rank === 0
-                        ? dash.teal
-                        : rank === 1
-                          ? "rgba(255,255,255,.35)"
-                          : "rgba(255,255,255,.25)",
+                    background:
+                      p.tone === "purple"
+                        ? "rgba(147,51,234,0.18)"
+                        : "rgba(59,130,246,0.12)",
                   }}
                 >
-                  #{rank + 1}
-                </span>
-                <div>
-                  <div
-                    className="text-[28px] font-black leading-none tracking-tight"
+                  <i
+                    className={p.icon}
                     style={{
-                      color: rank === 0 ? dash.teal : rank === 1 ? dash.tx : dash.mi,
+                      color: p.tone === "purple" ? "#a855f7" : "#60a5fa",
+                      fontSize: 12,
                     }}
-                  >
-                    {row?.count ?? "–"}
-                  </div>
+                  />
+                </div>
+                <div className="w-[90px] shrink-0">
                   <div
-                    className="mt-1 text-[10px] font-semibold leading-tight"
-                    style={{
-                      color: rank === 0 ? "rgba(255,255,255,.9)" : dash.mi,
-                    }}
+                    className="text-[12px] font-medium leading-tight"
+                    style={{ color: isHi ? "var(--qrave-accent-soft)" : undefined }}
                   >
-                    {row?.name ?? "—"}
+                    {p.label}
                   </div>
+                  <div className="text-[10px]" style={{ color: "rgba(242,242,242,0.28)" }}>
+                    {p.sub}
+                  </div>
+                </div>
+                <div className="flex-1">
                   <div
-                    className="mt-0.5 text-[9px]"
-                    style={{ color: rank === 0 ? "rgba(0,200,160,.55)" : dash.mu }}
+                    className="h-[6px] overflow-hidden rounded-[3px]"
+                    style={{ background: "rgba(255,255,255,0.07)" }}
                   >
-                    Aufrufe
+                    <div
+                      className="h-full rounded-[3px] transition-[width] duration-300"
+                      style={{
+                        width: `${width}%`,
+                        background: isHi
+                          ? "linear-gradient(90deg, #9333ea, #a855f7)"
+                          : "linear-gradient(90deg, #7c3aed, #9333ea)",
+                        boxShadow: isHi ? "0 0 8px rgba(147,51,234,0.5)" : undefined,
+                      }}
+                    />
                   </div>
+                </div>
+                <div
+                  className="qrave-font-display w-[30px] shrink-0 text-right text-[13px] font-bold"
+                  style={{ color: isHi ? "var(--qrave-accent-soft)" : "rgba(242,242,242,0.55)" }}
+                >
+                  {p.count}
                 </div>
               </div>
             );
           })}
-        </div>
+        </Card>
       </section>
-
-      <section className="px-0">
-        <div className="mb-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: dash.mu }}>
-          Meistgeklickte Items diese Woche
-        </div>
-        <div className="flex flex-col gap-2">
-          {klickRows.length === 0 && (
-            <p className="text-xs" style={{ color: dash.mu }}>
-              Noch keine Daten.
-            </p>
-          )}
-          {klickRows.map((r) => {
-            // View-to-Click Rate: nur wenn auch Views getrackt wurden.
-            // Items vor dem 12.05.2026 haben views=0 (kein item_view-Tracking)
-            // — in dem Fall keine Rate anzeigen statt 0% / Infinity zu zeigen.
-            const hasViews = r.views > 0;
-            const ratePct = hasViews ? Math.round((r.count / r.views) * 100) : null;
-            const lowRate = hasViews && ratePct !== null && ratePct < 15;
-            return (
-            <div
-              key={r.name}
-              className={`${DASH_GLASS_CARD_CLASS} rounded-[14px] px-3.5 py-3.5`}
-              style={lowRate ? { boxShadow: "0 0 0 1px rgba(255,75,110,0.25) inset" } : undefined}
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[13px] font-semibold">{r.name}</span>
-                <span className="text-[11px]" style={{ color: dash.mu }}>
-                  {r.count} Klick{r.count === 1 ? "" : "s"}
-                  {hasViews ? (
-                    <>
-                      {" · "}
-                      <span style={{ color: lowRate ? dash.re : ratePct! >= 30 ? dash.gr : dash.mu, fontWeight: 600 }}>
-                        {ratePct}%
-                      </span>
-                      <span style={{ color: dash.mu }}>
-                        {" — "}{r.count} von {r.views} Aufrufen
-                      </span>
-                    </>
-                  ) : null}
-                </span>
-              </div>
-              <div className="mb-2 h-[5px] overflow-hidden rounded-md" style={{ backgroundColor: dash.s2 }}>
-                <div
-                  className="h-full rounded-md"
-                  style={{
-                    width: `${r.w}%`,
-                    background:
-                      r.level === "hi"
-                        ? `linear-gradient(90deg, ${dash.teal}, ${dash.or2})`
-                        : r.level === "md"
-                          ? dash.yellow
-                          : dash.re,
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] italic" style={{ color: dash.mu }}>
-                  Vergleich mit deiner Kasse
-                </span>
-                <span
-                  className="rounded-md border px-2 py-0.5 text-[10px] font-bold"
-                  style={
-                    r.level === "hi"
-                      ? { backgroundColor: dash.ord, borderColor: dash.orm, color: dash.teal }
-                      : r.level === "md"
-                        ? {
-                            backgroundColor: "rgba(255,212,38,0.12)",
-                            borderColor: "rgba(255,212,38,0.25)",
-                            color: dash.yellow,
-                          }
-                        : {
-                            backgroundColor: "rgba(255,75,110,0.12)",
-                            borderColor: "rgba(255,75,110,0.25)",
-                            color: dash.re,
-                          }
-                  }
-                >
-                  <span
-                    title={
-                      r.level === "lo" || r.level === "md"
-                        ? "Dieses Gericht wird selten angeschaut. Überlege ob es auf der Karte bleiben soll."
-                        : undefined
-                    }
-                  >
-                    {r.level === "hi"
-                      ? "Sehr beliebt"
-                      : r.level === "md"
-                        ? "Wenig Interesse"
-                        : "Wenig Interesse"}
-                  </span>
-                </span>
-              </div>
-            </div>
-          );
-          })}
-        </div>
-      </section>
-
-      <section className="px-0 pb-2">
-        <div className={`${DASH_GLASS_CARD_CLASS} px-[18px] py-[18px]`}>
-          <div
-            className="mb-3 text-[10px] font-medium uppercase tracking-wider"
-            style={{ color: dash.mu }}
-          >
-            Peak-Zeiten heute
-          </div>
-          {peakRows.map((p) => (
-            <div key={p.label} className="mb-2 flex items-center gap-2.5 last:mb-0">
-              <span className="w-12 shrink-0 text-xs font-medium" style={{ color: dash.mi }}>
-                {p.label}
-              </span>
-              <div className="h-[7px] flex-1 overflow-hidden rounded" style={{ backgroundColor: dash.s2 }}>
-                <div
-                  className="h-full rounded"
-                  style={{
-                    width: `${Math.round((p.count / peakMax) * 100)}%`,
-                    backgroundColor: dash.teal,
-                  }}
-                />
-              </div>
-              <span className="w-7 shrink-0 text-right text-[11px]" style={{ color: dash.mu }}>
-                {p.count}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-      </div>
     </div>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="relative overflow-hidden rounded-[16px] p-[22px] transition"
+      style={{
+        background: "var(--qrave-dash-surface)",
+        border: "1px solid var(--qrave-dash-border)",
+      }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-[15%] right-[15%] top-0 h-px"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)" }}
+      />
+      <div className="relative">{children}</div>
+    </div>
+  );
+}
+
+function StatCard({
+  variant,
+  label,
+  valueLarge,
+  valueText,
+  delta,
+  deltaTrend,
+  icon,
+  iconColor,
+}: {
+  variant?: "hero";
+  label: string;
+  valueLarge?: string;
+  valueText?: string;
+  delta: string | null;
+  deltaTrend?: "up" | "down" | "flat";
+  icon?: string;
+  iconColor?: string;
+}) {
+  const isHero = variant === "hero";
+  return (
+    <div
+      className="relative overflow-hidden rounded-[14px] px-[22px] py-[20px] transition"
+      style={
+        isHero
+          ? {
+              background: "var(--qrave-hero-gradient)",
+              border: "1px solid color-mix(in srgb, var(--qrave-accent) 30%, transparent)",
+            }
+          : {
+              background: "var(--qrave-dash-surface)",
+              border: "1px solid var(--qrave-dash-border)",
+            }
+      }
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-[20%] right-[20%] top-0 h-px"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)" }}
+      />
+      {isHero ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute h-[130px] w-[130px]"
+          style={{
+            top: -30,
+            right: -30,
+            background: "radial-gradient(circle, color-mix(in srgb, var(--qrave-accent) 45%, transparent) 0%, transparent 70%)",
+          }}
+        />
+      ) : null}
+      <div className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-[8px] border"
+        style={
+          isHero
+            ? {
+                background: "color-mix(in srgb, var(--qrave-accent) 20%, transparent)",
+                borderColor: "color-mix(in srgb, var(--qrave-accent) 30%, transparent)",
+                color: "var(--qrave-accent-strong)",
+                fontSize: 11,
+              }
+            : {
+                background: "rgba(255,255,255,0.06)",
+                borderColor: "rgba(255,255,255,0.08)",
+                color: iconColor ?? "rgba(242,242,242,0.35)",
+                fontSize: 11,
+              }
+        }
+      >
+        <i className={icon ?? "fa-solid fa-arrow-up-right"} />
+      </div>
+      <div
+        className="mb-[10px] text-[10px] font-medium uppercase tracking-[0.3px]"
+        style={{
+          color: isHero ? "rgba(200,160,255,0.4)" : "rgba(242,242,242,0.3)",
+        }}
+      >
+        {label}
+      </div>
+      {valueLarge ? (
+        <div
+          className="qrave-font-display font-black leading-none"
+          style={{
+            fontSize: isHero ? 44 : 30,
+            letterSpacing: isHero ? "-2px" : "-1.5px",
+            color: isHero ? "var(--qrave-accent-soft)" : "#fff",
+            marginBottom: 8,
+          }}
+        >
+          {valueLarge}
+        </div>
+      ) : null}
+      {valueText ? (
+        <div
+          className="qrave-font-display"
+          style={{
+            fontSize: 16,
+            fontWeight: 900,
+            letterSpacing: "-0.3px",
+            color: "#fff",
+            marginTop: 6,
+            marginBottom: 8,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={valueText}
+        >
+          {valueText}
+        </div>
+      ) : null}
+      {delta ? (
+        <div
+          className="flex items-center gap-1 text-[11px]"
+          style={{
+            color:
+              isHero
+                ? "rgba(200,160,255,0.55)"
+                : deltaTrend === "up"
+                  ? "#4ade80"
+                  : deltaTrend === "down"
+                    ? "#f87171"
+                    : "rgba(242,242,242,0.3)",
+          }}
+        >
+          {deltaTrend === "up" ? (
+            <i className="fa-solid fa-arrow-trend-up" />
+          ) : deltaTrend === "down" ? (
+            <i className="fa-solid fa-arrow-trend-down" />
+          ) : (
+            <i className="fa-solid fa-eye" />
+          )}
+          {delta}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function QuickAction({
+  icon,
+  tone,
+  title,
+  sub,
+  onClick,
+}: {
+  icon: string;
+  tone: "purple" | "green" | "blue" | "orange";
+  title: string;
+  sub: string;
+  onClick: () => void;
+}) {
+  const toneStyles: Record<typeof tone, { bg: string; color: string }> = {
+    purple: { bg: "rgba(147,51,234,0.18)", color: "#a855f7" },
+    green: { bg: "rgba(74,222,128,0.1)", color: "#4ade80" },
+    blue: { bg: "rgba(59,130,246,0.12)", color: "#60a5fa" },
+    orange: { bg: "rgba(251,146,60,0.12)", color: "#fb923c" },
+  };
+  const s = toneStyles[tone];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mb-2 flex w-full items-center gap-3 rounded-[11px] border px-3.5 py-[11px] text-left transition last:mb-0"
+      style={{
+        background: "rgba(255,255,255,0.03)",
+        borderColor: "rgba(255,255,255,0.06)",
+      }}
+    >
+      <div
+        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px]"
+        style={{ background: s.bg, color: s.color, fontSize: 13 }}
+      >
+        <i className={icon} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] font-medium">{title}</div>
+        <div className="truncate text-[10px]" style={{ color: "rgba(242,242,242,0.28)" }}>
+          {sub}
+        </div>
+      </div>
+      <i className="fa-solid fa-chevron-right text-[11px]" style={{ color: "rgba(242,242,242,0.18)" }} />
+    </button>
   );
 }
