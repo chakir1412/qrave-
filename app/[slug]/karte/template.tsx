@@ -1,6 +1,19 @@
+"use client";
+
 /** Forward-Animation: Speisekarte kommt von unten rein (slide-up).
- *  Next.js mountet template.tsx bei jeder Navigation neu — perfekt
- *  als Animation-Trigger ohne State. */
+ *  Nach Ende der Animation wird die Klasse entfernt, damit kein transform
+ *  auf dem Container bleibt — sonst wird position:fixed (ItemModal) relativ
+ *  zu diesem Div positioned statt zum Viewport. */
 export default function Template({ children }: { children: React.ReactNode }) {
-  return <div className="qrave-slide-up-in">{children}</div>;
+  function handleAnimationEnd(e: React.AnimationEvent<HTMLDivElement>) {
+    if (e.animationName === "qrave-slide-up-in") {
+      e.currentTarget.classList.remove("qrave-slide-up-in");
+    }
+  }
+
+  return (
+    <div className="qrave-slide-up-in" onAnimationEnd={handleAnimationEnd}>
+      {children}
+    </div>
+  );
 }
