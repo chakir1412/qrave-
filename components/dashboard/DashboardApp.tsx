@@ -181,12 +181,21 @@ export function DashboardApp({
       maps_url?: string | null;
       oeffnungszeiten?: import("@/lib/supabase").OeffnungszeitenWoche | null;
     }) => {
-      const { error } = await supabase
+      // `.select("id")` zwingt PostgREST, die aktualisierten Zeilen zurückzugeben.
+      // Bei RLS-Block trifft das UPDATE 0 Zeilen → `data` ist leer, aber `error`
+      // bleibt null (PostgREST-Default). Ohne die explizite 0-Row-Detection
+      // würde ein silent-fail als „✓ Gespeichert" angezeigt.
+      const { data, error } = await supabase
         .from("restaurants")
         .update(patch)
-        .eq("id", restaurant.id);
+        .eq("id", restaurant.id)
+        .select("id");
       if (error) {
         showToast(error.message ?? "Speichern fehlgeschlagen");
+        return;
+      }
+      if (!data || data.length === 0) {
+        showToast("Speichern fehlgeschlagen — keine Berechtigung");
         return;
       }
       setRestaurant((r) => ({ ...r, ...patch }));
