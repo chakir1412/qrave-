@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { PublicRestaurant } from "@/lib/load-restaurant-public";
 import { getOpenStatus } from "@/lib/oeffnungszeiten";
+import ShareButton from "./ShareButton";
 
 type Props = {
   restaurant: PublicRestaurant;
@@ -68,6 +69,11 @@ export default function SplashScreen({ restaurant }: Props) {
           }}
         />
       )}
+
+      {/* Share-Button oben rechts (fix positioniert über dem Hintergrund) */}
+      <div className="absolute right-5 top-5 z-20">
+        <ShareButton restaurantName={restaurant.name} slug={restaurant.slug} />
+      </div>
 
       {/* Inhalt */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6 pt-16 pb-6">
