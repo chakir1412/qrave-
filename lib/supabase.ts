@@ -15,6 +15,8 @@ export type Restaurant = {
   telefon: string | null;
   email: string | null;
   aktiv: boolean;
+  /** Admin-Freischaltung nach Self-Service-Onboarding. */
+  published?: boolean;
   /** Founder-Modal / CRM (Migration restaurants) */
   ansprechpartner?: string | null;
   /** z. B. in_einrichtung | live | offline */

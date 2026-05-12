@@ -358,6 +358,23 @@ export function DashboardApp({
       <div className="relative z-[1] mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-4 md:max-w-[860px] md:px-6 md:py-10">
         <DashboardHeader onOpenSettings={() => setOverlays((o) => ({ ...o, settings: true }))} />
 
+        {restaurant.published === false ? (
+          <div
+            className="mb-3 rounded-2xl border px-4 py-3 text-sm"
+            style={{
+              borderColor: "rgba(201,168,76,0.4)",
+              background: "rgba(201,168,76,0.1)",
+              color: "#e7c977",
+            }}
+            role="status"
+          >
+            <span className="font-semibold">Deine Karte wird in Kürze freigeschaltet.</span>{" "}
+            <span style={{ color: "rgba(255,255,255,0.65)" }}>
+              Wir prüfen die Registrierung und schalten dich frei. Du bekommst eine Mail sobald es soweit ist.
+            </span>
+          </div>
+        ) : null}
+
         <main className="flex-1">
           {activeTab === "home" && (
             <HomeTab
