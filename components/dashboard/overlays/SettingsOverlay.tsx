@@ -5,6 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DashboardRestaurant } from "../types";
 import { dash } from "../constants";
+import {
+  OEFFNUNGSZEITEN_WEEKDAY_KEYS,
+  type OeffnungszeitenWeekday,
+  type OeffnungszeitenWoche,
+} from "@/lib/supabase";
+import { WEEKDAY_LABELS_SHORT, defaultOeffnungszeiten } from "@/lib/oeffnungszeiten";
 
 const rowBorder = { borderBottom: "1px solid rgba(255,255,255,0.05)" };
 const valueStyle = { color: "rgba(255,255,255,0.4)", fontSize: 14 };
@@ -21,10 +27,14 @@ type Props = {
   extracting: boolean;
   brandingMessage: string | null;
   currentLogoUrl: string | null;
-  /** Restaurant-Felder bearbeiten (Adresse, Telefon). */
+  /** Restaurant-Felder bearbeiten. */
   onPatchRestaurant: (patch: {
     adresse?: string | null;
     telefon?: string | null;
+    whatsapp?: string | null;
+    instagram?: string | null;
+    maps_url?: string | null;
+    oeffnungszeiten?: OeffnungszeitenWoche | null;
   }) => Promise<void>;
 };
 
@@ -291,6 +301,35 @@ export function SettingsOverlay({
           />
         </Group>
 
+        <Group title="Kontakt (für Gäste-Splash)">
+          <EditableTextRow
+            label="WhatsApp"
+            value={restaurant.whatsapp ?? ""}
+            placeholder="+49 173 8996449"
+            onCommit={(next) => void onPatchRestaurant({ whatsapp: next.trim() || null })}
+          />
+          <EditableTextRow
+            label="Instagram"
+            value={restaurant.instagram ?? ""}
+            placeholder="@username oder URL"
+            onCommit={(next) => void onPatchRestaurant({ instagram: next.trim() || null })}
+          />
+          <EditableTextRow
+            label="Google Maps"
+            value={restaurant.maps_url ?? ""}
+            placeholder="https://maps.google.com/…"
+            onCommit={(next) => void onPatchRestaurant({ maps_url: next.trim() || null })}
+            noBorder
+          />
+        </Group>
+
+        <Group title="Öffnungszeiten">
+          <OeffnungszeitenInline
+            value={restaurant.oeffnungszeiten ?? null}
+            onChange={(next) => void onPatchRestaurant({ oeffnungszeiten: next })}
+          />
+        </Group>
+
         <Group title="Account">
           <Row label="E-Mail" right={<span style={valueStyle}>{userEmail || "—"}</span>} />
           <Row label="Passwort ändern" showChevron onClick={onPasswort} />
@@ -310,6 +349,134 @@ export function SettingsOverlay({
           </div>
         </Group>
       </div>
+    </div>
+  );
+}
+
+function OeffnungszeitenInline({
+  value,
+  onChange,
+}: {
+  value: OeffnungszeitenWoche | null;
+  onChange: (next: OeffnungszeitenWoche) => void;
+}) {
+  // Lokaler Draft: erst auf Blur/Toggle wird onChange gefeuert, sonst
+  // würde jeder Tastendruck eine DB-Write triggern.
+  const [draft, setDraft] = useState<OeffnungszeitenWoche>(() => value ?? defaultOeffnungszeiten());
+  const [openId, setOpenId] = useState<OeffnungszeitenWeekday | null>(null);
+
+  useEffect(() => {
+    setDraft(value ?? defaultOeffnungszeiten());
+  }, [value]);
+
+  function commit(next: OeffnungszeitenWoche) {
+    setDraft(next);
+    onChange(next);
+  }
+
+  function toggleClosed(day: OeffnungszeitenWeekday) {
+    const cur = draft[day];
+    const next: OeffnungszeitenWoche = {
+      ...draft,
+      [day]: cur ? null : { open: "11:00", close: "22:00" },
+    };
+    commit(next);
+  }
+
+  function setTime(day: OeffnungszeitenWeekday, field: "open" | "close", val: string) {
+    const cur = draft[day] ?? { open: "11:00", close: "22:00" };
+    const next: OeffnungszeitenWoche = {
+      ...draft,
+      [day]: { ...cur, [field]: val },
+    };
+    setDraft(next);
+  }
+
+  function commitTime(day: OeffnungszeitenWeekday) {
+    onChange(draft);
+    setOpenId(null);
+  }
+
+  return (
+    <div className="flex flex-col">
+      {OEFFNUNGSZEITEN_WEEKDAY_KEYS.map((day, i) => {
+        const entry = draft[day];
+        const isOpen = Boolean(entry);
+        const isExpanded = openId === day;
+        const noBorder = i === OEFFNUNGSZEITEN_WEEKDAY_KEYS.length - 1;
+        return (
+          <div
+            key={day}
+            className="px-4"
+            style={{
+              ...(noBorder ? {} : rowBorder),
+            }}
+          >
+            <div className="flex h-[52px] items-center justify-between gap-3">
+              <span className="w-10 text-[14px] font-semibold uppercase tracking-wider" style={{ color: "#fff" }}>
+                {WEEKDAY_LABELS_SHORT[day]}
+              </span>
+              {isOpen && entry ? (
+                <button
+                  type="button"
+                  onClick={() => setOpenId(isExpanded ? null : day)}
+                  className="flex-1 text-left text-sm"
+                  style={{ color: "rgba(255,255,255,0.85)" }}
+                >
+                  {entry.open}–{entry.close}
+                </button>
+              ) : (
+                <span className="flex-1 text-sm italic" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  geschlossen
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => toggleClosed(day)}
+                className="relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors"
+                style={{ backgroundColor: isOpen ? dash.or : "rgba(255,255,255,0.12)" }}
+                aria-label={isOpen ? `${day} schließen` : `${day} öffnen`}
+              >
+                <span
+                  className="absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all"
+                  style={{ left: isOpen ? "calc(100% - 19px)" : "3px" }}
+                />
+              </button>
+            </div>
+            {isOpen && isExpanded && entry ? (
+              <div className="flex items-center gap-2 pb-3">
+                <input
+                  type="time"
+                  value={entry.open}
+                  onChange={(e) => setTime(day, "open", e.target.value)}
+                  onBlur={() => commitTime(day)}
+                  className="rounded-lg border px-2 py-1 text-sm"
+                  style={{
+                    borderColor: "rgba(255,255,255,0.12)",
+                    background: "rgba(0,0,0,0.3)",
+                    color: "#fff",
+                  }}
+                />
+                <span className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  –
+                </span>
+                <input
+                  type="time"
+                  value={entry.close}
+                  onChange={(e) => setTime(day, "close", e.target.value)}
+                  onBlur={() => commitTime(day)}
+                  className="rounded-lg border px-2 py-1 text-sm"
+                  style={{
+                    borderColor: "rgba(255,255,255,0.12)",
+                    background: "rgba(0,0,0,0.3)",
+                    color: "#fff",
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

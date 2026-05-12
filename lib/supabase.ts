@@ -46,7 +46,28 @@ export type Restaurant = {
   website?: string | null;
   primary_color?: string | null;
   font_family?: string | null;
+  accent_color?: string | null;
+  /** Kontakt- und Splash-Felder für die Gäste-Splash + Kontakt-Seite. */
+  whatsapp?: string | null;
+  instagram?: string | null;
+  maps_url?: string | null;
+  splash_image_url?: string | null;
+  /** Wochenplan als JSONB: { mo: {open,close} | null, … }. */
+  oeffnungszeiten?: OeffnungszeitenWoche | null;
 };
+
+/** Wochentag-Keys des Öffnungszeiten-Plans. */
+export const OEFFNUNGSZEITEN_WEEKDAY_KEYS = ["mo", "di", "mi", "do", "fr", "sa", "so"] as const;
+export type OeffnungszeitenWeekday = (typeof OEFFNUNGSZEITEN_WEEKDAY_KEYS)[number];
+
+/** Ein Öffnungszeiten-Eintrag pro Wochentag.
+ *  - `null` oder fehlend: an diesem Tag geschlossen
+ *  - `{ open: "HH:MM", close: "HH:MM" }`: durchgehend zwischen den Zeiten geöffnet
+ */
+export type OeffnungszeitenTag = { open: string; close: string } | null;
+
+/** Wochenplan als JSONB-Objekt. */
+export type OeffnungszeitenWoche = Partial<Record<OeffnungszeitenWeekday, OeffnungszeitenTag>>;
 
 /** Roh-Eintrag aus `scan_events` — public API für Komponenten. */
 export type ScanEvent = {

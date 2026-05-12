@@ -176,6 +176,10 @@ export function DashboardApp({
     async (patch: {
       adresse?: string | null;
       telefon?: string | null;
+      whatsapp?: string | null;
+      instagram?: string | null;
+      maps_url?: string | null;
+      oeffnungszeiten?: import("@/lib/supabase").OeffnungszeitenWoche | null;
     }) => {
       const { error } = await supabase
         .from("restaurants")

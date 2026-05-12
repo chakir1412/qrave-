@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { loadRestaurantPublicBySlug } from "@/lib/load-restaurant-public";
-import SplashScreen from "@/components/splash/SplashScreen";
+import ContactPage from "@/components/splash/ContactPage";
 
-export default async function SlugSplashPage({
+export default async function SlugKontaktPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -10,7 +10,7 @@ export default async function SlugSplashPage({
   const { slug } = await params;
   const restaurant = await loadRestaurantPublicBySlug(slug);
   if (!restaurant) notFound();
-  return <SplashScreen restaurant={restaurant} />;
+  return <ContactPage restaurant={restaurant} />;
 }
 
 export async function generateMetadata({
@@ -20,9 +20,8 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const restaurant = await loadRestaurantPublicBySlug(slug);
-  const name = restaurant?.name ?? "Speisekarte";
+  const name = restaurant?.name ?? "Restaurant";
   return {
-    title: name,
-    description: restaurant?.guest_note ?? `Digitale Speisekarte von ${name}`,
+    title: `Kontakt – ${name}`,
   };
 }

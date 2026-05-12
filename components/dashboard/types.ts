@@ -13,6 +13,10 @@ export type DashboardRestaurant = Pick<
   | "stadt"
   | "telefon"
   | "email"
+  | "whatsapp"
+  | "instagram"
+  | "maps_url"
+  | "oeffnungszeiten"
 > & {
   accent_color?: string | null;
   logo_url?: string | null;
