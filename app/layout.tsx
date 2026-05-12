@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { DM_Sans, Geist, Geist_Mono } from "next/font/google";
+import { DM_Sans, Geist, Geist_Mono, Roboto } from "next/font/google";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -8,6 +8,12 @@ const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   display: "swap",
   weight: ["300", "400", "500", "600"],
+});
+const roboto = Roboto({
+  subsets: ["latin"],
+  variable: "--font-roboto",
+  display: "swap",
+  weight: ["300", "400", "500", "700", "900"],
 });
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,9 +44,13 @@ export default function RootLayout({
           strategy="afterInteractive"
           crossOrigin="anonymous"
         />
+        <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+        />
       </head>
       <body
-        className={`${dmSans.variable} ${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
+        className={`${dmSans.variable} ${roboto.variable} ${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
         {children}
       </body>

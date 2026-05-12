@@ -478,3 +478,233 @@ body {
     animation: none;
   }
 }
+
+/* =====================================================================
+   Qrave Dashboard CI (qrave-dashboard-v5.html)
+   Tokens + Background + Shell-Bausteine. Wirt-Variante (lila), Founder
+   überschreibt die Akzent-Tokens auf Königsblau via .qrave-shell--founder.
+   ===================================================================== */
+:root {
+  --qrave-dash-bg: #06040e;
+  --qrave-dash-text: #f2f2f2;
+  --qrave-dash-surface: rgba(255, 255, 255, 0.04);
+  --qrave-dash-surface-hover: rgba(255, 255, 255, 0.06);
+  --qrave-dash-border: rgba(255, 255, 255, 0.07);
+  --qrave-dash-border-strong: rgba(255, 255, 255, 0.13);
+  --qrave-dash-muted: rgba(242, 242, 242, 0.32);
+
+  --qrave-accent: #9333ea;
+  --qrave-accent-strong: #a855f7;
+  --qrave-accent-soft: #d8b4fe;
+  --qrave-accent-gradient: linear-gradient(135deg, #9333ea, #7c3aed);
+  --qrave-accent-glow: rgba(147, 51, 234, 0.5);
+  --qrave-hero-gradient: linear-gradient(145deg, #1c0840, #2e1060);
+  --qrave-hero-corner: radial-gradient(ellipse 100% 80% at 0% 0%, #2d0860 0%, #130330 30%, #06040e 60%);
+  --qrave-ray-1: rgba(140, 50, 255, 0.25);
+  --qrave-ray-2: rgba(160, 65, 255, 0.3);
+  --qrave-corner-glow: rgba(160, 70, 255, 0.18);
+}
+
+/* Royal-Blue-Variante fürs Founder-Dashboard */
+.qrave-shell--founder {
+  --qrave-accent: #1d4ed8;
+  --qrave-accent-strong: #3b82f6;
+  --qrave-accent-soft: #bfdbfe;
+  --qrave-accent-gradient: linear-gradient(135deg, #1d4ed8, #1e40af);
+  --qrave-accent-glow: rgba(29, 78, 216, 0.5);
+  --qrave-hero-gradient: linear-gradient(145deg, #0f172a, #1e3a8a);
+  --qrave-hero-corner: radial-gradient(ellipse 100% 80% at 0% 0%, #0b2660 0%, #050f2c 30%, #06040e 60%);
+  --qrave-ray-1: rgba(60, 110, 255, 0.25);
+  --qrave-ray-2: rgba(80, 130, 255, 0.3);
+  --qrave-corner-glow: rgba(70, 120, 255, 0.18);
+}
+
+.qrave-shell {
+  background: var(--qrave-dash-bg);
+  color: var(--qrave-dash-text);
+  min-height: 100vh;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+.qrave-font-display {
+  font-family: var(--font-roboto), system-ui, sans-serif;
+  letter-spacing: -0.5px;
+}
+
+/* Lila Lichtstrahlen-Hintergrund (top-left), Vignette unten, Grid-Overlay */
+.qrave-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.qrave-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--qrave-hero-corner);
+}
+.qrave-bg::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(180deg, transparent 0%, var(--qrave-dash-bg) 100%);
+}
+.qrave-rays {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 80%;
+}
+.qrave-ray {
+  position: absolute;
+  top: 0;
+  transform-origin: top left;
+  background: linear-gradient(160deg, var(--qrave-ray-1) 0%, rgba(100, 30, 220, 0.06) 50%, transparent 100%);
+  filter: blur(20px);
+}
+.qrave-ray-1 { width: 50px; height: 100%; left: 2%; transform: rotate(8deg); opacity: 0.7; }
+.qrave-ray-2 { width: 38px; height: 100%; left: 8%; transform: rotate(14deg); opacity: 0.45; }
+.qrave-ray-3 {
+  width: 60px; height: 100%; left: 14%; transform: rotate(20deg); opacity: 0.8;
+  background: linear-gradient(160deg, var(--qrave-ray-2) 0%, transparent 100%);
+}
+.qrave-ray-4 { width: 35px; height: 100%; left: 22%; transform: rotate(26deg); opacity: 0.35; }
+.qrave-ray-5 { width: 55px; height: 100%; left: 28%; transform: rotate(32deg); opacity: 0.6; }
+.qrave-corner-glow {
+  position: absolute;
+  top: -60px;
+  left: -60px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, var(--qrave-corner-glow) 0%, transparent 65%);
+  filter: blur(50px);
+}
+.qrave-grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 50% 60% at 0% 0%, black 0%, transparent 70%);
+}
+
+/* Sidebar + Drawer Bausteine */
+.qrave-sidebar {
+  background: rgba(6, 4, 14, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+.qrave-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(242, 242, 242, 0.38);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  margin-bottom: 2px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  text-align: left;
+}
+.qrave-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(242, 242, 242, 0.85);
+}
+.qrave-nav-item.active {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--qrave-accent) 25%, transparent),
+    color-mix(in srgb, var(--qrave-accent) 12%, transparent)
+  );
+  color: var(--qrave-accent-soft);
+  border-color: color-mix(in srgb, var(--qrave-accent) 25%, transparent);
+}
+.qrave-nav-icon {
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.qrave-nav-section {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(242, 242, 242, 0.22);
+  padding: 0 8px;
+  margin-bottom: 6px;
+  margin-top: 10px;
+}
+
+/* KI-CTA-Karte am Fuß der Sidebar */
+.qrave-cta-card {
+  border-radius: 14px;
+  padding: 18px 16px;
+  background: linear-gradient(135deg, #5b21b6, #9333ea);
+  box-shadow: 0 8px 32px rgba(109, 40, 217, 0.4);
+}
+.qrave-shell--founder .qrave-cta-card {
+  background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+  box-shadow: 0 8px 32px rgba(29, 78, 216, 0.4);
+}
+
+/* Topbar */
+.qrave-topbar {
+  background: rgba(6, 4, 14, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Live-Badge "Karte live" */
+.qrave-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  font-size: 12px;
+  font-weight: 600;
+  color: #4ade80;
+  font-family: var(--font-roboto), system-ui, sans-serif;
+  white-space: nowrap;
+}
+.qrave-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: qrave-live-blink 2s infinite;
+}
+@keyframes qrave-live-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Drawer (Mobile) */
+@keyframes qrave-drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.qrave-drawer-in {
+  animation: qrave-drawer-in 220ms cubic-bezier(0.32, 0.72, 0.32, 1) both;
+}

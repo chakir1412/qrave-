@@ -10,8 +10,7 @@ import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
 import { compressImageFile } from "@/lib/compress-image";
 import { useRestaurantTables } from "@/hooks/useTische";
 import { fetchDashboardAnalytics, type DashboardAnalytics } from "@/hooks/useAnalytics";
-import { DashboardBottomNav } from "./BottomNav";
-import { DashboardHeader } from "./Header";
+import { DashboardShell } from "./DashboardShell";
 import { DashboardToast } from "./DashboardToast";
 import { HomeTab } from "./tabs/HomeTab";
 import { KarteTab } from "./tabs/KarteTab";
@@ -28,7 +27,6 @@ import type {
   OverlaysState,
   PagesState,
 } from "./types";
-import { dash } from "./constants";
 import { todayIsoDate } from "./utils";
 
 const TAB_ORDER: Record<DashboardTab, number> = {
@@ -454,19 +452,24 @@ export function DashboardApp({
     showToast("✓ Kategorie angelegt");
   }
 
-  return (
-    <div className="relative min-h-dvh pb-28 font-sans" style={{ backgroundColor: dash.bg, color: dash.tx }}>
-      <div className="dashboard-bg-blobs" aria-hidden>
-        <div className="dashboard-blob dashboard-blob--1" />
-        <div className="dashboard-blob dashboard-blob--2" />
-        <div className="dashboard-blob dashboard-blob--3" />
-      </div>
-      <div className="relative z-[1] mx-auto flex min-h-dvh w-full max-w-[480px] flex-col px-4 md:max-w-[860px] md:px-6 md:py-10">
-        <DashboardHeader onOpenSettings={() => setOverlays((o) => ({ ...o, settings: true }))} />
+  const topbarTitle =
+    activeTab === "karte" ? "Speisekarte" : activeTab === "tische" ? "Tische" : "Dashboard";
+  const avatarLabel = (userFirstName.trim().charAt(0) || restaurant.name.charAt(0) || "Q").toUpperCase();
 
+  return (
+    <DashboardShell
+      activeTab={activeTab}
+      onTabChange={goTab}
+      title={topbarTitle}
+      liveBadge={restaurant.published !== false && restaurant.aktiv !== false}
+      avatarLabel={avatarLabel}
+      onOpenSettings={() => setOverlays((o) => ({ ...o, settings: true }))}
+      onOpenAiFeatures={() => setOverlays((o) => ({ ...o, settings: true }))}
+    >
+      <div className="mx-auto w-full max-w-[1200px] px-5 pb-16 pt-6 md:px-8 md:pt-8">
         {restaurant.published === false ? (
           <div
-            className="mb-3 rounded-2xl border px-4 py-3 text-sm"
+            className="mb-4 rounded-2xl border px-4 py-3 text-sm"
             style={{
               borderColor: "rgba(201,168,76,0.4)",
               background: "rgba(201,168,76,0.1)",
@@ -551,8 +554,6 @@ export function DashboardApp({
             />
           )}
         </main>
-
-        <DashboardBottomNav active={activeTab} onChange={goTab} />
       </div>
 
       <SettingsOverlay
@@ -631,6 +632,6 @@ export function DashboardApp({
       />
 
       <DashboardToast message={toast} onHide={() => setToast(null)} />
-    </div>
+    </DashboardShell>
   );
 }
