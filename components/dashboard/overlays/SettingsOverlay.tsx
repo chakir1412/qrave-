@@ -40,6 +40,12 @@ type Props = {
   }) => Promise<void>;
   /** Toast-Helper (für Translate-Button-Feedback). */
   onToast: (msg: string) => void;
+  /** Splash-Hintergrund (Foto oder Video). */
+  splashMediaUrl: string | null;
+  splashMediaType: "image" | "video" | null;
+  splashUploading: boolean;
+  onSplashMediaFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onSplashMediaRemove: () => void;
 };
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -174,9 +180,15 @@ export function SettingsOverlay({
   currentLogoUrl,
   onPatchRestaurant,
   onToast,
+  splashMediaUrl,
+  splashMediaType,
+  splashUploading,
+  onSplashMediaFileChange,
+  onSplashMediaRemove,
 }: Props) {
   const router = useRouter();
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const splashInputRef = useRef<HTMLInputElement>(null);
 
   const displayLogo = logoPreview ?? currentLogoUrl;
 
@@ -285,6 +297,64 @@ export function SettingsOverlay({
           {extracting ? (
             <div className="px-4 py-2 text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>
               Logo wird hochgeladen …
+            </div>
+          ) : null}
+          <div className="flex h-[52px] items-center justify-between px-4" style={rowBorder}>
+            <div className="flex flex-col">
+              <span style={labelStyle}>Splash Hintergrund</span>
+              <span className="mt-0.5 text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                Foto (JPG/PNG, max 5 MB) oder Video (MP4, max 30 MB)
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border"
+                style={{
+                  borderColor: "rgba(255,255,255,0.08)",
+                  backgroundColor: "rgba(255,255,255,0.04)",
+                }}
+              >
+                {splashMediaUrl && splashMediaType === "image" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={splashMediaUrl} alt="" className="h-full w-full object-cover" />
+                ) : splashMediaUrl && splashMediaType === "video" ? (
+                  <span className="text-base">🎬</span>
+                ) : (
+                  <span className="text-sm opacity-40">🖼</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="text-[14px] font-medium"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+                onClick={() => splashInputRef.current?.click()}
+                disabled={splashUploading}
+              >
+                {splashMediaUrl ? "Ändern" : "Hochladen"}
+              </button>
+              {splashMediaUrl ? (
+                <button
+                  type="button"
+                  className="text-[14px] font-medium"
+                  style={{ color: dash.re }}
+                  onClick={onSplashMediaRemove}
+                  disabled={splashUploading}
+                >
+                  Entfernen
+                </button>
+              ) : null}
+              <input
+                ref={splashInputRef}
+                type="file"
+                accept="image/png,image/jpeg,video/mp4"
+                className="hidden"
+                onChange={onSplashMediaFileChange}
+              />
+            </div>
+          </div>
+          {splashUploading ? (
+            <div className="px-4 py-2 text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+              Splash-Hintergrund wird hochgeladen …
             </div>
           ) : null}
         </Group>

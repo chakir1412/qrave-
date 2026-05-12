@@ -121,6 +121,7 @@ export function DashboardApp({
   );
   const [extracting, setExtracting] = useState(false);
   const [brandingMessage, setBrandingMessage] = useState<string | null>(null);
+  const [splashUploading, setSplashUploading] = useState(false);
 
   useEffect(() => {
     setRestaurant(restaurantProp);
@@ -319,6 +320,95 @@ export function DashboardApp({
     }
   }
 
+  async function handleSplashMediaChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isVideo = (file.type || "").toLowerCase().startsWith("video/");
+    const isImage = (file.type || "").toLowerCase().startsWith("image/");
+    if (!isVideo && !isImage) {
+      showToast("Nur JPG/PNG oder MP4 erlaubt.");
+      e.target.value = "";
+      return;
+    }
+    const maxBytes = isVideo ? 30 * 1024 * 1024 : 5 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      showToast(
+        isVideo ? "Video zu groß (max. 30 MB)." : "Bild zu groß (max. 5 MB).",
+      );
+      e.target.value = "";
+      return;
+    }
+    setSplashUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() ?? (isVideo ? "mp4" : "jpg")).toLowerCase();
+      const filename = `${isVideo ? "video" : "image"}-${Date.now()}.${ext}`;
+      const path = `splash/${restaurant.id}/${filename}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("restaurant-assets")
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type || undefined,
+        });
+      if (uploadErr) {
+        showToast(`Upload fehlgeschlagen: ${uploadErr.message}`);
+        return;
+      }
+      const { data: publicUrlData } = supabase.storage
+        .from("restaurant-assets")
+        .getPublicUrl(path);
+      const publicUrl = publicUrlData.publicUrl ?? null;
+      const mediaUrl = publicUrl ? `${publicUrl}?t=${Date.now()}` : null;
+      const mediaType: "image" | "video" = isVideo ? "video" : "image";
+      const { data: updateData, error: updateErr } = await supabase
+        .from("restaurants")
+        .update({ splash_media_url: mediaUrl, splash_media_type: mediaType })
+        .eq("id", restaurant.id)
+        .select("id");
+      if (updateErr) {
+        showToast(`Speichern fehlgeschlagen: ${updateErr.message}`);
+        return;
+      }
+      if (!updateData || updateData.length === 0) {
+        showToast("Speichern fehlgeschlagen — keine Berechtigung");
+        return;
+      }
+      setRestaurant((r) => ({
+        ...r,
+        splash_media_url: mediaUrl,
+        splash_media_type: mediaType,
+      }));
+      showToast("✓ Splash-Hintergrund gespeichert");
+    } finally {
+      setSplashUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleSplashMediaRemove() {
+    if (!restaurant.splash_media_url) return;
+    setSplashUploading(true);
+    try {
+      const { data, error } = await supabase
+        .from("restaurants")
+        .update({ splash_media_url: null, splash_media_type: null })
+        .eq("id", restaurant.id)
+        .select("id");
+      if (error) {
+        showToast(`Entfernen fehlgeschlagen: ${error.message}`);
+        return;
+      }
+      if (!data || data.length === 0) {
+        showToast("Entfernen fehlgeschlagen — keine Berechtigung");
+        return;
+      }
+      setRestaurant((r) => ({ ...r, splash_media_url: null, splash_media_type: null }));
+      showToast("✓ Splash-Hintergrund entfernt");
+    } finally {
+      setSplashUploading(false);
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.replace("/login?redirect=/dashboard");
@@ -463,6 +553,11 @@ export function DashboardApp({
         currentLogoUrl={currentLogoUrl}
         onPatchRestaurant={handlePatchRestaurant}
         onToast={showToast}
+        splashMediaUrl={restaurant.splash_media_url ?? null}
+        splashMediaType={restaurant.splash_media_type ?? null}
+        splashUploading={splashUploading}
+        onSplashMediaFileChange={(e) => void handleSplashMediaChange(e)}
+        onSplashMediaRemove={() => void handleSplashMediaRemove()}
       />
 
       <EditItemOverlay

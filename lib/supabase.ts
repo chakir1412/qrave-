@@ -54,6 +54,10 @@ export type Restaurant = {
   instagram?: string | null;
   maps_url?: string | null;
   splash_image_url?: string | null;
+  /** Splash-Hintergrund (Foto JPG/PNG oder Video MP4). Bucket
+   *  `restaurant-assets`, Pfad `splash/<id>/<filename>`. */
+  splash_media_url?: string | null;
+  splash_media_type?: "image" | "video" | null;
   /** Wochenplan als JSONB: { mo: {open,close} | null, … }. */
   oeffnungszeiten?: OeffnungszeitenWoche | null;
   /** Aktive Sprachen für die Gäste-Speisekarte. 'de' ist immer dabei.

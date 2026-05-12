@@ -19,6 +19,8 @@ export type DashboardRestaurant = Pick<
   | "maps_url"
   | "oeffnungszeiten"
   | "active_languages"
+  | "splash_media_url"
+  | "splash_media_type"
 > & {
   accent_color?: string | null;
   logo_url?: string | null;

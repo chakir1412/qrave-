@@ -12,7 +12,12 @@ type Props = {
  *  oder Fallback Kupfer. */
 export default function SplashScreen({ restaurant }: Props) {
   const accent = restaurant.accent_color?.trim() || "#C8894E";
-  const backgroundUrl = restaurant.splash_image_url?.trim() || restaurant.logo_url?.trim() || null;
+  const mediaUrl = restaurant.splash_media_url?.trim() ?? "";
+  const mediaType = restaurant.splash_media_type === "video" ? "video" : "image";
+  const legacyImageUrl =
+    mediaUrl.length === 0
+      ? restaurant.splash_image_url?.trim() || restaurant.logo_url?.trim() || ""
+      : "";
   const status = getOpenStatus(restaurant.oeffnungszeiten ?? null);
 
   const statusBadge = (() => {
@@ -33,15 +38,58 @@ export default function SplashScreen({ restaurant }: Props) {
       className="relative flex min-h-dvh flex-col overflow-hidden"
       style={{ background: "#0e0c0a", color: "#fff" }}
     >
-      {/* Hintergrundbild + dunkles Overlay */}
-      {backgroundUrl ? (
+      {/* Foto- oder Video-Hintergrund (Cover) + einheitliches dunkles Overlay
+          rgba(0,0,0,0.45). Fallback: Legacy splash_image_url/logo_url mit
+          Blur+Gradient für Bestandsrestaurants ohne dediziertes Splash-Media. */}
+      {mediaUrl.length > 0 ? (
+        <>
+          {mediaType === "video" ? (
+            <video
+              aria-hidden
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              poster={restaurant.splash_image_url?.trim() || undefined}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            >
+              <source src={mediaUrl} />
+            </video>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              aria-hidden
+              src={mediaUrl}
+              alt=""
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          )}
+          <div
+            aria-hidden
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)" }}
+          />
+        </>
+      ) : legacyImageUrl.length > 0 ? (
         <>
           <div
             aria-hidden
             style={{
               position: "absolute",
               inset: 0,
-              backgroundImage: `url("${backgroundUrl}")`,
+              backgroundImage: `url("${legacyImageUrl}")`,
               backgroundSize: "cover",
               backgroundPosition: "center",
               backgroundRepeat: "no-repeat",
