@@ -38,6 +38,10 @@ export function useSpeisekarteTier1Tracking({
   const mainTabInitedRef = useRef(false);
   const filterInitedRef = useRef(false);
   const leaveFlushRef = useRef(false);
+  // Item-View-Tracking: pro Session 1× pro Item. ItemId → Observer.
+  const itemViewedRef = useRef<Set<string>>(new Set());
+  const itemViewTimerRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const itemObserverMapRef = useRef<Map<string, IntersectionObserver>>(new Map());
 
   const safeTrack = useCallback(
     async (partial: Omit<TrackEventParams, "restaurantId" | "sessionId">) => {
@@ -76,6 +80,10 @@ export function useSpeisekarteTier1Tracking({
     return () => {
       observerMapRef.current.forEach((io) => io.disconnect());
       observerMapRef.current.clear();
+      itemObserverMapRef.current.forEach((io) => io.disconnect());
+      itemObserverMapRef.current.clear();
+      itemViewTimerRef.current.forEach((t) => clearTimeout(t));
+      itemViewTimerRef.current.clear();
     };
   }, []);
 
@@ -315,8 +323,75 @@ export function useSpeisekarteTier1Tracking({
     [safeTrack],
   );
 
+  /** Item-Card-Observer für View-Tracking.
+   *  Item gilt als „gesehen" wenn ≥ 50% der Card im Viewport sind und das
+   *  ≥ 500ms anhält. Wird pro Session nur einmal pro Item gefeuert; der
+   *  Observer wird nach dem ersten erfolgreichen View disconnected. */
+  const onItemCardRef = useCallback(
+    (item: MenuItem, element: HTMLElement | null) => {
+      if (!restaurantId) return;
+      const id = item.id;
+
+      // Wenn das Element abgehängt wird: alten Observer + Timer aufräumen.
+      const existing = itemObserverMapRef.current.get(id);
+      existing?.disconnect();
+      itemObserverMapRef.current.delete(id);
+      const pendingTimer = itemViewTimerRef.current.get(id);
+      if (pendingTimer !== undefined) {
+        clearTimeout(pendingTimer);
+        itemViewTimerRef.current.delete(id);
+      }
+
+      if (!element) return;
+      if (itemViewedRef.current.has(id)) return; // schon getrackt → kein neuer Observer
+
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.target !== element) continue;
+            if (itemViewedRef.current.has(id)) {
+              io.disconnect();
+              itemObserverMapRef.current.delete(id);
+              return;
+            }
+            if (e.isIntersecting && e.intersectionRatio >= 0.5) {
+              if (itemViewTimerRef.current.has(id)) continue; // Timer läuft bereits
+              const t = setTimeout(() => {
+                itemViewTimerRef.current.delete(id);
+                if (itemViewedRef.current.has(id)) return;
+                itemViewedRef.current.add(id);
+                io.disconnect();
+                itemObserverMapRef.current.delete(id);
+                void safeTrack({
+                  eventType: "item_view",
+                  itemId: item.id,
+                  itemName: item.name,
+                  kategorie: item.kategorie,
+                  mainTab: item.main_tab ?? undefined,
+                });
+              }, 500);
+              itemViewTimerRef.current.set(id, t);
+            } else {
+              // Item verlässt den Viewport bevor 500ms voll sind → Timer abbrechen.
+              const cur = itemViewTimerRef.current.get(id);
+              if (cur !== undefined) {
+                clearTimeout(cur);
+                itemViewTimerRef.current.delete(id);
+              }
+            }
+          }
+        },
+        { threshold: [0, 0.5, 1] },
+      );
+      io.observe(element);
+      itemObserverMapRef.current.set(id, io);
+    },
+    [restaurantId, safeTrack],
+  );
+
   return {
     onCategorySectionRef,
+    onItemCardRef,
     trackWishlistAdd,
     trackWishlistRemove,
     trackCategoryTabSelect,

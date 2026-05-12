@@ -25,6 +25,8 @@ type MenuGridProps = {
   isInWishlist?: (itemId: string) => boolean;
   /** Ref je Kategorie-Sektion für Tier-1-Tracking (IntersectionObserver) */
   onCategorySectionRef?: (kategorie: string, element: HTMLElement | null) => void;
+  /** Ref je Item-Card für View-Tracking (≥ 0.5 / ≥ 500ms, 1× pro Session). */
+  onItemCardRef?: (item: MenuItem, element: HTMLElement | null) => void;
 };
 
 const barSoleil = {
@@ -52,6 +54,7 @@ export default function MenuGrid({
   theme = "light",
   isInWishlist = () => false,
   onCategorySectionRef,
+  onItemCardRef,
 }: MenuGridProps) {
   const dark = theme === "bar-soleil";
   const cl = {
@@ -151,6 +154,7 @@ export default function MenuGrid({
                       <button
                         key={item.id}
                         type="button"
+                        ref={(el) => onItemCardRef?.(item, el)}
                         onClick={() => !allergenWarn && onItemClick(item)}
                         className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-all active:opacity-90 ${item.sponsored && !dark ? "bg-[rgba(184,150,106,0.02)]" : ""} ${allergenWarn ? "opacity-30 pointer-events-none" : ""} ${soldOut ? "opacity-50" : ""} ${dark ? "hover:bg-white/[0.05]" : "hover:bg-[rgba(184,150,106,0.06)]"}`}
                       >

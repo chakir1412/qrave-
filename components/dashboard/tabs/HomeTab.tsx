@@ -28,7 +28,7 @@ type Props = {
   viewsToday: number | null;
   viewsYesterday: number | null;
   weekSeries: number[];
-  topItemsWeek: { name: string; count: number }[];
+  topItemsWeek: { name: string; count: number; views: number }[];
   menuItems: MenuItem[];
   peaksToday: PeakRow[];
   dailyPushes: DailyPush[];
@@ -522,12 +522,34 @@ export function HomeTab({
               Noch keine Daten.
             </p>
           )}
-          {klickRows.map((r) => (
-            <div key={r.name} className={`${DASH_GLASS_CARD_CLASS} rounded-[14px] px-3.5 py-3.5`}>
+          {klickRows.map((r) => {
+            // View-to-Click Rate: nur wenn auch Views getrackt wurden.
+            // Items vor dem 12.05.2026 haben views=0 (kein item_view-Tracking)
+            // — in dem Fall keine Rate anzeigen statt 0% / Infinity zu zeigen.
+            const hasViews = r.views > 0;
+            const ratePct = hasViews ? Math.round((r.count / r.views) * 100) : null;
+            const lowRate = hasViews && ratePct !== null && ratePct < 15;
+            return (
+            <div
+              key={r.name}
+              className={`${DASH_GLASS_CARD_CLASS} rounded-[14px] px-3.5 py-3.5`}
+              style={lowRate ? { boxShadow: "0 0 0 1px rgba(255,75,110,0.25) inset" } : undefined}
+            >
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-[13px] font-semibold">{r.name}</span>
                 <span className="text-[11px]" style={{ color: dash.mu }}>
-                  {r.count} Aufrufe
+                  {r.count} Klick{r.count === 1 ? "" : "s"}
+                  {hasViews ? (
+                    <>
+                      {" · "}
+                      <span style={{ color: lowRate ? dash.re : ratePct! >= 30 ? dash.gr : dash.mu, fontWeight: 600 }}>
+                        {ratePct}%
+                      </span>
+                      <span style={{ color: dash.mu }}>
+                        {" — "}{r.count} von {r.views} Aufrufen
+                      </span>
+                    </>
+                  ) : null}
                 </span>
               </div>
               <div className="mb-2 h-[5px] overflow-hidden rounded-md" style={{ backgroundColor: dash.s2 }}>
@@ -582,7 +604,8 @@ export function HomeTab({
                 </span>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </section>
 

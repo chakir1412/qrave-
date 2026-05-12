@@ -173,7 +173,7 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
     [effectiveMainTab],
   );
 
-  const { onCategorySectionRef, trackWishlistAdd, trackWishlistRemove, trackCategoryTabSelect } =
+  const { onCategorySectionRef, onItemCardRef, trackWishlistAdd, trackWishlistRemove, trackCategoryTabSelect } =
     useSpeisekarteTier1Tracking({
       restaurantId,
       tischNummer,
@@ -499,6 +499,7 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
             filterItems={filterItems}
             onItemClick={pushModal}
             onCategorySectionRef={onCategorySectionRef}
+            onItemCardRef={onItemCardRef}
             hideCategories={filter !== "all" ? DRINK_CATEGORIES : null}
           />
         )}
@@ -668,6 +669,7 @@ type ItemListProps = {
   filterItems: (items: MenuItem[]) => MenuItem[];
   onItemClick: (item: MenuItem) => void;
   onCategorySectionRef: (kategorie: string, el: HTMLElement | null) => void;
+  onItemCardRef?: (item: MenuItem, el: HTMLElement | null) => void;
   /** Wenn gesetzt: Kategorien aus diesem Set werden komplett ausgeblendet
    *  (z. B. Getränke bei aktivem Diät-Filter). */
   hideCategories: ReadonlySet<string> | null;
@@ -678,6 +680,7 @@ function ItemList({
   filterItems,
   onItemClick,
   onCategorySectionRef,
+  onItemCardRef,
   hideCategories,
 }: ItemListProps) {
   const visibleSections =
@@ -733,7 +736,11 @@ function ItemList({
                 const hasImage = Boolean(item.bild_url);
                 const soldOut = item.sold_out === true;
                 return (
-                  <li key={item.id} style={{ borderBottom: `1px dotted ${COL.dividerSoft}` }}>
+                  <li
+                    key={item.id}
+                    ref={(el) => onItemCardRef?.(item, el)}
+                    style={{ borderBottom: `1px dotted ${COL.dividerSoft}` }}
+                  >
                     <button
                       type="button"
                       onClick={() => onItemClick(item)}

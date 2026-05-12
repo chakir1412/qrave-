@@ -9,7 +9,10 @@ export type DashboardAnalytics = {
   viewsToday: number | null;
   viewsYesterday: number | null;
   topItemToday: string | null;
-  topItemsWeek: { name: string; count: number }[];
+  /** Top-Items der Woche.
+   *  count = clicks (item_detail-Events, also Modal-Open).
+   *  views = item_view-Events (Card im Viewport ≥ 0.5 / ≥ 500ms, 1× pro Session). */
+  topItemsWeek: { name: string; count: number; views: number }[];
   weekSeries: number[];
   peaksToday: PeakRow[];
   topFilter: string | null;
@@ -123,26 +126,30 @@ export async function fetchDashboardAnalytics(
     weekSeries.push(sessionsOnDay(d));
   }
 
-  // Top-Items: Klicks aufs Detail-Modal (`item_detail`) in der aktuellen
-  // Woche. Item-Modal-Klicks sind die wirklich starke Engagement-Signal,
-  // nicht reine Sektions-Aufrufe.
-  const itemDetailWeek = events.filter(
-    (e) =>
-      e.event_type === "item_detail" &&
-      typeof e.item_name === "string" &&
-      e.item_name.trim().length > 0 &&
-      new Date(e.created_at) >= monday &&
-      new Date(e.created_at) < sundayEnd,
-  );
-  const weekByItem = new Map<string, number>();
-  for (const e of itemDetailWeek) {
-    const k = (e.item_name as string).trim();
-    weekByItem.set(k, (weekByItem.get(k) ?? 0) + 1);
+  // Top-Items: clicks (item_detail) + views (item_view) in der aktuellen Woche.
+  // count = Klicks (Modal-Open) — Engagement-Signal.
+  // views = wie oft die Item-Card überhaupt im Viewport war (≥ 0.5 / ≥ 500ms).
+  // Rate clicks/views = View-to-Click Conversion.
+  const weekItemStats = new Map<string, { clicks: number; views: number }>();
+  for (const e of events) {
+    const t = new Date(e.created_at);
+    if (t < monday || t >= sundayEnd) continue;
+    if (e.event_type !== "item_detail" && e.event_type !== "item_view") continue;
+    const name = typeof e.item_name === "string" ? e.item_name.trim() : "";
+    if (!name) continue;
+    const cur = weekItemStats.get(name) ?? { clicks: 0, views: 0 };
+    if (e.event_type === "item_detail") cur.clicks += 1;
+    else cur.views += 1;
+    weekItemStats.set(name, cur);
   }
-  const topItemsWeek = [...weekByItem.entries()]
-    .sort((a, b) => b[1] - a[1])
+  // Top 10 nach clicks DESC. Items mit views aber 0 clicks landen nicht in
+  // der Top-Liste — niedrig konvertierende Items werden über die Rate selbst
+  // sichtbar (siehe Hervorhebung im HomeTab).
+  const topItemsWeek = [...weekItemStats.entries()]
+    .filter(([, v]) => v.clicks > 0)
+    .sort((a, b) => b[1].clicks - a[1].clicks || b[1].views - a[1].views)
     .slice(0, 10)
-    .map(([name, count]) => ({ name, count }));
+    .map(([name, v]) => ({ name, count: v.clicks, views: v.views }));
 
   const todayByItem = new Map<string, number>();
   for (const e of events) {

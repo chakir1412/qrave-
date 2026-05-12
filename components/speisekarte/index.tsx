@@ -164,7 +164,7 @@ export default function Speisekarte({
 
   const activeCategoryLabel = useMemo(() => categoryTabLabel(effectiveMainTab), [effectiveMainTab]);
 
-  const { onCategorySectionRef, trackWishlistAdd, trackWishlistRemove, trackCategoryTabSelect } =
+  const { onCategorySectionRef, onItemCardRef, trackWishlistAdd, trackWishlistRemove, trackCategoryTabSelect } =
     useSpeisekarteTier1Tracking({
       restaurantId,
       tischNummer,
@@ -302,6 +302,7 @@ export default function Speisekarte({
             activeAllergens={activeAllergens}
             isInWishlist={isInWishlist}
             onCategorySectionRef={onCategorySectionRef}
+            onItemCardRef={onItemCardRef}
             bannerSlot={
               dailyPushes.length > 0 && effectiveMainTab === CATEGORY_TAB_ALLE_KEY ? (
                 <div className="mb-3 flex flex-col gap-2">

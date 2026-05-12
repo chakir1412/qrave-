@@ -3,6 +3,9 @@ import type { RawRestaurantEventRow } from "@/lib/restaurant-analytics-aggregate
 export type TopItemEntry = {
   name: string;
   clicks: number;
+  /** Anzahl Item-Views (Card im Viewport ≥ 0.5 für ≥ 500ms, einmal pro Session).
+   *  Optional — bestehende Aggregat-Rows vor dem 12.05.2026 haben dieses Feld nicht. */
+  views?: number;
   /** Häufigster (modaler) Preis bei diesem Item; null wenn nie ein Preis erfasst wurde. */
   price: number | null;
 };
@@ -133,33 +136,45 @@ function metricsForRestaurantEvents(
     beverageSubcategoryClicks[sub] = (beverageSubcategoryClicks[sub] ?? 0) + 1;
   }
 
-  // top_items: nur item_detail. Pro Item-Name: clicks + modaler Preis.
-  const itemClicks = new Map<string, { clicks: number; prices: number[] }>();
+  // top_items: zählt clicks (item_detail) + views (item_view) pro Name.
+  // views = Item-Card war ≥ 0.5 im Viewport für ≥ 500ms (einmal pro Session).
+  // clicks = Modal-Open.
+  const itemStats = new Map<string, { clicks: number; views: number; prices: number[] }>();
   let veganClicks = 0;
   let vegetarianClicks = 0;
   const allPrices: number[] = [];
   for (const e of events) {
-    if (e.event_type !== "item_detail") continue;
+    if (e.event_type !== "item_detail" && e.event_type !== "item_view") continue;
     const name = e.item_name?.trim();
     if (name) {
-      const cur = itemClicks.get(name) ?? { clicks: 0, prices: [] };
-      cur.clicks += 1;
-      if (e.item_price != null && Number.isFinite(e.item_price)) {
-        cur.prices.push(Number(e.item_price));
+      const cur = itemStats.get(name) ?? { clicks: 0, views: 0, prices: [] };
+      if (e.event_type === "item_detail") {
+        cur.clicks += 1;
+        if (e.item_price != null && Number.isFinite(e.item_price)) {
+          cur.prices.push(Number(e.item_price));
+        }
+      } else {
+        cur.views += 1;
       }
-      itemClicks.set(name, cur);
+      itemStats.set(name, cur);
     }
-    const tags = Array.isArray(e.item_tags) ? e.item_tags : [];
-    if (tags.includes("vegan")) veganClicks += 1;
-    if (tags.includes("vegetarisch")) vegetarianClicks += 1;
-    if (e.item_price != null && Number.isFinite(e.item_price)) {
-      allPrices.push(Number(e.item_price));
+    if (e.event_type === "item_detail") {
+      const tags = Array.isArray(e.item_tags) ? e.item_tags : [];
+      if (tags.includes("vegan")) veganClicks += 1;
+      if (tags.includes("vegetarisch")) vegetarianClicks += 1;
+      if (e.item_price != null && Number.isFinite(e.item_price)) {
+        allPrices.push(Number(e.item_price));
+      }
     }
   }
 
-  const topItems: TopItemEntry[] = [...itemClicks.entries()]
-    .map(([name, v]) => ({ name, clicks: v.clicks, price: modePrice(v.prices) }))
-    .sort((a, b) => b.clicks - a.clicks || a.name.localeCompare(b.name, "de"))
+  // Top 10 nach clicks DESC. Items mit views aber ohne clicks landen nicht
+  // in der Top-Liste — werden aber in scan_events.event_type='item_view'
+  // weiterhin für Konversions-Analysen vorgehalten.
+  const topItems: TopItemEntry[] = [...itemStats.entries()]
+    .filter(([, v]) => v.clicks > 0 || v.views > 0)
+    .map(([name, v]) => ({ name, clicks: v.clicks, views: v.views, price: modePrice(v.prices) }))
+    .sort((a, b) => b.clicks - a.clicks || (b.views ?? 0) - (a.views ?? 0) || a.name.localeCompare(b.name, "de"))
     .slice(0, 10);
 
   const avgItemPriceClicked =
