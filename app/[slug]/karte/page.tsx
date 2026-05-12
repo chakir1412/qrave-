@@ -1,7 +1,9 @@
 import React from "react";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { loadPublicSpeisekarteBySlug } from "@/lib/load-public-speisekarte";
 import { loadSponsoredItems } from "@/lib/speisekarte-logic";
+import { detectLocale, localizeMenuItems, RTL_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
 import type { SpeisekarteProps } from "@/components/speisekarte";
 import BarSoleilTemplate from "@/components/templates/BarSoleil";
 import KioskNo7Template from "@/components/templates/KioskNo7";
@@ -35,13 +37,27 @@ export default async function SpeisekartePage({
 
   const sponsoredItems = await loadSponsoredItems(data.restaurant.id);
 
+  // Sprache aus `Accept-Language` ableiten. Restaurant kann die Sprache
+  // im Dashboard deaktiviert haben — dann Fallback auf Deutsch.
+  const headerStore = await headers();
+  const acceptLanguage = headerStore.get("accept-language");
+  const detected = detectLocale(acceptLanguage);
+  const activeLanguages = (data.restaurant.active_languages ?? ["de"]).filter(
+    (code): code is SupportedLocale => typeof code === "string",
+  );
+  const locale: SupportedLocale = activeLanguages.includes(detected) ? detected : "de";
+  const isRtl = RTL_LOCALES.has(locale);
+
+  const localizedItems = localizeMenuItems(data.menuItems, locale);
+  const localizedHighlights = localizeMenuItems(data.highlights, locale);
+
   const templateProps: SpeisekarteProps = {
     categories: data.categories,
-    menuItems: data.menuItems,
+    menuItems: localizedItems,
     restaurantName: data.restaurant.name,
     accentColor: data.restaurant.accent_color ?? undefined,
     logoUrl: data.restaurant.logo_url ?? undefined,
-    highlights: data.highlights,
+    highlights: localizedHighlights,
     dailyPushes: data.dailyPushes,
     restaurantId: data.restaurant.id,
     sponsoredItems,
@@ -52,7 +68,13 @@ export default async function SpeisekartePage({
   const templateKey = (data.restaurant.template ?? "bar-soleil") as string;
   const TemplateComponent = templateMap[templateKey] ?? templateMap["bar-soleil"];
 
-  return <TemplateComponent {...templateProps} />;
+  // `dir`-Attribut wirkt für CSS logical properties + Text-Richtung;
+  // alle Templates erben es vom Wrapper, ohne dass jedes einzeln angepasst werden muss.
+  return (
+    <div dir={isRtl ? "rtl" : "ltr"} lang={locale}>
+      <TemplateComponent {...templateProps} />
+    </div>
+  );
 }
 
 export async function generateMetadata({

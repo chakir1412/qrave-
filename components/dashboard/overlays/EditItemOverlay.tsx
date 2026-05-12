@@ -83,15 +83,29 @@ export function EditItemOverlay({
     }
     setBusy(true);
     const kat = kategorie.trim();
-    const payload = {
-      name: name.trim(),
-      beschreibung: desc.trim() || null,
+    const newName = name.trim();
+    const newDesc = desc.trim() || null;
+    const payload: Record<string, unknown> = {
+      name: newName,
+      beschreibung: newDesc,
       allergens_text: allergens.trim() || null,
       tags,
       preis: p,
       kategorie: kat,
       sort_order: sortOrderIndexForKategorie(kat),
     };
+    // Mehrsprachigkeit: Wenn name oder beschreibung im Edit geändert wurden,
+    // werden die entsprechenden Übersetzungs-Spalten auf NULL gesetzt, damit
+    // sie beim nächsten "Speisekarte übersetzen"-Trigger neu generiert werden.
+    if (editing) {
+      const nameChanged = newName !== (editing.name ?? "");
+      const descChanged = (newDesc ?? "") !== (editing.beschreibung ?? "");
+      const LOCALES = ["en", "tr", "ar", "ru", "it", "fr"] as const;
+      for (const l of LOCALES) {
+        if (nameChanged) payload[`name_${l}`] = null;
+        if (descChanged) payload[`beschreibung_${l}`] = null;
+      }
+    }
     const query = isCreate
       ? supabase.from("menu_items").insert({ ...payload, restaurant_id: restaurantId, aktiv: true })
       : supabase.from("menu_items").update(payload).eq("id", editing.id);

@@ -56,6 +56,9 @@ export type Restaurant = {
   splash_image_url?: string | null;
   /** Wochenplan als JSONB: { mo: {open,close} | null, … }. */
   oeffnungszeiten?: OeffnungszeitenWoche | null;
+  /** Aktive Sprachen für die Gäste-Speisekarte. 'de' ist immer dabei.
+   *  Erlaubte Werte: 'de' | 'en' | 'tr' | 'ar' | 'ru' | 'it' | 'fr'. */
+  active_languages?: string[];
 };
 
 /** Wochentag-Keys des Öffnungszeiten-Plans. */
@@ -171,6 +174,22 @@ export type MenuItem = {
   section_subtitle?: string | null;
   /** Scan-Events (z. B. pro Woche), für Stat-Pills im Item-Modal */
   scan_count?: number | null;
+  /** Übersetzungen (NULL = noch nicht übersetzt; werden via DeepL beim
+   *  Dashboard-Trigger gefüllt). Bei Änderung von `name` bzw. `beschreibung`
+   *  im Dashboard werden die zugehörigen Sprach-Spalten auf NULL gesetzt,
+   *  damit sie beim nächsten Translate-Aufruf neu generiert werden. */
+  name_en?: string | null;
+  name_tr?: string | null;
+  name_ar?: string | null;
+  name_ru?: string | null;
+  name_it?: string | null;
+  name_fr?: string | null;
+  beschreibung_en?: string | null;
+  beschreibung_tr?: string | null;
+  beschreibung_ar?: string | null;
+  beschreibung_ru?: string | null;
+  beschreibung_it?: string | null;
+  beschreibung_fr?: string | null;
 };
 
 /** Partner-Einträge für gesponserte „Dazu passend“-Karten (Tabelle sponsored_items) */

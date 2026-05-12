@@ -11,6 +11,7 @@ import {
   type OeffnungszeitenWoche,
 } from "@/lib/supabase";
 import { WEEKDAY_LABELS_SHORT, defaultOeffnungszeiten } from "@/lib/oeffnungszeiten";
+import { LOCALE_LABEL, SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
 
 const rowBorder = { borderBottom: "1px solid rgba(255,255,255,0.05)" };
 const valueStyle = { color: "rgba(255,255,255,0.4)", fontSize: 14 };
@@ -35,7 +36,10 @@ type Props = {
     instagram?: string | null;
     maps_url?: string | null;
     oeffnungszeiten?: OeffnungszeitenWoche | null;
+    active_languages?: string[];
   }) => Promise<void>;
+  /** Toast-Helper (für Translate-Button-Feedback). */
+  onToast: (msg: string) => void;
 };
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -169,6 +173,7 @@ export function SettingsOverlay({
   brandingMessage,
   currentLogoUrl,
   onPatchRestaurant,
+  onToast,
 }: Props) {
   const router = useRouter();
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -330,6 +335,15 @@ export function SettingsOverlay({
           />
         </Group>
 
+        <Group title="Sprachen">
+          <SprachenInline
+            restaurantId={restaurant.id}
+            value={restaurant.active_languages ?? ["de"]}
+            onChange={(next) => void onPatchRestaurant({ active_languages: next })}
+            onToast={onToast}
+          />
+        </Group>
+
         <Group title="Account">
           <Row label="E-Mail" right={<span style={valueStyle}>{userEmail || "—"}</span>} />
           <Row label="Passwort ändern" showChevron onClick={onPasswort} />
@@ -348,6 +362,114 @@ export function SettingsOverlay({
             </button>
           </div>
         </Group>
+      </div>
+    </div>
+  );
+}
+
+function SprachenInline({
+  restaurantId,
+  value,
+  onChange,
+  onToast,
+}: {
+  restaurantId: string;
+  value: string[];
+  onChange: (next: string[]) => void;
+  onToast: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  function toggle(locale: SupportedLocale) {
+    if (locale === "de") return; // Deutsch ist immer aktiv.
+    const has = value.includes(locale);
+    const next = has ? value.filter((l) => l !== locale) : [...value, locale];
+    // Reihenfolge stabilisieren: in der SUPPORTED_LOCALES-Reihenfolge.
+    const ordered = SUPPORTED_LOCALES.filter((l) => next.includes(l));
+    onChange(ordered);
+  }
+
+  async function handleTranslate() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/dashboard/translate-menu", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { success?: boolean; translatedFields?: number; error?: string }
+        | null;
+      if (!res.ok || !json?.success) {
+        onToast(json?.error ?? "Übersetzung fehlgeschlagen");
+        return;
+      }
+      const n = json.translatedFields ?? 0;
+      onToast(n > 0 ? `✓ ${n} Texte übersetzt` : "✓ Alles aktuell");
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : "Übersetzung fehlgeschlagen");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const otherLocales = SUPPORTED_LOCALES.filter((l) => l !== "de");
+  const hasOther = otherLocales.some((l) => value.includes(l));
+
+  return (
+    <div className="flex flex-col">
+      <div className="flex h-[52px] items-center justify-between px-4" style={rowBorder}>
+        <span style={labelStyle}>{LOCALE_LABEL.de}</span>
+        <span style={{ ...valueStyle, color: "rgba(255,255,255,0.55)" }}>Standard</span>
+      </div>
+      {otherLocales.map((locale, i) => {
+        const active = value.includes(locale);
+        const noBorder = i === otherLocales.length - 1;
+        return (
+          <div
+            key={locale}
+            className="flex h-[52px] items-center justify-between px-4"
+            style={noBorder ? undefined : rowBorder}
+          >
+            <span style={labelStyle}>{LOCALE_LABEL[locale]}</span>
+            <button
+              type="button"
+              onClick={() => toggle(locale)}
+              className="relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors"
+              style={{ backgroundColor: active ? dash.or : "rgba(255,255,255,0.12)" }}
+              aria-label={active ? `${LOCALE_LABEL[locale]} deaktivieren` : `${LOCALE_LABEL[locale]} aktivieren`}
+            >
+              <span
+                className="absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all"
+                style={{ left: active ? "calc(100% - 19px)" : "3px" }}
+              />
+            </button>
+          </div>
+        );
+      })}
+      <div className="border-t border-white/[0.05] p-3 pt-3">
+        <button
+          type="button"
+          onClick={() => void handleTranslate()}
+          disabled={busy || !hasOther}
+          className="w-full rounded-xl py-[14px] text-[14px] font-semibold transition"
+          style={{
+            background: hasOther && !busy ? dash.or : "rgba(255,255,255,0.08)",
+            color: hasOther && !busy ? "#080810" : "rgba(255,255,255,0.45)",
+            cursor: busy || !hasOther ? "not-allowed" : "pointer",
+          }}
+        >
+          {busy ? "Übersetzt …" : "Speisekarte übersetzen"}
+        </button>
+        {!hasOther ? (
+          <p
+            className="mt-2 text-center text-[12px]"
+            style={{ color: "rgba(255,255,255,0.4)" }}
+          >
+            Bitte mindestens eine weitere Sprache aktivieren.
+          </p>
+        ) : null}
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ export type DashboardRestaurant = Pick<
   | "instagram"
   | "maps_url"
   | "oeffnungszeiten"
+  | "active_languages"
 > & {
   accent_color?: string | null;
   logo_url?: string | null;

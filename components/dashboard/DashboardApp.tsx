@@ -180,6 +180,7 @@ export function DashboardApp({
       instagram?: string | null;
       maps_url?: string | null;
       oeffnungszeiten?: import("@/lib/supabase").OeffnungszeitenWoche | null;
+      active_languages?: string[];
     }) => {
       // `.select("id")` zwingt PostgREST, die aktualisierten Zeilen zurückzugeben.
       // Bei RLS-Block trifft das UPDATE 0 Zeilen → `data` ist leer, aber `error`
@@ -461,6 +462,7 @@ export function DashboardApp({
         brandingMessage={brandingMessage}
         currentLogoUrl={currentLogoUrl}
         onPatchRestaurant={handlePatchRestaurant}
+        onToast={showToast}
       />
 
       <EditItemOverlay
