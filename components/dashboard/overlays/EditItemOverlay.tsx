@@ -238,6 +238,7 @@ export function EditItemOverlay({
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
           rows={3}
+          maxLength={200}
           className="mb-3 w-full resize-none rounded-[11px] border px-3.5 py-3 text-sm outline-none"
           style={{
             backgroundColor: dash.s2,

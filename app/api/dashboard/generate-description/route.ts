@@ -8,11 +8,11 @@ export const maxDuration = 30;
 export const dynamic = "force-dynamic";
 
 const MODEL = "claude-haiku-4-5-20251001";
-const MAX_LENGTH = 100;
+const MAX_LENGTH = 200;
 
 const SYSTEM_PROMPT =
   "Du schreibst kurze, appetitliche Beschreibungen für Restaurant-Gerichte auf Deutsch. " +
-  "Maximal 100 Zeichen, in einem ganzen Satz, ohne Anführungszeichen, ohne Aufzählungen, ohne den Namen des Gerichts zu wiederholen. " +
+  "Maximal 200 Zeichen, in ein bis zwei Sätzen, ohne Anführungszeichen, ohne Aufzählungen, ohne den Namen des Gerichts zu wiederholen. " +
   "Sinnliche Sprache, konkrete Zutaten oder Zubereitungs-Hinweise, keine Floskeln wie 'leckere Mahlzeit'.";
 
 type AnthropicResponse = {
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 120,
+        max_tokens: 220,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: userPrompt }],
       }),
