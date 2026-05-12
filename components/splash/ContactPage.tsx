@@ -21,23 +21,12 @@ function buildInstagramUrl(raw: string | null | undefined): string | null {
   return `https://instagram.com/${handle}`;
 }
 
-function buildMapsEmbed(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const s = url.trim();
-  if (!s) return null;
-  // Wenn schon ein /embed-Link: direkt verwenden.
-  if (/\/maps\/embed/.test(s)) return s;
-  // Standard Maps-URL → Embed via Query.
-  return `https://maps.google.com/maps?q=${encodeURIComponent(s)}&output=embed`;
-}
-
 export default function ContactPage({ restaurant }: Props) {
   const accent = restaurant.accent_color?.trim() || "#C8894E";
   const whatsapp = buildWhatsappUrl(restaurant.whatsapp);
   const instagram = buildInstagramUrl(restaurant.instagram);
   const phone = restaurant.telefon?.trim() ?? "";
   const phoneHref = phone ? `tel:${phone.replace(/\s/g, "")}` : null;
-  const mapsEmbed = buildMapsEmbed(restaurant.maps_url);
   const mapsExternal = restaurant.maps_url?.trim() ?? null;
 
   return (
@@ -73,25 +62,6 @@ export default function ContactPage({ restaurant }: Props) {
           <p className="mt-2 text-sm" style={{ color: "rgba(255,255,255,0.65)" }}>
             {restaurant.adresse}
           </p>
-        ) : null}
-
-        {/* Maps Embed */}
-        {mapsEmbed ? (
-          <div
-            className="mt-6 overflow-hidden rounded-2xl border"
-            style={{ borderColor: "rgba(255,255,255,0.1)" }}
-          >
-            <iframe
-              src={mapsEmbed}
-              title="Karte"
-              width="100%"
-              height="220"
-              style={{ border: 0, display: "block" }}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
-            />
-          </div>
         ) : null}
 
         {/* Direktlinks */}
