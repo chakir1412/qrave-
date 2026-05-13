@@ -83,6 +83,10 @@ export function DashboardApp({
   const [slideClass, setSlideClass] = useState("dashboard-slR");
 
   const [activeKarteSub, setActiveKarteSub] = useState<KarteSub>("menu");
+  /** Wenn HomeTab → "Ausverkauft markieren" geklickt wird, springt KarteTab
+   *  mit aktivem Filter rein. KarteTab consumed den Wert beim Mount und
+   *  ruft `clearInitialFilter` auf — so wirkt der Filter nur einmal. */
+  const [karteInitialFilter, setKarteInitialFilter] = useState<"soldout" | null>(null);
 
   const [overlays, setOverlays] = useState<OverlaysState>({
     settings: false,
@@ -465,6 +469,7 @@ export function DashboardApp({
       avatarLabel={avatarLabel}
       onOpenSettings={() => setOverlays((o) => ({ ...o, settings: true }))}
       onOpenAiFeatures={() => setOverlays((o) => ({ ...o, settings: true }))}
+      previewUrl={`https://qrave.menu/${restaurant.slug}`}
     >
       <div className="mx-auto w-full max-w-[1200px] px-5 pb-16 pt-6 md:px-8 md:pt-8">
         {restaurant.published === false ? (
@@ -487,21 +492,16 @@ export function DashboardApp({
         <main className="flex-1">
           {activeTab === "home" && (
             <HomeTab
-              key={`home-${slideClass}`}
+              key="home-tab"
               userFirstName={userFirstName}
               restaurantName={restaurant.name}
-              viewsToday={analytics.viewsToday}
-              viewsYesterday={analytics.viewsYesterday}
-              weekSeries={analytics.weekSeries}
-              monthTotal={analytics.monthTotal}
-              topItemsWeek={analytics.topItemsWeek}
+              events={analytics.events}
               menuItems={menuItems}
-              peaksToday={analytics.peaksToday}
-              hourBuckets={analytics.hourBuckets}
               dailyPushes={dailyPushes}
               activeLanguagesCount={(restaurant.active_languages ?? ["de"]).length}
-              onGoKarte={(sub) => {
+              onGoKarte={(sub, options) => {
                 setActiveKarteSub(sub);
+                if (options?.filter === "soldout") setKarteInitialFilter("soldout");
                 goTab("karte");
               }}
               onOpenSettings={() => setOverlays((o) => ({ ...o, settings: true }))}
@@ -517,6 +517,8 @@ export function DashboardApp({
               onItemsChange={setMenuItems}
               activeSub={activeKarteSub}
               onSubChange={setActiveKarteSub}
+              initialFilter={karteInitialFilter}
+              clearInitialFilter={() => setKarteInitialFilter(null)}
               onOpenEdit={(item) => {
                 setEditItem(item);
                 setEditDefaultCategory(item.kategorie ?? null);

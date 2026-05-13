@@ -110,6 +110,7 @@ export async function fetchDashboardAnalytics(
     event_type: e.event_type,
     filter_key: e.filter_key,
     created_at: e.created_at,
+    session_id: e.session_id,
   }));
 
   // Sessions pro Tag-Key sammeln.

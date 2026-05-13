@@ -4,6 +4,8 @@ export type AnalyticsEventRow = {
   event_type: string | null;
   filter_key: string | null;
   created_at: string;
+  /** Optional, für Client-side Session-Deduplizierung in HomeTab. */
+  session_id?: string | null;
 };
 
 function startOfWeekMonday(ref: Date): Date {

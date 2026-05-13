@@ -75,6 +75,9 @@ type Props = {
   onItemsChange: (items: MenuItem[]) => void;
   activeSub: KarteSub;
   onSubChange: (s: KarteSub) => void;
+  /** Wenn gesetzt, wird beim Mount/Update der Filter aktiviert (einmalig). */
+  initialFilter?: "soldout" | null;
+  clearInitialFilter?: () => void;
   onOpenEdit: (item: MenuItem) => void;
   onOpenCreateItem: (category: string) => void;
   onOpenAddCat: () => void;
@@ -237,6 +240,8 @@ export function KarteTab({
   onItemsChange,
   activeSub,
   onSubChange,
+  initialFilter,
+  clearInitialFilter,
   onOpenEdit,
   onOpenCreateItem,
   onOpenAddCat,
@@ -318,6 +323,17 @@ export function KarteTab({
   const [deletingMenu, setDeletingMenu] = useState(false);
   const [showImportOverlay, setShowImportOverlay] = useState(false);
   const [activeMainTab, setActiveMainTab] = useState<string>("alle");
+  const [soldOutFilter, setSoldOutFilter] = useState(false);
+
+  // Vom HomeTab via Shortcut "Ausverkauft markieren" angesprungen.
+  useEffect(() => {
+    if (initialFilter === "soldout") {
+      setSoldOutFilter(true);
+      setActiveMainTab("alle");
+      clearInitialFilter?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFilter]);
   useEffect(() => {
     setPortalReady(true);
   }, []);
@@ -343,9 +359,10 @@ export function KarteTab({
   }, [lunchOffers]);
 
   const filteredMenuItems = useMemo(() => {
-    if (activeMainTab === "alle") return menuItems;
-    return menuItems.filter((i) => normalizeEditorMainTab(i.main_tab) === activeMainTab);
-  }, [menuItems, activeMainTab]);
+    let base = activeMainTab === "alle" ? menuItems : menuItems.filter((i) => normalizeEditorMainTab(i.main_tab) === activeMainTab);
+    if (soldOutFilter) base = base.filter((i) => i.sold_out === true);
+    return base;
+  }, [menuItems, activeMainTab, soldOutFilter]);
 
   const groupedForList = useMemo(() => {
     const map = new Map<string, MenuItem[]>();
@@ -991,6 +1008,30 @@ export function KarteTab({
           </span>
         </button>
       </div>
+
+      {activeSub === "menu" && soldOutFilter && (
+        <div
+          className="mt-3 flex items-center justify-between gap-3 rounded-[11px] border px-3.5 py-2.5 text-[12px]"
+          style={{
+            background: "rgba(251,146,60,0.1)",
+            borderColor: "rgba(251,146,60,0.25)",
+            color: "#fb923c",
+          }}
+        >
+          <span className="flex items-center gap-2 font-semibold">
+            <i className="fa-solid fa-ban" />
+            Nur ausverkaufte Gerichte angezeigt
+          </span>
+          <button
+            type="button"
+            onClick={() => setSoldOutFilter(false)}
+            className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition hover:bg-white/10"
+            style={{ color: "rgba(242,242,242,0.8)" }}
+          >
+            Filter zurücksetzen
+          </button>
+        </div>
+      )}
 
       {activeSub === "menu" && (
         <div className="animate-in fade-in duration-200">

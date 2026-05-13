@@ -29,10 +29,12 @@ type Props = {
   liveBadge?: boolean;
   /** Avatar-Buchstabe oben rechts (z. B. Initial). */
   avatarLabel?: string;
-  /** Klick aufs Settings-Icon im Topbar. */
+  /** Klick aufs Settings-Icon (nur in Sidebar/Drawer, nicht mehr Topbar). */
   onOpenSettings?: () => void;
   /** Klick auf die KI-Features-CTA in der Sidebar. */
   onOpenAiFeatures?: () => void;
+  /** Öffentliche Speisekarten-URL (öffnet "Speisekarte ansehen"-Button im Topbar). */
+  previewUrl?: string;
   children: ReactNode;
 };
 
@@ -45,6 +47,7 @@ export function DashboardShell({
   avatarLabel,
   onOpenSettings,
   onOpenAiFeatures,
+  previewUrl,
   children,
 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -137,15 +140,21 @@ export function DashboardShell({
                 Karte live
               </span>
             ) : null}
-            {onOpenSettings ? (
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                aria-label="Einstellungen"
-                className="hidden h-9 w-9 items-center justify-center rounded-[9px] border border-white/10 bg-white/[0.05] text-white/55 transition hover:bg-white/10 hover:text-white md:flex"
+            {previewUrl ? (
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-9 items-center gap-2 rounded-[9px] border px-3 text-[12px] font-semibold transition"
+                style={{
+                  borderColor: "color-mix(in srgb, var(--qrave-accent) 30%, transparent)",
+                  background: "color-mix(in srgb, var(--qrave-accent) 12%, transparent)",
+                  color: "var(--qrave-accent-soft)",
+                }}
               >
-                <i className="fa-solid fa-gear text-[13px]" />
-              </button>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[11px]" />
+                <span className="hidden sm:inline">Speisekarte ansehen</span>
+              </a>
             ) : null}
             {avatarLabel ? (
               <div

@@ -11,11 +11,13 @@ export const TEMPLATE_CARDS = [
 export const DASH_GLASS_CARD_CLASS = "dash-glass-card";
 
 /**
- * Design-Tokens — Restaurant-Dashboard (dunkel, Glass, Teal-Akzent)
- * `or` / `ord` / `orm` bleiben als Kompatibilitäts-Aliase für Teal-Selektion.
+ * Design-Tokens — Restaurant-Dashboard (Qrave CI v5, lila Akzent).
+ * `teal`/`or*` bleiben als Aliase aus historischen Gründen, die Werte
+ * zeigen jetzt auf den lila Akzent — so propagiert das Reskinning ohne
+ * Anpassung in den einzelnen Tab-Dateien.
  */
 export const dash = {
-  bg: "#080810",
+  bg: "#06040e",
 
   /** Glass-Card */
   cardBg: "rgba(255,255,255,0.04)",
@@ -25,57 +27,57 @@ export const dash = {
   s2: "rgba(255,255,255,0.06)",
   s3: "rgba(255,255,255,0.08)",
 
-  teal: "#00c8a0",
-  orange: "#ff5c1a",
-  blue: "#5b9bff",
-  yellow: "#ffd426",
-  gr: "#34e89e",
-  re: "#ff4b6e",
+  teal: "#9333ea",
+  orange: "#fb923c",
+  blue: "#60a5fa",
+  yellow: "#facc15",
+  gr: "#4ade80",
+  re: "#f87171",
 
-  tx: "#ffffff",
-  mu: "rgba(255,255,255,0.5)",
-  mt: "rgba(255,255,255,0.3)",
-  mi: "rgba(255,255,255,0.65)",
+  tx: "#f2f2f2",
+  mu: "rgba(242,242,242,0.55)",
+  mt: "rgba(242,242,242,0.35)",
+  mi: "rgba(242,242,242,0.7)",
 
   bo: "rgba(255,255,255,0.07)",
 
-  kpiLabel: "rgba(255,255,255,0.35)",
+  kpiLabel: "rgba(242,242,242,0.5)",
 
-  primaryBg: "#00c8a0",
-  primaryFg: "#000000",
+  primaryBg: "#9333ea",
+  primaryFg: "#ffffff",
 
   secondaryBg: "rgba(255,255,255,0.06)",
   secondaryBorder: "rgba(255,255,255,0.08)",
   secondaryFg: "#ffffff",
 
-  /** @deprecated Kompatibilität: UI-Akzent = Teal */
-  or: "#00c8a0",
-  or2: "#00a88a",
-  ord: "rgba(0,200,160,0.15)",
-  orm: "rgba(0,200,160,0.35)",
+  /** @deprecated Aliase — zeigen jetzt auf den lila Akzent. */
+  or: "#9333ea",
+  or2: "#a855f7",
+  ord: "rgba(147,51,234,0.18)",
+  orm: "rgba(147,51,234,0.4)",
 
-  ye: "#ffd426",
+  ye: "#facc15",
 
-  chartGrid: "rgba(255,255,255,0.04)",
-  chartAxis: "rgba(255,255,255,0.25)",
+  chartGrid: "rgba(255,255,255,0.05)",
+  chartAxis: "rgba(242,242,242,0.5)",
 
-  navBg: "rgba(10,10,20,0.95)",
+  navBg: "rgba(6,4,14,0.95)",
   navBorderTop: "rgba(255,255,255,0.06)",
-  navInactive: "rgba(255,255,255,0.35)",
+  navInactive: "rgba(242,242,242,0.4)",
 
-  onlineBg: "rgba(52,232,158,0.15)",
-  onlineBorder: "rgba(52,232,158,0.3)",
-  onlineFg: "#34e89e",
+  onlineBg: "rgba(74,222,128,0.12)",
+  onlineBorder: "rgba(74,222,128,0.25)",
+  onlineFg: "#4ade80",
 
-  offlineBg: "rgba(255,75,110,0.15)",
-  offlineFg: "#ff4b6e",
+  offlineBg: "rgba(248,113,113,0.12)",
+  offlineFg: "#f87171",
 } as const;
 
-/** Primär-Button (solid Teal) — gemeinsam für Overlays/Tabs */
+/** Primär-Button (solid lila) — gemeinsam für Overlays/Tabs */
 export const dashPrimaryButtonStyle = {
-  backgroundColor: dash.primaryBg,
-  color: dash.primaryFg,
-  boxShadow: "0 6px 20px rgba(0,200,160,0.28)",
+  background: "linear-gradient(135deg, #9333ea, #7c3aed)",
+  color: "#ffffff",
+  boxShadow: "0 6px 20px rgba(147,51,234,0.4)",
 } as const;
 
 export const TAB_ANIM_MS = 280;
