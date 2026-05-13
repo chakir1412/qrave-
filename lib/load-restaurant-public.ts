@@ -16,6 +16,7 @@ export type PublicRestaurant = Pick<
   | "splash_image_url"
   | "splash_media_url"
   | "splash_media_type"
+  | "active_languages"
   | "guest_note"
   | "adresse"
   | "stadt"
@@ -32,7 +33,7 @@ export type PublicRestaurant = Pick<
 >;
 
 const RESTAURANT_PUBLIC_SELECT =
-  "id, slug, name, template, accent_color, primary_color, logo_url, splash_image_url, splash_media_url, splash_media_type, guest_note, adresse, stadt, stadtbezirk, telefon, email, whatsapp, instagram, maps_url, website, oeffnungszeiten, aktiv, published";
+  "id, slug, name, template, accent_color, primary_color, logo_url, splash_image_url, splash_media_url, splash_media_type, active_languages, guest_note, adresse, stadt, stadtbezirk, telefon, email, whatsapp, instagram, maps_url, website, oeffnungszeiten, aktiv, published";
 
 /** Lädt das Restaurant für Splash + Kontakt-Seite — ohne Menu-Items.
  *  Anon-key + Public-SELECT-Policy reicht.

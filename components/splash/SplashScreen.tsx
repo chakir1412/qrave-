@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { PublicRestaurant } from "@/lib/load-restaurant-public";
 import { getOpenStatus } from "@/lib/oeffnungszeiten";
 import ShareButton from "./ShareButton";
+import { LanguageButton } from "./LanguageButton";
+import { SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
 
 type Props = {
   restaurant: PublicRestaurant;
@@ -189,23 +191,15 @@ export default function SplashScreen({ restaurant }: Props) {
             <span>Kontakt</span>
           </Link>
 
-          <button
-            type="button"
-            disabled
-            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-4 py-4 text-sm font-semibold opacity-50"
-            style={{
-              borderColor: "rgba(255,255,255,0.14)",
-              background: "rgba(255,255,255,0.02)",
-              color: "rgba(255,255,255,0.5)",
-            }}
-            aria-label="Sprache wechseln — bald verfügbar"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
-              <circle cx="12" cy="12" r="9" />
-              <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" strokeLinecap="round" />
-            </svg>
-            <span>Sprache</span>
-          </button>
+          <LanguageButton
+            slug={restaurant.slug}
+            activeLanguages={
+              (restaurant.active_languages ?? ["de"]).filter((c): c is SupportedLocale =>
+                (SUPPORTED_LOCALES as readonly string[]).includes(c),
+              ) as SupportedLocale[]
+            }
+            accent={accent}
+          />
         </div>
 
         {/* Primär-CTA */}

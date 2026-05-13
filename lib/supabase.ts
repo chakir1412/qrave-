@@ -75,8 +75,19 @@ export type OeffnungszeitenWeekday = (typeof OEFFNUNGSZEITEN_WEEKDAY_KEYS)[numbe
  */
 export type OeffnungszeitenTag = { open: string; close: string } | null;
 
-/** Wochenplan als JSONB-Objekt. */
-export type OeffnungszeitenWoche = Partial<Record<OeffnungszeitenWeekday, OeffnungszeitenTag>>;
+/** Heute-Override: setzt für `date` (Berlin, YYYY-MM-DD) abweichende Zeiten.
+ *  - `closed: true`: Heute komplett geschlossen, Wochentag wird ignoriert.
+ *  - `{ open, close }`: Heute andere Öffnungszeiten als der reguläre Wochentag.
+ *  Splash-Logik liest das Override nur, wenn `date === heute (Berlin)` —
+ *  sonst wird's automatisch ignoriert (Auto-Reset um Mitternacht). */
+export type OeffnungszeitenHeuteOverride =
+  | { date: string; closed: true }
+  | { date: string; open: string; close: string };
+
+/** Wochenplan als JSONB-Objekt — plus optionalem Heute-Override. */
+export type OeffnungszeitenWoche = Partial<Record<OeffnungszeitenWeekday, OeffnungszeitenTag>> & {
+  heute_override?: OeffnungszeitenHeuteOverride | null;
+};
 
 /** Roh-Eintrag aus `scan_events` — public API für Komponenten. */
 export type ScanEvent = {

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import type { DashboardRestaurant } from "../types";
 import { LOCALE_LABEL, SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
+import { authFetch } from "@/lib/auth-fetch";
+import { Hint } from "../Hint";
 
 type Props = {
   restaurant: DashboardRestaurant;
@@ -31,7 +33,7 @@ export function KiFeaturesContent({ restaurant, onToast, onPatchRestaurant }: Pr
     setGenerateBusy(true);
     setGeneratedText(null);
     try {
-      const res = await fetch("/api/dashboard/generate-description", {
+      const res = await authFetch("/api/dashboard/generate-description", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -59,7 +61,7 @@ export function KiFeaturesContent({ restaurant, onToast, onPatchRestaurant }: Pr
     if (translateBusy) return;
     setTranslateBusy(true);
     try {
-      const res = await fetch("/api/dashboard/translate-menu", {
+      const res = await authFetch("/api/dashboard/translate-menu", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ restaurantId: restaurant.id }),
@@ -108,6 +110,7 @@ export function KiFeaturesContent({ restaurant, onToast, onPatchRestaurant }: Pr
           icon="fa-solid fa-wand-magic-sparkles"
           title="Beschreibung generieren"
           subtitle="Claude Haiku schreibt eine appetitliche Beschreibung (max. 200 Zeichen) zu jedem Gericht."
+          hint="Trag einen Gerichtnamen ein — Claude Haiku schreibt eine kurze appetitliche Beschreibung. Ratelimit: 20 Versuche pro Stunde."
         >
           <div className="mt-4 space-y-2.5">
             <input
@@ -160,6 +163,7 @@ export function KiFeaturesContent({ restaurant, onToast, onPatchRestaurant }: Pr
           title="Karte übersetzen"
           subtitle="Sprachen aktivieren → DeepL übersetzt fehlende Texte. Bestehende Übersetzungen werden nie überschrieben."
           id="uebersetzen"
+          hint="DeepL übersetzt nur Felder, die noch leer sind — deine manuellen Übersetzungen bleiben unangetastet."
         >
           <div className="mt-4 space-y-1.5">
             {others.map((locale) => {
@@ -212,12 +216,14 @@ function FeatureCard({
   subtitle,
   children,
   id,
+  hint,
 }: {
   icon: string;
   title: string;
   subtitle: string;
   children: React.ReactNode;
   id?: string;
+  hint?: string;
 }) {
   return (
     <div
@@ -235,8 +241,11 @@ function FeatureCard({
         >
           <i className={`${icon} text-[16px]`} />
         </div>
-        <div>
-          <div className="qrave-font-display text-[15px] font-bold">{title}</div>
+        <div className="min-w-0 flex-1">
+          <div className="qrave-font-display flex items-center gap-2 text-[15px] font-bold">
+            {title}
+            {hint ? <Hint text={hint} /> : null}
+          </div>
           <p className="mt-0.5 text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
             {subtitle}
           </p>

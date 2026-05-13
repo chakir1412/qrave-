@@ -12,6 +12,7 @@ import {
 } from "@/lib/supabase";
 import { WEEKDAY_LABELS_SHORT, defaultOeffnungszeiten } from "@/lib/oeffnungszeiten";
 import { LOCALE_LABEL, SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
+import { authFetch } from "@/lib/auth-fetch";
 
 type SectionKey = "speisekarte" | "restaurant" | "kontakt" | "oeffnungszeiten" | "sprachen" | "account";
 
@@ -380,11 +381,101 @@ function KontaktSection({ restaurant, onPatchRestaurant }: Props) {
 
 function OeffnungszeitenSection({ restaurant, onPatchRestaurant }: Props) {
   return (
-    <SectionCard title="Öffnungszeiten">
-      <OeffnungszeitenInline
+    <div className="space-y-4">
+      <HeuteOverrideCard
         value={restaurant.oeffnungszeiten ?? null}
         onChange={(next) => void onPatchRestaurant({ oeffnungszeiten: next })}
       />
+      <SectionCard title="Wochenplan">
+        <OeffnungszeitenInline
+          value={restaurant.oeffnungszeiten ?? null}
+          onChange={(next) => void onPatchRestaurant({ oeffnungszeiten: next })}
+        />
+      </SectionCard>
+    </div>
+  );
+}
+
+function berlinTodayIso(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function HeuteOverrideCard({
+  value,
+  onChange,
+}: {
+  value: OeffnungszeitenWoche | null;
+  onChange: (next: OeffnungszeitenWoche) => void;
+}) {
+  const today = berlinTodayIso();
+  const override = value?.heute_override && value.heute_override.date === today ? value.heute_override : null;
+  const isClosed = override && "closed" in override && override.closed === true;
+  const overrideOpen = override && "open" in override ? override.open : "11:00";
+  const overrideClose = override && "close" in override ? override.close : "22:00";
+
+  function commit(next: OeffnungszeitenWoche["heute_override"] | null) {
+    const base = value ?? {};
+    onChange({ ...base, heute_override: next ?? null });
+  }
+
+  return (
+    <SectionCard title="Heute (einmalig)">
+      <div className="px-5 py-4">
+        <p className="mb-3 text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+          Setze für heute abweichende Zeiten oder markiere das Restaurant als geschlossen. Wird um Mitternacht automatisch zurückgesetzt.
+        </p>
+        <div className="mb-3 flex items-center justify-between rounded-[11px] border px-3.5 py-2.5" style={{ borderColor: "var(--qrave-dash-border)", background: "rgba(255,255,255,0.03)" }}>
+          <span style={labelStyle}>Heute geschlossen</span>
+          <button
+            type="button"
+            onClick={() => commit(isClosed ? null : { date: today, closed: true })}
+            className="relative h-[22px] w-[40px] shrink-0 rounded-full transition-colors"
+            style={{ background: isClosed ? "var(--qrave-accent)" : "rgba(255,255,255,0.12)" }}
+            aria-label={isClosed ? "Heute geschlossen deaktivieren" : "Heute schließen"}
+          >
+            <span className="absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all" style={{ left: isClosed ? "calc(100% - 19px)" : "3px" }} />
+          </button>
+        </div>
+        {!isClosed ? (
+          <div className="rounded-[11px] border px-3.5 py-3" style={{ borderColor: "var(--qrave-dash-border)", background: "rgba(255,255,255,0.03)" }}>
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: "rgba(242,242,242,0.5)" }}>
+              Abweichende Zeiten heute
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={overrideOpen}
+                onChange={(e) => commit({ date: today, open: e.target.value, close: overrideClose })}
+                className="rounded-lg border px-2 py-1.5 text-[13px]"
+                style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#fff" }}
+              />
+              <span style={{ color: "rgba(242,242,242,0.5)" }}>–</span>
+              <input
+                type="time"
+                value={overrideClose}
+                onChange={(e) => commit({ date: today, open: overrideOpen, close: e.target.value })}
+                className="rounded-lg border px-2 py-1.5 text-[13px]"
+                style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#fff" }}
+              />
+              {override && "open" in override ? (
+                <button
+                  type="button"
+                  onClick={() => commit(null)}
+                  className="ml-auto text-[12px] font-semibold"
+                  style={{ color: "rgba(242,242,242,0.6)" }}
+                >
+                  Zurücksetzen
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
     </SectionCard>
   );
 }
@@ -464,7 +555,7 @@ function SprachenInline({
     if (busy) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/dashboard/translate-menu", {
+      const res = await authFetch("/api/dashboard/translate-menu", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ restaurantId }),

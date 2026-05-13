@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
+import { authFetch } from "@/lib/auth-fetch";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
 import { formatPreisEUR } from "../utils";
 import { dash, dashPrimaryButtonStyle } from "../constants";
@@ -136,7 +137,7 @@ export function EditItemOverlay({
     if (genBusy || trimmedName.length === 0) return;
     setGenBusy(true);
     try {
-      const res = await fetch("/api/dashboard/generate-description", {
+      const res = await authFetch("/api/dashboard/generate-description", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -344,7 +345,7 @@ export function EditItemOverlay({
               backgroundColor: "rgba(255,75,110,0.12)",
             }}
           >
-            🗑️ Löschen
+            <i className="fa-solid fa-trash mr-1.5" /> Löschen
           </button>
         )}
       </div>

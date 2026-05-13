@@ -20,11 +20,11 @@ export function DashboardToast({ message, onHide, durationMs = 2500 }: Props) {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-[100px] left-1/2 z-[300] max-w-[90vw] -translate-x-1/2 rounded-xl border px-[18px] py-2.5 text-[13px] font-semibold transition-all duration-300"
+      className="pointer-events-none fixed bottom-6 left-1/2 z-[300] max-w-[90vw] -translate-x-1/2 rounded-xl border px-5 py-3 text-[13px] font-semibold shadow-2xl transition-all duration-300"
       style={{
-        backgroundColor: "rgba(10,10,20,0.92)",
-        borderColor: "rgba(52,232,158,0.35)",
-        color: dash.gr,
+        backgroundColor: "rgba(12,8,24,0.95)",
+        borderColor: "color-mix(in srgb, var(--qrave-accent) 35%, transparent)",
+        color: "#f2f2f2",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         opacity: 1,

@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Auth: User muss eingeloggt + Owner des Restaurants sein.
+  // Auth: User muss eingeloggt + Owner des Restaurants sein. Cookie ODER Bearer.
   const cookieStore = await cookies();
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -108,9 +108,15 @@ export async function POST(req: Request) {
       },
     },
   );
-  const {
-    data: { user },
-  } = await supabaseAuth.auth.getUser();
+  let user = (await supabaseAuth.auth.getUser()).data.user;
+  if (!user) {
+    const bearer = req.headers.get("authorization") ?? "";
+    const token = bearer.toLowerCase().startsWith("bearer ") ? bearer.slice(7).trim() : "";
+    if (token) {
+      const { data, error } = await supabaseAuth.auth.getUser(token);
+      if (!error && data.user) user = data.user;
+    }
+  }
   if (!user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }

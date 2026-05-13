@@ -152,10 +152,16 @@ export function DashboardShell({
               </span>
             ) : null}
             {previewUrl ? (
-              <a
-                href={previewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => {
+                  // Cache-Buster sicherstellen, dass immer die aktuelle eigene
+                  // Karte angezeigt wird und nicht eine zwischengespeicherte.
+                  if (typeof window !== "undefined") {
+                    const sep = previewUrl.includes("?") ? "&" : "?";
+                    window.open(`${previewUrl}${sep}_=${Date.now()}`, "_blank", "noopener,noreferrer");
+                  }
+                }}
                 className="inline-flex h-9 items-center gap-2 rounded-[9px] border px-3 text-[12px] font-semibold transition"
                 style={{
                   borderColor: "color-mix(in srgb, var(--qrave-accent) 30%, transparent)",
@@ -165,7 +171,7 @@ export function DashboardShell({
               >
                 <i className="fa-solid fa-arrow-up-right-from-square text-[11px]" />
                 <span className="hidden sm:inline">Speisekarte ansehen</span>
-              </a>
+              </button>
             ) : null}
             {avatarLabel ? (
               <div
@@ -253,25 +259,28 @@ function DashboardSidebar({
 
       {/* Quick-Actions — kleine Icon-Buttons unter den Nav-Links */}
       {onQuickAction ? (
-        <div className="mt-2 mb-1 flex gap-1.5 px-2">
-          {QUICK_ACTIONS.map((q) => (
-            <button
-              key={q.key}
-              type="button"
-              onClick={() => onQuickAction(q.key)}
-              title={q.label}
-              aria-label={q.label}
-              className="flex h-8 w-8 items-center justify-center rounded-[8px] border transition"
-              style={{
-                borderColor: "rgba(255,255,255,0.08)",
-                background: "rgba(255,255,255,0.04)",
-                color: "rgba(242,242,242,0.55)",
-              }}
-            >
-              <i className={`${q.icon} text-[11px]`} />
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="qrave-nav-section">Schnellzugriff</div>
+          <div className="mb-1 flex gap-1.5 px-2">
+            {QUICK_ACTIONS.map((q) => (
+              <button
+                key={q.key}
+                type="button"
+                onClick={() => onQuickAction(q.key)}
+                title={q.label}
+                aria-label={q.label}
+                className="flex h-9 w-9 items-center justify-center rounded-[9px] border transition hover:bg-white/[0.08]"
+                style={{
+                  borderColor: "rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "rgba(242,242,242,0.7)",
+                }}
+              >
+                <i className={`${q.icon} text-[12px]`} />
+              </button>
+            ))}
+          </div>
+        </>
       ) : null}
 
       <div className="qrave-nav-section">Verwalten</div>

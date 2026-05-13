@@ -25,10 +25,14 @@ const templateMap: Record<string, React.ComponentType<SpeisekarteProps>> = {
 
 export default async function SpeisekartePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  const sp = await searchParams;
+  const localeOverride = typeof sp.locale === "string" ? sp.locale : undefined;
 
   const data = await loadPublicSpeisekarteBySlug(slug);
   if (!data) {
@@ -41,7 +45,7 @@ export default async function SpeisekartePage({
   // im Dashboard deaktiviert haben — dann Fallback auf Deutsch.
   const headerStore = await headers();
   const acceptLanguage = headerStore.get("accept-language");
-  const detected = detectLocale(acceptLanguage);
+  const detected = detectLocale(localeOverride ?? acceptLanguage);
   const activeLanguages = (data.restaurant.active_languages ?? ["de"]).filter(
     (code): code is SupportedLocale => typeof code === "string",
   );

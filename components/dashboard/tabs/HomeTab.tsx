@@ -5,6 +5,7 @@ import type { MenuItem } from "@/lib/supabase";
 import type { KarteSub } from "../types";
 import type { AnalyticsEventRow } from "../analytics";
 import { formatDateLongDe, greetingLabel } from "../utils";
+import { Hint } from "../Hint";
 
 type Range = "7d" | "30d" | "month" | "custom";
 
@@ -507,7 +508,10 @@ export function HomeTab({
 
         <Card>
           <div className="mb-4 flex items-start justify-between">
-            <div className="qrave-font-display text-[14px] font-bold">Top Gerichte</div>
+            <div className="qrave-font-display flex items-center gap-2 text-[14px] font-bold">
+              Top Gerichte
+              <Hint text="Sortiert nach Klicks (Item-Modal geöffnet). Prozent rechts ist die View-to-Click-Rate: wie oft Gäste das Item ansehen → wie oft sie es anklicken." />
+            </div>
             <button
               type="button"
               onClick={() => onGoKarte("menu")}
@@ -569,7 +573,10 @@ export function HomeTab({
       {/* BOTTOM: Meistgeklickte (mit View-to-Click-Balken) + Peak-Zeiten */}
       <section className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <Card>
-          <div className="qrave-font-display mb-1 text-[14px] font-bold">Meistgeklickte Gerichte</div>
+          <div className="qrave-font-display mb-1 flex items-center gap-2 text-[14px] font-bold">
+            Meistgeklickte Gerichte
+            <Hint text="View-to-Click: wie oft ein Item angesehen wurde vs. wie oft Gäste das Item geöffnet haben. Niedrig (<15%) deutet auf schlecht performende Items hin." />
+          </div>
           <div className="mb-4 text-[11px]" style={{ color: "rgba(242,242,242,0.5)" }}>
             View-to-Click Rate · {RANGE_LABEL[range]}
           </div>
@@ -638,8 +645,9 @@ export function HomeTab({
         </Card>
 
         <Card>
-          <div className="qrave-font-display mb-5 text-[14px] font-bold">
+          <div className="qrave-font-display mb-5 flex items-center gap-2 text-[14px] font-bold">
             Peak-Zeiten · Ø {RANGE_LABEL[range]}
+            <Hint text="Wann scannen Gäste am häufigsten? Werte sind Sessions pro Tag im gewählten Zeitraum, gemittelt." />
           </div>
           {!hasData ? (
             <p className="text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
@@ -720,6 +728,7 @@ function RangePicker({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <Hint text="Wähle den Zeitraum, über den alle Zahlen, Charts und Peak-Zeiten ausgewertet werden." placement="bottom" />
       <div className="flex gap-1.5">
         {RANGE_OPTIONS.map((opt) => {
           const active = range === opt.key;

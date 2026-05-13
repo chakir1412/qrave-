@@ -50,6 +50,16 @@ export type OpenStatus =
   | { kind: "closed-today" }
   | { kind: "no-data" };
 
+function berlinDateIso(now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  return parts; // en-CA → YYYY-MM-DD
+}
+
 /** Aktuellen Öffnungsstatus für `now` ermitteln (Berlin-Zeit). */
 export function getOpenStatus(
   plan: OeffnungszeitenWoche | null | undefined,
@@ -65,8 +75,24 @@ export function getOpenStatus(
   const min = Number(minutes.find((p) => p.type === "minute")?.value ?? "0");
   const nowMinutes = hour * 60 + (Number.isFinite(min) ? min : 0);
 
-  const key = weekdayKeyFromMon1(weekdayMon1);
-  const today: OeffnungszeitenTag | undefined = plan[key];
+  // Heute-Override hat Priorität, aber nur wenn das Datum auf heute (Berlin)
+  // passt. Damit verfällt das Override automatisch um Mitternacht ohne Cron.
+  const override = plan.heute_override;
+  const todayIso = berlinDateIso(now);
+  let today: OeffnungszeitenTag | undefined;
+  if (override && override.date === todayIso) {
+    if ("closed" in override && override.closed === true) {
+      return { kind: "closed-today" };
+    }
+    if ("open" in override && "close" in override) {
+      today = { open: override.open, close: override.close };
+    }
+  }
+
+  if (!today) {
+    const key = weekdayKeyFromMon1(weekdayMon1);
+    today = plan[key] ?? undefined;
+  }
   if (!today) return { kind: "closed-today" };
 
   const open = parseHhmm(today.open);

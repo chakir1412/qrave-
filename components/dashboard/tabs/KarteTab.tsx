@@ -52,9 +52,9 @@ function compareEditorMainTabKey(a: string, b: string): number {
 
 function editorMainTabChipLabel(tab: string, count: number): string {
   if (tab === "alle") return `Alle (${count})`;
-  if (tab === "speisen") return `🍽 Speisen (${count})`;
-  if (tab === "getraenke") return `🍺 Getränke (${count})`;
-  if (tab === "snacks") return `🍟 Snacks (${count})`;
+  if (tab === "speisen") return `Speisen (${count})`;
+  if (tab === "getraenke") return `Getränke (${count})`;
+  if (tab === "snacks") return `Snacks (${count})`;
   const cap = tab.length > 0 ? tab.charAt(0).toUpperCase() + tab.slice(1) : tab;
   return `${cap} (${count})`;
 }
@@ -1634,7 +1634,7 @@ export function KarteTab({
                             className="min-w-0 flex-1 text-left"
                           >
                             <div
-                              className={`truncate text-sm font-semibold ${!m.aktiv ? "text-white/40 line-through" : m.sold_out ? "line-through" : ""}`}
+                              className={`truncate text-sm font-semibold ${m.sold_out ? "text-white/40 line-through" : ""}`}
                             >
                               {m.name}
                             </div>
@@ -1644,34 +1644,23 @@ export function KarteTab({
                               </div>
                             )}
                           </button>
-                          <span className={`text-sm font-bold ${m.sold_out ? "line-through" : ""}`} style={{ color: m.aktiv ? dash.or : dash.mu }}>
+                          <span
+                            className={`text-sm font-bold ${m.sold_out ? "line-through" : ""}`}
+                            style={{ color: m.sold_out ? dash.mu : "var(--qrave-accent-strong)" }}
+                          >
                             {formatPreisEUR(m.preis)}
                           </span>
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); void toggleSoldOut(m); }}
-                            disabled={!m.aktiv}
-                            className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider transition-colors disabled:opacity-30"
-                            style={{
-                              background: m.sold_out ? "rgba(255,75,110,0.18)" : "transparent",
-                              color: m.sold_out ? dash.re : dash.mu,
-                              border: `1px solid ${m.sold_out ? "rgba(255,75,110,0.5)" : dash.bo}`,
-                            }}
+                            onClick={() => void toggleSoldOut(m)}
+                            className="relative h-[22px] w-[40px] shrink-0 rounded-full transition-colors"
+                            style={{ background: m.sold_out ? "rgba(255,255,255,0.12)" : "var(--qrave-accent)" }}
                             aria-label={m.sold_out ? "Wieder verfügbar machen" : "Als ausverkauft markieren"}
-                            title={m.sold_out ? "Wieder verfügbar machen" : "Als ausverkauft markieren"}
-                          >
-                            {m.sold_out ? "● Aus" : "Aus?"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void toggleAktiv(m)}
-                            className="relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors"
-                            style={{ backgroundColor: m.aktiv ? dash.or : dash.s3 }}
-                            aria-label={m.aktiv ? "Deaktivieren" : "Aktivieren"}
+                            title={m.sold_out ? "Ausverkauft — antippen für verfügbar" : "Verfügbar — antippen für ausverkauft"}
                           >
                             <span
                               className="absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all"
-                              style={{ left: m.aktiv ? "calc(100% - 19px)" : "3px" }}
+                              style={{ left: m.sold_out ? "3px" : "calc(100% - 19px)" }}
                             />
                           </button>
                           {swipeOpenItemId === m.id && (
@@ -2087,7 +2076,10 @@ export function KarteTab({
             className="mb-3 rounded-[20px] border px-5 py-5"
             style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
           >
-            <div className="mb-2 text-sm font-extrabold">🍽 Speise hinzufügen</div>
+            <div className="qrave-font-display mb-2 flex items-center gap-2 text-[14px] font-bold">
+              <i className="fa-solid fa-utensils text-[12px]" style={{ color: "var(--qrave-accent-strong)" }} />
+              Speise hinzufügen
+            </div>
             <select
               value={lunchSelectFood}
               onChange={(e) => setLunchSelectFood(e.target.value)}
@@ -2129,7 +2121,10 @@ export function KarteTab({
             className="mb-3 rounded-[20px] border px-5 py-5"
             style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
           >
-            <div className="mb-2 text-sm font-extrabold">🥤 Getränk hinzufügen</div>
+            <div className="qrave-font-display mb-2 flex items-center gap-2 text-[14px] font-bold">
+              <i className="fa-solid fa-mug-hot text-[12px]" style={{ color: "var(--qrave-accent-strong)" }} />
+              Getränk hinzufügen
+            </div>
             <select
               value={lunchSelectDrink}
               onChange={(e) => setLunchSelectDrink(e.target.value)}

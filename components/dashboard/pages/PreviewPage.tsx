@@ -79,7 +79,7 @@ export function PreviewPage({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logoUrl} alt="" className="h-full w-full object-contain" />
             ) : (
-              <span className="text-2xl">🍽</span>
+              <i className="fa-solid fa-utensils text-[18px] text-white/40" />
             )}
           </div>
           <h1 className="text-xl font-black tracking-tight">{restaurantName}</h1>
