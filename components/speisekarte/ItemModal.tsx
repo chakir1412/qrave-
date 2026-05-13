@@ -708,24 +708,35 @@ export default function ItemModal({
                               display: "block",
                             }}
                           />
-                        ) : (
-                          <div
-                            style={{
-                              height: 75,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: sp ? 28 : 24,
-                              background: sp
-                                ? "rgba(255,255,255,0.06)"
-                                : emojiGradient(getItemEmoji(s as MenuItem)),
-                            }}
-                          >
-                            {sp
-                              ? "🍺"
-                              : (s as MenuItem).emoji || getItemEmoji(s as MenuItem) || "🍽️"}
-                          </div>
-                        )}
+                        ) : (() => {
+                          const mi = s as MenuItem;
+                          const fallbackEmoji = mi.emoji || getItemEmoji(mi);
+                          return (
+                            <div
+                              style={{
+                                height: 75,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: sp ? 28 : 24,
+                                background: sp
+                                  ? "rgba(255,255,255,0.06)"
+                                  : emojiGradient(getItemEmoji(mi)),
+                              }}
+                            >
+                              {sp ? (
+                                "🍺"
+                              ) : fallbackEmoji ? (
+                                fallbackEmoji
+                              ) : (
+                                <i
+                                  className="fa-solid fa-utensils"
+                                  style={{ fontSize: 22, color: "rgba(255,255,255,0.55)" }}
+                                />
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div style={{ padding: "6px 8px", paddingBottom: 28 }}>
                           <div
                             style={{

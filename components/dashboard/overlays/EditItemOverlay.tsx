@@ -440,10 +440,10 @@ export function EditItemOverlay({
         </label>
         <div className="mb-3 flex flex-wrap gap-1.5">
           {[
-            { key: "vegan", label: "🌱 Vegan" },
-            { key: "veg", label: "🌿 Vegetarisch" },
-            { key: "gf", label: "🚫 Glutenfrei" },
-            { key: "spicy", label: "🌶 Scharf" },
+            { key: "vegan", label: "Vegan", icon: "fa-solid fa-seedling" },
+            { key: "veg", label: "Vegetarisch", icon: "fa-solid fa-leaf" },
+            { key: "gf", label: "Glutenfrei", icon: "fa-solid fa-wheat-awn-circle-exclamation" },
+            { key: "spicy", label: "Scharf", icon: "fa-solid fa-pepper-hot" },
           ].map((chip) => {
             const active = tags.includes(chip.key);
             return (
@@ -451,12 +451,12 @@ export function EditItemOverlay({
                 key={chip.key}
                 type="button"
                 onClick={() => toggleTag(chip.key)}
-                className="rounded-full border px-3 py-1.5 text-xs font-medium transition active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition active:scale-95"
                 style={
                   active
                     ? {
                         borderColor: dash.teal,
-                        backgroundColor: "rgba(0,200,160,0.15)",
+                        backgroundColor: "rgba(147,51,234,0.15)",
                         color: dash.teal,
                       }
                     : {
@@ -466,6 +466,7 @@ export function EditItemOverlay({
                       }
                 }
               >
+                <i className={`${chip.icon} text-[11px]`} />
                 {chip.label}
               </button>
             );

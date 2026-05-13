@@ -598,24 +598,33 @@ export default function WirtshausItemModal({
                               display: "block",
                             }}
                           />
-                        ) : (
-                          <div
-                            style={{
-                              height: 86,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 32,
-                              background: COL.cream,
-                            }}
-                          >
-                            {sp
-                              ? "🍺"
-                              : (s as MenuItem).emoji ||
-                                getItemEmoji(s as MenuItem) ||
-                                "🍽️"}
-                          </div>
-                        )}
+                        ) : (() => {
+                          const mi = s as MenuItem;
+                          const fallbackEmoji = mi.emoji || getItemEmoji(mi);
+                          return (
+                            <div
+                              style={{
+                                height: 86,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 32,
+                                background: COL.cream,
+                              }}
+                            >
+                              {sp ? (
+                                "🍺"
+                              ) : fallbackEmoji ? (
+                                fallbackEmoji
+                              ) : (
+                                <i
+                                  className="fa-solid fa-utensils"
+                                  style={{ fontSize: 26, color: COL.textMuted }}
+                                />
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div style={{ padding: "8px 10px", paddingBottom: 32 }}>
                           <div
                             style={{

@@ -28,11 +28,6 @@ const FEATURES = [
 
 const NEWS = [
   {
-    badge: "Neu",
-    title: "Bulk-Bild-Upload im Founder-Bereich",
-    body: "Bilder für alle Gerichte des Frankfurter Wirtshaus auf einer Seite hochladen, Kompression läuft automatisch.",
-  },
-  {
     badge: "Update",
     title: '"Oft zusammen bestellt" jetzt kategorie-basiert',
     body: "Speisen schlagen passende Getränke vor, Getränke schlagen passende Speisen vor — Items mit Bild zuerst.",
