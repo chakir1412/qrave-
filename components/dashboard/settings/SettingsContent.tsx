@@ -417,10 +417,30 @@ function HeuteOverrideCard({
   const isClosed = override && "closed" in override && override.closed === true;
   const overrideOpen = override && "open" in override ? override.open : "11:00";
   const overrideClose = override && "close" in override ? override.close : "22:00";
+  const overrideGrund = override?.grund ?? "";
+  const [grundDraft, setGrundDraft] = useState<string>(overrideGrund);
+  useEffect(() => {
+    setGrundDraft(overrideGrund);
+  }, [overrideGrund]);
 
   function commit(next: OeffnungszeitenWoche["heute_override"] | null) {
     const base = value ?? {};
     onChange({ ...base, heute_override: next ?? null });
+  }
+
+  function updateGrund(nextGrund: string) {
+    if (!override) return; // ohne aktives Override macht ein Grund keinen Sinn
+    const trimmed = nextGrund.trim();
+    if ("closed" in override && override.closed === true) {
+      commit({ date: today, closed: true, ...(trimmed ? { grund: trimmed } : {}) });
+    } else if ("open" in override && "close" in override) {
+      commit({
+        date: today,
+        open: override.open,
+        close: override.close,
+        ...(trimmed ? { grund: trimmed } : {}),
+      });
+    }
   }
 
   return (
@@ -450,7 +470,14 @@ function HeuteOverrideCard({
               <input
                 type="time"
                 value={overrideOpen}
-                onChange={(e) => commit({ date: today, open: e.target.value, close: overrideClose })}
+                onChange={(e) =>
+                  commit({
+                    date: today,
+                    open: e.target.value,
+                    close: overrideClose,
+                    ...(overrideGrund ? { grund: overrideGrund } : {}),
+                  })
+                }
                 className="rounded-lg border px-2 py-1.5 text-[13px]"
                 style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#fff" }}
               />
@@ -458,7 +485,14 @@ function HeuteOverrideCard({
               <input
                 type="time"
                 value={overrideClose}
-                onChange={(e) => commit({ date: today, open: overrideOpen, close: e.target.value })}
+                onChange={(e) =>
+                  commit({
+                    date: today,
+                    open: overrideOpen,
+                    close: e.target.value,
+                    ...(overrideGrund ? { grund: overrideGrund } : {}),
+                  })
+                }
                 className="rounded-lg border px-2 py-1.5 text-[13px]"
                 style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#fff" }}
               />
@@ -473,6 +507,35 @@ function HeuteOverrideCard({
                 </button>
               ) : null}
             </div>
+          </div>
+        ) : null}
+
+        {override ? (
+          <div className="mt-3">
+            <label
+              className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em]"
+              style={{ color: "rgba(242,242,242,0.5)" }}
+            >
+              Grund (optional)
+            </label>
+            <input
+              type="text"
+              value={grundDraft}
+              onChange={(e) => setGrundDraft(e.target.value)}
+              onBlur={() => {
+                if (grundDraft.trim() !== overrideGrund.trim()) updateGrund(grundDraft);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              placeholder="z. B. Betriebsferien, Feiertag, Veranstaltung"
+              maxLength={80}
+              className="w-full rounded-[10px] border bg-transparent px-3 py-2 text-[13px] outline-none"
+              style={{ borderColor: "var(--qrave-dash-border)", color: "#f2f2f2" }}
+            />
+            <p className="mt-1.5 text-[11px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+              Wird Gästen auf der Splash-Seite unter dem Öffnungsstatus angezeigt.
+            </p>
           </div>
         ) : null}
       </div>

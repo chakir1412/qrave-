@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Hint } from "../Hint";
 
-type TischBereich = { name: string; count: number };
+type TischBereich = { name: string; count: number; geschlossen?: boolean };
 
 type Props = {
   /** Aktueller Stand aus restaurants.tisch_bereiche. */
@@ -53,6 +53,12 @@ export function TischeTab({ initial, onSave }: Props) {
     void commit(list.map((b, i) => (i === idx ? { ...b, name: value } : b)));
   }
 
+  function toggleGeschlossen(idx: number) {
+    void commit(
+      list.map((b, i) => (i === idx ? { ...b, geschlossen: !(b.geschlossen === true) } : b)),
+    );
+  }
+
   const total = list.reduce((sum, b) => sum + (Number.isFinite(b.count) ? b.count : 0), 0);
 
   return (
@@ -85,69 +91,103 @@ export function TischeTab({ initial, onSave }: Props) {
           </p>
         ) : (
           <ul className="space-y-2">
-            {list.map((b, idx) => (
-              <li
-                key={`${idx}`}
-                className="flex items-center gap-3 rounded-[12px] border px-3.5 py-2.5"
-                style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.06)" }}
-              >
-                <i
-                  className="fa-solid fa-table-cells text-[14px]"
-                  style={{ color: "var(--qrave-accent-strong)" }}
-                />
-                <input
-                  value={b.name}
-                  onChange={(e) => updateName(idx, e.target.value)}
-                  className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-[13px] font-semibold outline-none focus:bg-white/[0.04]"
-                  style={{ color: "#f2f2f2" }}
-                />
-                <div
-                  className="flex items-center gap-2 rounded-md border px-2 py-1"
-                  style={{ borderColor: "rgba(255,255,255,0.08)" }}
+            {list.map((b, idx) => {
+              const closed = b.geschlossen === true;
+              return (
+                <li
+                  key={`${idx}`}
+                  className="rounded-[12px] border px-3.5 py-2.5"
+                  style={{
+                    background: closed ? "rgba(248,113,113,0.06)" : "rgba(255,255,255,0.03)",
+                    borderColor: closed ? "rgba(248,113,113,0.25)" : "rgba(255,255,255,0.06)",
+                    opacity: closed ? 0.92 : 1,
+                  }}
                 >
-                  <button
-                    type="button"
-                    aria-label="Anzahl verringern"
-                    onClick={() => updateCount(idx, b.count - 1)}
-                    className="text-[11px]"
-                    style={{ color: "rgba(242,242,242,0.6)" }}
-                    disabled={b.count <= 1}
-                  >
-                    −
-                  </button>
-                  <input
-                    type="number"
-                    min={1}
-                    max={999}
-                    value={b.count}
-                    onChange={(e) => {
-                      const n = Number.parseInt(e.target.value, 10);
-                      if (Number.isFinite(n)) updateCount(idx, n);
-                    }}
-                    className="w-12 bg-transparent text-center text-[13px] font-semibold outline-none"
-                    style={{ color: "#f2f2f2" }}
-                  />
-                  <button
-                    type="button"
-                    aria-label="Anzahl erhöhen"
-                    onClick={() => updateCount(idx, b.count + 1)}
-                    className="text-[11px]"
-                    style={{ color: "rgba(242,242,242,0.6)" }}
-                  >
-                    +
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => remove(idx)}
-                  className="ml-1 flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-white/10"
-                  style={{ color: "rgba(248,113,113,0.85)" }}
-                  aria-label={`Bereich „${b.name}" entfernen`}
-                >
-                  <i className="fa-solid fa-xmark text-[12px]" />
-                </button>
-              </li>
-            ))}
+                  <div className="flex items-center gap-3">
+                    <i
+                      className="fa-solid fa-table-cells text-[14px]"
+                      style={{
+                        color: closed ? "rgba(248,113,113,0.85)" : "var(--qrave-accent-strong)",
+                      }}
+                    />
+                    <input
+                      value={b.name}
+                      onChange={(e) => updateName(idx, e.target.value)}
+                      className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-[13px] font-semibold outline-none focus:bg-white/[0.04]"
+                      style={{
+                        color: closed ? "rgba(242,242,242,0.6)" : "#f2f2f2",
+                        textDecoration: closed ? "line-through" : undefined,
+                      }}
+                    />
+                    <div
+                      className="flex items-center gap-2 rounded-md border px-2 py-1"
+                      style={{ borderColor: "rgba(255,255,255,0.08)" }}
+                    >
+                      <button
+                        type="button"
+                        aria-label="Anzahl verringern"
+                        onClick={() => updateCount(idx, b.count - 1)}
+                        className="text-[11px]"
+                        style={{ color: "rgba(242,242,242,0.6)" }}
+                        disabled={b.count <= 1}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={999}
+                        value={b.count}
+                        onChange={(e) => {
+                          const n = Number.parseInt(e.target.value, 10);
+                          if (Number.isFinite(n)) updateCount(idx, n);
+                        }}
+                        className="w-12 bg-transparent text-center text-[13px] font-semibold outline-none"
+                        style={{ color: "#f2f2f2" }}
+                      />
+                      <button
+                        type="button"
+                        aria-label="Anzahl erhöhen"
+                        onClick={() => updateCount(idx, b.count + 1)}
+                        className="text-[11px]"
+                        style={{ color: "rgba(242,242,242,0.6)" }}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => remove(idx)}
+                      className="ml-1 flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-white/10"
+                      style={{ color: "rgba(248,113,113,0.85)" }}
+                      aria-label={`Bereich „${b.name}" entfernen`}
+                    >
+                      <i className="fa-solid fa-xmark text-[12px]" />
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between border-t pt-2" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                    <span
+                      className="text-[12px] font-medium"
+                      style={{ color: closed ? "rgba(248,113,113,0.85)" : "rgba(242,242,242,0.6)" }}
+                    >
+                      {closed ? "Heute geschlossen — Gäste sehen einen Hinweis" : "Heute geschlossen"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleGeschlossen(idx)}
+                      className="relative h-[20px] w-[36px] shrink-0 rounded-full transition-colors"
+                      style={{ background: closed ? "#f87171" : "rgba(255,255,255,0.12)" }}
+                      aria-label={closed ? `${b.name} wieder öffnen` : `${b.name} schließen`}
+                    >
+                      <span
+                        className="absolute top-[2.5px] h-[15px] w-[15px] rounded-full bg-white shadow transition-all"
+                        style={{ left: closed ? "calc(100% - 17.5px)" : "2.5px" }}
+                      />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
 

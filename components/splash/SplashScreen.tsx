@@ -12,6 +12,15 @@ type Props = {
 /** Splash-Seite für die Gäste-Speisekarte (qrave.menu/[slug]).
  *  Server-rendered, kein JS-State. Akzentfarbe aus restaurant.accent_color
  *  oder Fallback Kupfer. */
+function berlinTodayIso(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 export default function SplashScreen({ restaurant }: Props) {
   const accent = restaurant.accent_color?.trim() || "#C8894E";
   const mediaUrl = restaurant.splash_media_url?.trim() ?? "";
@@ -21,6 +30,20 @@ export default function SplashScreen({ restaurant }: Props) {
       ? restaurant.splash_image_url?.trim() || restaurant.logo_url?.trim() || ""
       : "";
   const status = getOpenStatus(restaurant.oeffnungszeiten ?? null);
+
+  // Heute-Override-Grund nur anzeigen wenn das Override auf das heutige
+  // Berlin-Datum gemünzt ist (sonst hat es längst verfallen).
+  const todayIso = berlinTodayIso();
+  const overrideToday =
+    restaurant.oeffnungszeiten?.heute_override &&
+    restaurant.oeffnungszeiten.heute_override.date === todayIso
+      ? restaurant.oeffnungszeiten.heute_override
+      : null;
+
+  // Vom Wirt als "geschlossen" markierte Bereiche.
+  const closedAreas = (restaurant.tisch_bereiche ?? [])
+    .filter((b) => b?.geschlossen === true && typeof b.name === "string" && b.name.trim().length > 0)
+    .map((b) => b.name.trim());
 
   const statusBadge = (() => {
     if (status.kind === "open") {
@@ -167,7 +190,29 @@ export default function SplashScreen({ restaurant }: Props) {
                 style={{ background: statusBadge.dot }}
               />
               {statusBadge.label}
+              {overrideToday?.grund?.trim() ? (
+                <span style={{ opacity: 0.7 }}> · {overrideToday.grund.trim()}</span>
+              ) : null}
             </span>
+          </div>
+        ) : null}
+
+        {closedAreas.length > 0 ? (
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {closedAreas.map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "rgba(255,255,255,0.7)",
+                }}
+              >
+                <i className="fa-solid fa-circle-info text-[10px]" style={{ opacity: 0.7 }} />
+                {name} heute geschlossen
+              </span>
+            ))}
           </div>
         ) : null}
 

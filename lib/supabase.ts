@@ -63,9 +63,11 @@ export type Restaurant = {
   /** Aktive Sprachen für die Gäste-Speisekarte. 'de' ist immer dabei.
    *  Erlaubte Werte: 'de' | 'en' | 'tr' | 'ar' | 'ru' | 'it' | 'fr'. */
   active_languages?: string[];
-  /** Bereiche für die Tisch-Übersicht ({ name, count }). Vom Wirt
-   *  pflegbar, für den Founder im Restaurant-Detail sichtbar. */
-  tisch_bereiche?: { name: string; count: number }[];
+  /** Bereiche für die Tisch-Übersicht ({ name, count, geschlossen? }).
+   *  Vom Wirt pflegbar; `geschlossen=true` blendet den Bereich aus dem
+   *  Gäste-Angebot raus (Splash-Hinweis). Für den Founder im Restaurant-
+   *  Detail sichtbar. */
+  tisch_bereiche?: { name: string; count: number; geschlossen?: boolean }[];
 };
 
 /** Wochentag-Keys des Öffnungszeiten-Plans. */
@@ -84,8 +86,8 @@ export type OeffnungszeitenTag = { open: string; close: string } | null;
  *  Splash-Logik liest das Override nur, wenn `date === heute (Berlin)` —
  *  sonst wird's automatisch ignoriert (Auto-Reset um Mitternacht). */
 export type OeffnungszeitenHeuteOverride =
-  | { date: string; closed: true }
-  | { date: string; open: string; close: string };
+  | { date: string; closed: true; grund?: string }
+  | { date: string; open: string; close: string; grund?: string };
 
 /** Wochenplan als JSONB-Objekt — plus optionalem Heute-Override. */
 export type OeffnungszeitenWoche = Partial<Record<OeffnungszeitenWeekday, OeffnungszeitenTag>> & {
