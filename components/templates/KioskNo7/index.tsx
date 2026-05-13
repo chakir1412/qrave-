@@ -640,19 +640,35 @@ export default function KioskNo7Template(props: SpeisekarteProps) {
                       border: `1px solid ${KIOSK_COLORS.border}`,
                     }}
                   >
-                    <div
-                      className="flex items-center justify-center"
-                      style={{
-                        width: 46,
-                        height: 46,
-                        borderRadius: 8,
-                        backgroundColor: KIOSK_COLORS.card2,
-                        flexShrink: 0,
-                        fontSize: 22,
-                      }}
-                    >
-                      {getItemEmoji(item)}
-                    </div>
+                    {item.bild_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.bild_url}
+                        alt=""
+                        style={{
+                          width: 46,
+                          height: 46,
+                          borderRadius: 8,
+                          objectFit: "cover",
+                          flexShrink: 0,
+                          border: `1px solid ${KIOSK_COLORS.border}`,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        className="flex items-center justify-center"
+                        style={{
+                          width: 46,
+                          height: 46,
+                          borderRadius: 8,
+                          backgroundColor: KIOSK_COLORS.card2,
+                          flexShrink: 0,
+                          fontSize: 22,
+                        }}
+                      >
+                        {getItemEmoji(item)}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div
                         className="mb-[2px]"

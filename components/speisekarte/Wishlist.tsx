@@ -94,7 +94,25 @@ export default function Wishlist({
                   className="flex items-center gap-2 py-2 border-b last:border-0"
                   style={{ borderColor: dark ? barSoleilWishlist.border : "#f0ece5" }}
                 >
-                  <span className="text-[1.6rem]">{getItemEmoji(item)}</span>
+                  {item.bild_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.bild_url}
+                      alt=""
+                      className="h-11 w-11 shrink-0 rounded-[10px] object-cover"
+                      style={{ border: `1px solid ${dark ? barSoleilWishlist.border : "#e8e4dc"}` }}
+                    />
+                  ) : (
+                    <span
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-[1.4rem]"
+                      style={{
+                        background: dark ? barSoleilWishlist.buttonBg : "#f5f4f0",
+                        border: `1px solid ${dark ? barSoleilWishlist.border : "#e8e4dc"}`,
+                      }}
+                    >
+                      {getItemEmoji(item)}
+                    </span>
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-[0.84rem]" style={{ color: dark ? barSoleilWishlist.text : "#1a1916" }}>
                       {item.name}
