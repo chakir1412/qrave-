@@ -616,7 +616,7 @@ export default function WirtshausItemModal({
                                 "🍽️"}
                           </div>
                         )}
-                        <div style={{ padding: "8px 10px", paddingRight: 36 }}>
+                        <div style={{ padding: "8px 10px", paddingBottom: 32 }}>
                           <div
                             style={{
                               fontFamily:
@@ -640,56 +640,46 @@ export default function WirtshausItemModal({
                           </div>
                         </div>
                         {!sp ? (
-                          <button
-                            type="button"
-                            aria-label={
-                              isInWishlist((s as MenuItem).id)
-                                ? "Aus Merkliste entfernen"
-                                : "Zur Merkliste hinzufügen"
-                            }
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const mi = s as MenuItem;
-                              if (onAddToWishlist && !isInWishlist(mi.id)) {
-                                onAddToWishlist(mi, 1);
-                              } else {
-                                onToggleWishlist(mi);
-                              }
-                            }}
-                            style={{
-                              position: "absolute",
-                              bottom: 8,
-                              right: 8,
-                              width: 28,
-                              height: 28,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              borderRadius: "50%",
-                              border: `1px solid ${COL.divider}`,
-                              background: isInWishlist((s as MenuItem).id)
-                                ? "rgba(200,137,78,0.16)"
-                                : "rgba(255,255,255,0.92)",
-                              color: isInWishlist((s as MenuItem).id)
-                                ? COL.accent
-                                : COL.textMuted,
-                              cursor: "pointer",
-                              boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-                              transition: "all 0.18s",
-                            }}
-                          >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill={isInWishlist((s as MenuItem).id) ? "currentColor" : "none"}
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              aria-hidden
-                            >
-                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                            </svg>
-                          </button>
+                          (() => {
+                            const inList = isInWishlist((s as MenuItem).id);
+                            return (
+                              <button
+                                type="button"
+                                aria-label={inList ? "Aus Merkliste entfernen" : "Zur Merkliste hinzufügen"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const mi = s as MenuItem;
+                                  if (onAddToWishlist && !inList) {
+                                    onAddToWishlist(mi, 1);
+                                  } else {
+                                    onToggleWishlist(mi);
+                                  }
+                                }}
+                                style={{
+                                  position: "absolute",
+                                  bottom: 8,
+                                  right: 8,
+                                  padding: "3px 10px",
+                                  borderRadius: 100,
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  letterSpacing: "0.02em",
+                                  border: inList
+                                    ? `1px solid ${COL.accent}`
+                                    : `1px solid ${COL.divider}`,
+                                  background: inList
+                                    ? "rgba(200,137,78,0.16)"
+                                    : "rgba(255,255,255,0.92)",
+                                  color: inList ? COL.accent : COL.textMuted,
+                                  cursor: "pointer",
+                                  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+                                  transition: "all 0.18s",
+                                }}
+                              >
+                                {inList ? "Gemerkt" : "Merken"}
+                              </button>
+                            );
+                          })()
                         ) : null}
                       </div>
                     );
