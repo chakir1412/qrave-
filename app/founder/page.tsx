@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { FounderDashboard } from "@/components/founder/FounderDashboard";
+import { FounderOverview } from "@/components/founder/FounderOverview";
 import { loadFounderDashboardData } from "@/lib/load-founder-dashboard";
 
 export const metadata: Metadata = {
@@ -35,7 +35,7 @@ export default async function FounderPage() {
   const { data, errors } = await loadFounderDashboardData(supabase);
 
   return (
-    <FounderDashboard
+    <FounderOverview
       data={data}
       initialLoadError={errors.length > 0 ? errors.join(" · ") : null}
     />

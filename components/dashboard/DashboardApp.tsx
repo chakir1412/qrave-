@@ -294,7 +294,7 @@ export function DashboardApp({
   return (
     <DashboardShell
       activeTab={activeTab}
-      onTabChange={goTab}
+      onTabChange={(next) => goTab(next as DashboardTab)}
       title={topbarTitle}
       liveBadge={restaurant.published !== false && restaurant.aktiv !== false}
       avatarLabel={avatarLabel}

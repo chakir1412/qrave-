@@ -10,10 +10,10 @@ import { KiInfoPanel } from "./ki/KiInfoPanel";
 /** Eintrag in der Sidebar / im Drawer. Hat entweder eine Route (`href`)
  *  oder einen Tab-Key — nicht beides. */
 type NavItem =
-  | { kind: "tab"; key: DashboardTab; label: string; icon: string }
+  | { kind: "tab"; key: string; label: string; icon: string }
   | { kind: "link"; href: string; label: string; icon: string };
 
-const TAB_NAV: NavItem[] = [
+const DEFAULT_WIRT_NAV: NavItem[] = [
   { kind: "tab", key: "home", label: "Dashboard", icon: "fa-solid fa-house" },
   { kind: "tab", key: "karte", label: "Speisekarte", icon: "fa-solid fa-utensils" },
   { kind: "tab", key: "tische", label: "Tische", icon: "fa-solid fa-table-cells" },
@@ -38,8 +38,16 @@ type Props = {
   /** Wirt- oder Founder-Theme (lila vs. blau). */
   variant?: "wirt" | "founder";
   /** Aktiver Tab — nur relevant, wenn die Page Tabs hat (DashboardApp). */
-  activeTab?: DashboardTab;
-  onTabChange?: (next: DashboardTab) => void;
+  activeTab?: string;
+  onTabChange?: (next: string) => void;
+  /** Custom Nav-Items (Founder oder Custom). Default = Wirt-Tabs. */
+  navItems?: NavItem[];
+  /** Sektion "Verwalten" mit Einstellungen + Support ausblenden. */
+  hideManageSection?: boolean;
+  /** Settings-Link-Pfad. Default `/dashboard/einstellungen`. */
+  settingsHref?: string;
+  /** KI-Features-CTA-Karte in der Sidebar ausblenden. */
+  hideAiCta?: boolean;
   /** Topbar-Titel. */
   title: string;
   /** "Karte live" Badge im Topbar. */
@@ -57,6 +65,10 @@ export function DashboardShell({
   variant = "wirt",
   activeTab,
   onTabChange,
+  navItems,
+  hideManageSection,
+  settingsHref = "/dashboard/einstellungen",
+  hideAiCta,
   title,
   liveBadge,
   avatarLabel,
@@ -107,6 +119,10 @@ export function DashboardShell({
         <DashboardSidebar
           activeTab={activeTab}
           onTabChange={onTabChange}
+          navItems={navItems ?? DEFAULT_WIRT_NAV}
+          hideManageSection={hideManageSection}
+          settingsHref={settingsHref}
+          hideAiCta={hideAiCta}
           onQuickAction={onQuickAction}
           onOpenKiPanel={() => setKiPanelOpen(true)}
           pathname={pathname}
@@ -125,6 +141,10 @@ export function DashboardShell({
             <DashboardSidebar
               activeTab={activeTab}
               onTabChange={onTabChange}
+              navItems={navItems ?? DEFAULT_WIRT_NAV}
+              hideManageSection={hideManageSection}
+              settingsHref={settingsHref}
+              hideAiCta={hideAiCta}
               onQuickAction={onQuickAction}
               onOpenKiPanel={() => {
                 setKiPanelOpen(true);
@@ -202,14 +222,22 @@ export function DashboardShell({
 function DashboardSidebar({
   activeTab,
   onTabChange,
+  navItems,
+  hideManageSection,
+  settingsHref,
+  hideAiCta,
   onQuickAction,
   onOpenKiPanel,
   pathname,
   className = "",
   fixed = false,
 }: {
-  activeTab?: DashboardTab;
-  onTabChange?: (next: DashboardTab) => void;
+  activeTab?: string;
+  onTabChange?: (next: string) => void;
+  navItems: NavItem[];
+  hideManageSection?: boolean;
+  settingsHref: string;
+  hideAiCta?: boolean;
   onQuickAction?: (action: QuickActionKey) => void;
   onOpenKiPanel?: () => void;
   pathname: string | null;
@@ -221,8 +249,8 @@ function DashboardSidebar({
   // Bei Tab-Klick: wenn wir auf einer Sub-Route (Einstellungen/KI) sind,
   // erst zurück zu /dashboard navigieren — der gewählte Tab wird via
   // sessionStorage gemerkt und beim Mount übernommen.
-  function handleTabClick(key: DashboardTab) {
-    if (pathname && pathname !== "/dashboard") {
+  function handleTabClick(key: string) {
+    if (pathname && pathname !== "/dashboard" && pathname !== "/founder") {
       try {
         sessionStorage.setItem("qrave-dashboard-tab", key);
       } catch {
@@ -234,7 +262,7 @@ function DashboardSidebar({
     onTabChange?.(key);
   }
 
-  const isOnSettings = pathname === "/dashboard/einstellungen";
+  const isOnSettings = pathname === settingsHref;
 
   return (
     <aside
@@ -249,9 +277,23 @@ function DashboardSidebar({
       </div>
 
       <div className="qrave-nav-section">Menu</div>
-      {TAB_NAV.map((item) => {
-        if (item.kind !== "tab") return null;
-        const active = pathname === "/dashboard" && activeTab === item.key;
+      {navItems.map((item, i) => {
+        if (item.kind === "link") {
+          const active = pathname === item.href;
+          return (
+            <Link
+              key={`link-${i}`}
+              href={item.href}
+              className={`qrave-nav-item${active ? " active" : ""}`}
+            >
+              <span className="qrave-nav-icon">
+                <i className={item.icon} />
+              </span>
+              {item.label}
+            </Link>
+          );
+        }
+        const active = activeTab === item.key;
         return (
           <button
             key={item.key}
@@ -293,23 +335,28 @@ function DashboardSidebar({
         </>
       ) : null}
 
-      <div className="qrave-nav-section">Verwalten</div>
-      <Link
-        href="/dashboard/einstellungen"
-        className={`qrave-nav-item${isOnSettings ? " active" : ""}`}
-      >
-        <span className="qrave-nav-icon">
-          <i className="fa-solid fa-gear" />
-        </span>
-        Einstellungen
-      </Link>
-      <a className="qrave-nav-item" href="mailto:info@qrave.menu">
-        <span className="qrave-nav-icon">
-          <i className="fa-solid fa-circle-question" />
-        </span>
-        Support
-      </a>
+      {!hideManageSection ? (
+        <>
+          <div className="qrave-nav-section">Verwalten</div>
+          <Link
+            href={settingsHref}
+            className={`qrave-nav-item${isOnSettings ? " active" : ""}`}
+          >
+            <span className="qrave-nav-icon">
+              <i className="fa-solid fa-gear" />
+            </span>
+            Einstellungen
+          </Link>
+          <a className="qrave-nav-item" href="mailto:info@qrave.menu">
+            <span className="qrave-nav-icon">
+              <i className="fa-solid fa-circle-question" />
+            </span>
+            Support
+          </a>
+        </>
+      ) : null}
 
+      {hideAiCta ? <div className="mt-auto" /> : (
       <div className="mt-auto">
         <button
           type="button"
@@ -332,6 +379,7 @@ function DashboardSidebar({
           </div>
         </button>
       </div>
+      )}
     </aside>
   );
 }
