@@ -2166,101 +2166,194 @@ export function KarteTab({
             </button>
           </div>
 
-          {/* Bundle-Editor */}
+          {/* Bundle-Editor — 2-Spalten-Layout (Wirt-CI v5) */}
           <div
-            className="mb-3 rounded-[20px] border px-5 py-5"
-            style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+            className="mb-3 overflow-hidden rounded-[16px] border"
+            style={{ background: dash.s1, borderColor: dash.bo }}
           >
-            <div className="mb-2 text-sm font-extrabold">🍱 Bundle erstellen</div>
-            <p className="mb-3 text-[11px]" style={{ color: dash.mu }}>
-              Mehrere Items mit Gesamtpreis (z. B. Hauptgericht + Beilage + Getränk).
-            </p>
-            <input
-              value={bundleName}
-              onChange={(e) => setBundleName(e.target.value)}
-              placeholder="Bundle-Name (z. B. Mittagsmenü 1)"
-              className="mb-2 w-full rounded-[11px] border px-3 py-2.5 text-sm outline-none"
-              style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
-            />
-            <div
-              className="mb-2 max-h-44 overflow-y-auto rounded-[11px] border p-2"
-              style={{ backgroundColor: dash.s2, borderColor: dash.bo }}
-            >
-              {menuItems.filter((m) => m.aktiv).length === 0 ? (
-                <p className="text-[11px]" style={{ color: dash.mu }}>
-                  Noch keine aktiven Items.
-                </p>
-              ) : (
-                menuItems
-                  .filter((m) => m.aktiv)
-                  .map((m) => {
-                    const checked = bundleSelectedIds.includes(m.id);
-                    return (
-                      <label
-                        key={m.id}
-                        className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-xs"
-                        style={{ color: dash.tx }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            setBundleSelectedIds((prev) =>
-                              checked ? prev.filter((id) => id !== m.id) : [...prev, m.id],
-                            );
-                          }}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span className="flex-1 truncate">{m.name}</span>
-                        <span style={{ color: dash.mu, fontSize: 10 }}>
-                          {isDrinkCategory(m.kategorie) ? "🥤" : "🍽"} {m.preis.toFixed(2)} €
-                        </span>
-                      </label>
-                    );
-                  })
-              )}
+            <div className="border-b px-5 py-4" style={{ borderColor: dash.bo }}>
+              <div className="qrave-font-display text-[15px] font-bold">Bundle erstellen</div>
+              <p className="mt-1 text-[12px]" style={{ color: dash.mu }}>
+                Mehrere Gerichte mit Gesamtpreis kombinieren (z. B. Hauptgericht + Beilage + Getränk).
+              </p>
             </div>
-            <input
-              value={bundlePriceText}
-              onChange={(e) => setBundlePriceText(e.target.value)}
-              placeholder="Gesamtpreis (z. B. 12,50)"
-              inputMode="decimal"
-              className="mb-2 w-full rounded-[11px] border px-3 py-2.5 text-sm outline-none"
-              style={{ backgroundColor: dash.s2, borderColor: dash.bo, color: dash.tx }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const price = parseDecimal(bundlePriceText);
-                if (price === null || price <= 0) {
-                  onToast("Gültigen Gesamtpreis eingeben (z. B. 12,50)");
-                  return;
-                }
-                if (!bundleName.trim()) {
-                  onToast("Bundle-Name fehlt");
-                  return;
-                }
-                if (bundleSelectedIds.length < 2) {
-                  onToast("Mindestens 2 Items auswählen");
-                  return;
-                }
-                const ids = [...bundleSelectedIds];
-                const name = bundleName.trim();
-                setBundleName("");
-                setBundleSelectedIds([]);
-                setBundlePriceText("");
-                void addLunchBundle(name, ids, price);
-              }}
-              disabled={
-                !bundleName.trim() ||
-                bundleSelectedIds.length < 2 ||
-                parseDecimal(bundlePriceText) === null
-              }
-              className="w-full rounded-[10px] py-2.5 text-sm font-bold disabled:opacity-50"
-              style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
-            >
-              + Bundle erstellen
-            </button>
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              {/* Links: verfügbare Gerichte */}
+              <div className="border-b px-5 py-4 md:border-b-0 md:border-r" style={{ borderColor: dash.bo }}>
+                <div
+                  className="mb-3 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  style={{ color: dash.mu }}
+                >
+                  Verfügbare Gerichte
+                </div>
+                <div className="max-h-[280px] space-y-1.5 overflow-y-auto pr-1">
+                  {menuItems.filter((m) => m.aktiv).length === 0 ? (
+                    <p className="text-[12px]" style={{ color: dash.mu }}>
+                      Noch keine aktiven Gerichte.
+                    </p>
+                  ) : (
+                    menuItems
+                      .filter((m) => m.aktiv && !bundleSelectedIds.includes(m.id))
+                      .map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() =>
+                            setBundleSelectedIds((prev) => [...prev, m.id])
+                          }
+                          className="flex w-full items-center gap-3 rounded-[11px] border px-3 py-2.5 text-left transition hover:border-white/20"
+                          style={{
+                            background: "rgba(255,255,255,0.03)",
+                            borderColor: "rgba(255,255,255,0.06)",
+                          }}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[13px] font-medium">{m.name}</div>
+                            <div
+                              className="text-[11px]"
+                              style={{ color: dash.mu }}
+                            >
+                              {m.kategorie || "Sonstiges"} · {m.preis.toFixed(2)} €
+                            </div>
+                          </div>
+                          <span
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                            style={{
+                              background: "color-mix(in srgb, var(--qrave-accent) 18%, transparent)",
+                              color: "var(--qrave-accent-strong)",
+                            }}
+                          >
+                            <i className="fa-solid fa-plus text-[11px]" />
+                          </span>
+                        </button>
+                      ))
+                  )}
+                </div>
+              </div>
+
+              {/* Rechts: ausgewählte Gerichte */}
+              <div className="px-5 py-4">
+                <input
+                  value={bundleName}
+                  onChange={(e) => setBundleName(e.target.value)}
+                  placeholder="Bundle-Name (z. B. Mittagsmenü 1)"
+                  className="mb-3 w-full rounded-[11px] border bg-transparent px-3 py-2.5 text-[13px] font-semibold outline-none"
+                  style={{ borderColor: dash.bo, color: dash.tx }}
+                />
+                <div
+                  className="mb-3 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  style={{ color: dash.mu }}
+                >
+                  Im Bundle · {bundleSelectedIds.length} {bundleSelectedIds.length === 1 ? "Gericht" : "Gerichte"}
+                </div>
+                <div className="mb-3 max-h-[200px] space-y-1.5 overflow-y-auto pr-1">
+                  {bundleSelectedIds.length === 0 ? (
+                    <div
+                      className="flex h-[80px] items-center justify-center rounded-[11px] border border-dashed text-[12px]"
+                      style={{ borderColor: "rgba(255,255,255,0.08)", color: dash.mu }}
+                    >
+                      Noch keine Gerichte hinzugefügt
+                    </div>
+                  ) : (
+                    bundleSelectedIds.map((id) => {
+                      const m = menuItems.find((x) => x.id === id);
+                      if (!m) return null;
+                      return (
+                        <div
+                          key={id}
+                          className="flex items-center gap-3 rounded-[11px] border px-3 py-2.5"
+                          style={{
+                            background: "color-mix(in srgb, var(--qrave-accent) 8%, transparent)",
+                            borderColor: "color-mix(in srgb, var(--qrave-accent) 20%, transparent)",
+                          }}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[13px] font-medium">{m.name}</div>
+                            <div className="text-[11px]" style={{ color: dash.mu }}>
+                              {m.kategorie || "Sonstiges"} · {m.preis.toFixed(2)} €
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setBundleSelectedIds((prev) => prev.filter((x) => x !== id))
+                            }
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition hover:bg-white/10"
+                            style={{ color: "rgba(242,242,242,0.6)" }}
+                            aria-label={`${m.name} entfernen`}
+                          >
+                            <i className="fa-solid fa-xmark text-[11px]" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {bundleSelectedIds.length > 0 ? (
+                  <div
+                    className="mb-3 flex items-center justify-between rounded-[11px] border px-3 py-2.5 text-[12px]"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      borderColor: "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <span style={{ color: dash.mu }}>Einzelpreise zusammen</span>
+                    <span className="qrave-font-display font-bold" style={{ color: dash.tx }}>
+                      {bundleSelectedIds
+                        .reduce(
+                          (sum, id) => sum + (menuItems.find((x) => x.id === id)?.preis ?? 0),
+                          0,
+                        )
+                        .toFixed(2)}{" "}
+                      €
+                    </span>
+                  </div>
+                ) : null}
+
+                <input
+                  value={bundlePriceText}
+                  onChange={(e) => setBundlePriceText(e.target.value)}
+                  placeholder="Gesamtpreis Bundle (z. B. 12,50)"
+                  inputMode="decimal"
+                  className="mb-3 w-full rounded-[11px] border bg-transparent px-3 py-2.5 text-[13px] outline-none"
+                  style={{ borderColor: dash.bo, color: dash.tx }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const price = parseDecimal(bundlePriceText);
+                    if (price === null || price <= 0) {
+                      onToast("Gültigen Gesamtpreis eingeben (z. B. 12,50)");
+                      return;
+                    }
+                    if (!bundleName.trim()) {
+                      onToast("Bundle-Name fehlt");
+                      return;
+                    }
+                    if (bundleSelectedIds.length < 2) {
+                      onToast("Mindestens 2 Items auswählen");
+                      return;
+                    }
+                    const ids = [...bundleSelectedIds];
+                    const name = bundleName.trim();
+                    setBundleName("");
+                    setBundleSelectedIds([]);
+                    setBundlePriceText("");
+                    void addLunchBundle(name, ids, price);
+                  }}
+                  disabled={
+                    !bundleName.trim() ||
+                    bundleSelectedIds.length < 2 ||
+                    parseDecimal(bundlePriceText) === null
+                  }
+                  className="w-full rounded-[10px] py-2.5 text-[13px] font-bold disabled:opacity-50"
+                  style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
+                >
+                  Bundle erstellen
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Liste der angelegten Offers (Single + Bundle) */}

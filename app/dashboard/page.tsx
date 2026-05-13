@@ -31,7 +31,6 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<Awaited<ReturnType<typeof fetchDashboardAnalytics>> | null>(
     null,
   );
-  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -45,8 +44,6 @@ export default function DashboardPage() {
         router.replace("/login?redirect=/dashboard");
         return;
       }
-
-      setUserEmail(session.user.email ?? "");
 
       const { data, error } = await supabase
         .from("restaurants")
@@ -117,7 +114,6 @@ export default function DashboardPage() {
   return (
     <DashboardApp
       userFirstName={userFirstName}
-      userEmail={userEmail}
       restaurant={restaurant}
       initialMenuItems={menuItems}
       initialAnalytics={analytics}

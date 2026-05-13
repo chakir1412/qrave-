@@ -1,21 +1,18 @@
 "use client";
 
-import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DailyPush, LunchOffer } from "@/lib/supabase";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
-import { compressImageFile } from "@/lib/compress-image";
 import { useRestaurantTables } from "@/hooks/useTische";
 import { fetchDashboardAnalytics, type DashboardAnalytics } from "@/hooks/useAnalytics";
-import { DashboardShell } from "./DashboardShell";
+import { DashboardShell, type QuickActionKey } from "./DashboardShell";
 import { DashboardToast } from "./DashboardToast";
 import { HomeTab } from "./tabs/HomeTab";
 import { KarteTab } from "./tabs/KarteTab";
 import { TischeTab } from "./tabs/TischeTab";
-import { SettingsOverlay } from "./overlays/SettingsOverlay";
 import { EditItemOverlay } from "./overlays/EditItemOverlay";
 import { AddCategoryOverlay } from "./overlays/AddCategoryOverlay";
 import { TischeConfigPage } from "./pages/TischeConfigPage";
@@ -45,7 +42,6 @@ type DailyForm = {
 
 type Props = {
   userFirstName: string;
-  userEmail: string;
   restaurant: DashboardRestaurant;
   initialMenuItems: MenuItem[];
   initialAnalytics: DashboardAnalytics;
@@ -57,7 +53,6 @@ const MAX_DAILY_PUSHES = 3;
 
 export function DashboardApp({
   userFirstName,
-  userEmail,
   restaurant: restaurantProp,
   initialMenuItems,
   initialAnalytics,
@@ -89,7 +84,6 @@ export function DashboardApp({
   const [karteInitialFilter, setKarteInitialFilter] = useState<"soldout" | null>(null);
 
   const [overlays, setOverlays] = useState<OverlaysState>({
-    settings: false,
     editItem: false,
     addCat: false,
   });
@@ -116,15 +110,7 @@ export function DashboardApp({
   const [savingDaily, setSavingDaily] = useState(false);
   const [dailyError, setDailyError] = useState<string | null>(null);
 
-  const [logoPreview, setLogoPreview] = useState<string | null>(
-    restaurantProp.logo_url ?? null,
-  );
-  const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(
-    restaurantProp.logo_url ?? null,
-  );
-  const [extracting, setExtracting] = useState(false);
-  const [brandingMessage, setBrandingMessage] = useState<string | null>(null);
-  const [splashUploading, setSplashUploading] = useState(false);
+  const [currentLogoUrl] = useState<string | null>(restaurantProp.logo_url ?? null);
 
   useEffect(() => {
     setRestaurant(restaurantProp);
@@ -175,39 +161,6 @@ export function DashboardApp({
     setRestaurant((r) => ({ ...r, guest_note: value }));
     showToast("✓ Notiz gespeichert");
   }
-
-  const handlePatchRestaurant = useCallback(
-    async (patch: {
-      adresse?: string | null;
-      telefon?: string | null;
-      whatsapp?: string | null;
-      instagram?: string | null;
-      maps_url?: string | null;
-      oeffnungszeiten?: import("@/lib/supabase").OeffnungszeitenWoche | null;
-      active_languages?: string[];
-    }) => {
-      // `.select("id")` zwingt PostgREST, die aktualisierten Zeilen zurückzugeben.
-      // Bei RLS-Block trifft das UPDATE 0 Zeilen → `data` ist leer, aber `error`
-      // bleibt null (PostgREST-Default). Ohne die explizite 0-Row-Detection
-      // würde ein silent-fail als „✓ Gespeichert" angezeigt.
-      const { data, error } = await supabase
-        .from("restaurants")
-        .update(patch)
-        .eq("id", restaurant.id)
-        .select("id");
-      if (error) {
-        showToast(error.message ?? "Speichern fehlgeschlagen");
-        return;
-      }
-      if (!data || data.length === 0) {
-        showToast("Speichern fehlgeschlagen — keine Berechtigung");
-        return;
-      }
-      setRestaurant((r) => ({ ...r, ...patch }));
-      showToast("✓ Gespeichert");
-    },
-    [restaurant.id, showToast],
-  );
 
   async function handleDailyPushSave() {
     setSavingDaily(true);
@@ -272,164 +225,52 @@ export function DashboardApp({
     showToast("✓ Special entfernt");
   }
 
-  async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await handleImmediateLogoUpload(file);
-    e.target.value = "";
-  }
+  // Quick-Actions aus der Sidebar — Tab-Switch + ggf. Sub-Tab/Filter setzen.
+  const handleQuickAction = useCallback(
+    (action: QuickActionKey) => {
+      switch (action) {
+        case "daily":
+          setActiveKarteSub("heute");
+          setActiveTab("karte");
+          break;
+        case "notiz":
+          setActiveKarteSub("notiz");
+          setActiveTab("karte");
+          break;
+        case "soldout":
+          setActiveKarteSub("menu");
+          setKarteInitialFilter("soldout");
+          setActiveTab("karte");
+          break;
+        case "translate":
+          router.push("/dashboard/ki-features#uebersetzen");
+          break;
+      }
+    },
+    [router],
+  );
 
-  async function handleImmediateLogoUpload(file: File) {
-    setLogoPreview(URL.createObjectURL(file));
-    setExtracting(true);
-    setBrandingMessage(null);
+  // Beim Mount: ggf. von einer Sub-Page weitergereichte Tab/Sub/Filter konsumieren.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
-      const mime = (file.type || "").toLowerCase();
-      const forcedExt =
-        mime === "image/png"
-          ? "png"
-          : mime === "image/jpeg"
-            ? "jpg"
-            : (file.name.split(".").pop() ?? "png").toLowerCase();
-      const path = `${restaurant.id}/logo.${forcedExt}`;
-      const { error: uploadErr } = await supabase.storage.from("restaurant-assets").upload(path, file, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: file.type || undefined,
-      });
-      if (uploadErr) {
-        setBrandingMessage(`Logo-Upload fehlgeschlagen: ${uploadErr.message}`);
-        return;
-      }
-      const { data: publicUrlData } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
-      const publicUrl = publicUrlData.publicUrl ?? null;
-      const logoUrl = publicUrl ? `${publicUrl}?t=${Date.now()}` : null;
-      const { error: updateError } = await supabase
-        .from("restaurants")
-        .update({ logo_url: logoUrl })
-        .eq("id", restaurant.id);
-      if (updateError) {
-        setBrandingMessage(`Speichern fehlgeschlagen: ${updateError.message}`);
-        return;
-      }
-      if (logoUrl) {
-        setCurrentLogoUrl(logoUrl);
-        setLogoPreview(logoUrl);
-      }
-      setRestaurant((r) => ({ ...r, logo_url: logoUrl ?? r.logo_url }));
-      showToast("✓ Logo gespeichert");
-    } finally {
-      setExtracting(false);
-    }
-  }
+      const tab = sessionStorage.getItem("qrave-dashboard-tab");
+      if (tab === "home" || tab === "karte" || tab === "tische") setActiveTab(tab);
+      sessionStorage.removeItem("qrave-dashboard-tab");
 
-  async function handleSplashMediaChange(e: ChangeEvent<HTMLInputElement>) {
-    const original = e.target.files?.[0];
-    if (!original) return;
-    const isVideo = (original.type || "").toLowerCase().startsWith("video/");
-    const isImage = (original.type || "").toLowerCase().startsWith("image/");
-    if (!isVideo && !isImage) {
-      showToast("Nur JPG/PNG oder MP4 erlaubt.");
-      e.target.value = "";
-      return;
-    }
-    // Videos: hartes 30-MB-Limit (keine Client-Compression möglich).
-    if (isVideo && original.size > 30 * 1024 * 1024) {
-      showToast("Video zu groß — bitte unter 30MB");
-      e.target.value = "";
-      return;
-    }
-    // Bilder: vor dem Upload via Canvas auf max 1920px Breite skalieren
-    // und als JPEG 80% encoden. Spart Storage + Bandbreite, und das harte
-    // 5-MB-Limit ist auf das komprimierte Resultat anzuwenden.
-    let file: File = original;
-    if (isImage) {
-      try {
-        file = await compressImageFile(original, { maxWidth: 1920, quality: 0.8 });
-      } catch {
-        file = original;
+      const sub = sessionStorage.getItem("qrave-karte-sub");
+      if (sub === "menu" || sub === "heute" || sub === "lunch" || sub === "notiz") {
+        setActiveKarteSub(sub);
       }
-      if (file.size > 5 * 1024 * 1024) {
-        showToast("Bild zu groß — bitte unter 5MB");
-        e.target.value = "";
-        return;
-      }
-    }
-    setSplashUploading(true);
-    try {
-      const ext = (file.name.split(".").pop() ?? (isVideo ? "mp4" : "jpg")).toLowerCase();
-      const filename = `${isVideo ? "video" : "image"}-${Date.now()}.${ext}`;
-      const path = `splash/${restaurant.id}/${filename}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("restaurant-assets")
-        .upload(path, file, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: file.type || undefined,
-        });
-      if (uploadErr) {
-        showToast(`Upload fehlgeschlagen: ${uploadErr.message}`);
-        return;
-      }
-      const { data: publicUrlData } = supabase.storage
-        .from("restaurant-assets")
-        .getPublicUrl(path);
-      const publicUrl = publicUrlData.publicUrl ?? null;
-      const mediaUrl = publicUrl ? `${publicUrl}?t=${Date.now()}` : null;
-      const mediaType: "image" | "video" = isVideo ? "video" : "image";
-      const { data: updateData, error: updateErr } = await supabase
-        .from("restaurants")
-        .update({ splash_media_url: mediaUrl, splash_media_type: mediaType })
-        .eq("id", restaurant.id)
-        .select("id");
-      if (updateErr) {
-        showToast(`Speichern fehlgeschlagen: ${updateErr.message}`);
-        return;
-      }
-      if (!updateData || updateData.length === 0) {
-        showToast("Speichern fehlgeschlagen — keine Berechtigung");
-        return;
-      }
-      setRestaurant((r) => ({
-        ...r,
-        splash_media_url: mediaUrl,
-        splash_media_type: mediaType,
-      }));
-      showToast("✓ Splash-Hintergrund gespeichert");
-    } finally {
-      setSplashUploading(false);
-      e.target.value = "";
-    }
-  }
+      sessionStorage.removeItem("qrave-karte-sub");
 
-  async function handleSplashMediaRemove() {
-    if (!restaurant.splash_media_url) return;
-    setSplashUploading(true);
-    try {
-      const { data, error } = await supabase
-        .from("restaurants")
-        .update({ splash_media_url: null, splash_media_type: null })
-        .eq("id", restaurant.id)
-        .select("id");
-      if (error) {
-        showToast(`Entfernen fehlgeschlagen: ${error.message}`);
-        return;
-      }
-      if (!data || data.length === 0) {
-        showToast("Entfernen fehlgeschlagen — keine Berechtigung");
-        return;
-      }
-      setRestaurant((r) => ({ ...r, splash_media_url: null, splash_media_type: null }));
-      showToast("✓ Splash-Hintergrund entfernt");
-    } finally {
-      setSplashUploading(false);
+      const filter = sessionStorage.getItem("qrave-karte-filter");
+      if (filter === "soldout") setKarteInitialFilter("soldout");
+      sessionStorage.removeItem("qrave-karte-filter");
+    } catch {
+      // sessionStorage blockiert — Defaults bleiben.
     }
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.replace("/login?redirect=/dashboard");
-  }
+  }, []);
 
   async function handleAddCategory(name: string) {
     const { data, error } = await supabase
@@ -467,9 +308,8 @@ export function DashboardApp({
       title={topbarTitle}
       liveBadge={restaurant.published !== false && restaurant.aktiv !== false}
       avatarLabel={avatarLabel}
-      onOpenSettings={() => setOverlays((o) => ({ ...o, settings: true }))}
-      onOpenAiFeatures={() => setOverlays((o) => ({ ...o, settings: true }))}
       previewUrl={`https://qrave.menu/${restaurant.slug}`}
+      onQuickAction={handleQuickAction}
     >
       <div className="mx-auto w-full max-w-[1200px] px-5 pb-16 pt-6 md:px-8 md:pt-8">
         {restaurant.published === false ? (
@@ -497,14 +337,11 @@ export function DashboardApp({
               restaurantName={restaurant.name}
               events={analytics.events}
               menuItems={menuItems}
-              dailyPushes={dailyPushes}
-              activeLanguagesCount={(restaurant.active_languages ?? ["de"]).length}
               onGoKarte={(sub, options) => {
                 setActiveKarteSub(sub);
                 if (options?.filter === "soldout") setKarteInitialFilter("soldout");
                 goTab("karte");
               }}
-              onOpenSettings={() => setOverlays((o) => ({ ...o, settings: true }))}
             />
           )}
           {activeTab === "karte" && (
@@ -560,26 +397,6 @@ export function DashboardApp({
           )}
         </main>
       </div>
-
-      <SettingsOverlay
-        open={overlays.settings}
-        onClose={() => setOverlays((o) => ({ ...o, settings: false }))}
-        restaurant={restaurant}
-        userEmail={userEmail}
-        onLogout={() => void handleLogout()}
-        logoPreview={logoPreview}
-        onLogoFileChange={(e) => void handleLogoChange(e)}
-        extracting={extracting}
-        brandingMessage={brandingMessage}
-        currentLogoUrl={currentLogoUrl}
-        onPatchRestaurant={handlePatchRestaurant}
-        onToast={showToast}
-        splashMediaUrl={restaurant.splash_media_url ?? null}
-        splashMediaType={restaurant.splash_media_type ?? null}
-        splashUploading={splashUploading}
-        onSplashMediaFileChange={(e) => void handleSplashMediaChange(e)}
-        onSplashMediaRemove={() => void handleSplashMediaRemove()}
-      />
 
       <EditItemOverlay
         item={editItem}

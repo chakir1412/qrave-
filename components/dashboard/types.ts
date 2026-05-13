@@ -49,7 +49,6 @@ export type Bereich = {
 };
 
 export type OverlaysState = {
-  settings: boolean;
   editItem: boolean;
   addCat: boolean;
 };

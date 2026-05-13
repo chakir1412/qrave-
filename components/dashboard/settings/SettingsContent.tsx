@@ -1,0 +1,656 @@
+"use client";
+
+import type { ChangeEvent, ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { DashboardRestaurant } from "../types";
+import { dash } from "../constants";
+import {
+  OEFFNUNGSZEITEN_WEEKDAY_KEYS,
+  type OeffnungszeitenWeekday,
+  type OeffnungszeitenWoche,
+} from "@/lib/supabase";
+import { WEEKDAY_LABELS_SHORT, defaultOeffnungszeiten } from "@/lib/oeffnungszeiten";
+import { LOCALE_LABEL, SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
+
+type SectionKey = "speisekarte" | "restaurant" | "kontakt" | "oeffnungszeiten" | "sprachen" | "account";
+
+const SECTIONS: { key: SectionKey; label: string; icon: string }[] = [
+  { key: "speisekarte", label: "Speisekarte", icon: "fa-solid fa-utensils" },
+  { key: "restaurant", label: "Restaurant", icon: "fa-solid fa-building" },
+  { key: "kontakt", label: "Kontakt", icon: "fa-solid fa-phone" },
+  { key: "oeffnungszeiten", label: "Öffnungszeiten", icon: "fa-solid fa-clock" },
+  { key: "sprachen", label: "Sprachen", icon: "fa-solid fa-language" },
+  { key: "account", label: "Account", icon: "fa-solid fa-user" },
+];
+
+const rowBorder = { borderBottom: "1px solid rgba(255,255,255,0.05)" };
+const labelStyle = { fontSize: 14, color: "#f2f2f2" };
+const valueStyle = { color: "rgba(242,242,242,0.5)", fontSize: 13 };
+
+type Props = {
+  restaurant: DashboardRestaurant;
+  userEmail: string;
+  onLogout: () => void;
+  logoPreview: string | null;
+  onLogoFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  extracting: boolean;
+  brandingMessage: string | null;
+  currentLogoUrl: string | null;
+  onPatchRestaurant: (patch: {
+    adresse?: string | null;
+    telefon?: string | null;
+    whatsapp?: string | null;
+    instagram?: string | null;
+    maps_url?: string | null;
+    oeffnungszeiten?: OeffnungszeitenWoche | null;
+    active_languages?: string[];
+  }) => Promise<void>;
+  onToast: (msg: string) => void;
+  splashMediaUrl: string | null;
+  splashMediaType: "image" | "video" | null;
+  splashUploading: boolean;
+  onSplashMediaFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onSplashMediaRemove: () => void;
+};
+
+export function SettingsContent(props: Props) {
+  const [section, setSection] = useState<SectionKey>("speisekarte");
+
+  return (
+    <div className="space-y-4">
+      {/* Mobile: horizontale Tabs */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 md:hidden">
+        {SECTIONS.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => setSection(s.key)}
+            className="whitespace-nowrap rounded-[8px] border px-3 py-1.5 text-[12px] font-semibold transition"
+            style={
+              section === s.key
+                ? {
+                    borderColor: "color-mix(in srgb, var(--qrave-accent) 40%, transparent)",
+                    background: "color-mix(in srgb, var(--qrave-accent) 20%, transparent)",
+                    color: "var(--qrave-accent-soft)",
+                  }
+                : {
+                    borderColor: "rgba(255,255,255,0.08)",
+                    background: "transparent",
+                    color: "rgba(242,242,242,0.6)",
+                  }
+            }
+          >
+            <i className={`${s.icon} mr-1.5 text-[11px]`} />
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_1fr]">
+        {/* Desktop: linke Spalte mit Bereich-Liste */}
+        <aside className="hidden md:block">
+          <div
+            className="overflow-hidden rounded-[14px] border p-2"
+            style={{ background: "var(--qrave-dash-surface)", borderColor: "var(--qrave-dash-border)" }}
+          >
+            {SECTIONS.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setSection(s.key)}
+                className={`qrave-nav-item${section === s.key ? " active" : ""}`}
+              >
+                <span className="qrave-nav-icon">
+                  <i className={s.icon} />
+                </span>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* Inhalt */}
+        <div>
+          {props.brandingMessage ? (
+            <div
+              className="mb-4 rounded-[12px] border px-3 py-2 text-[13px]"
+              style={{
+                borderColor: props.brandingMessage.startsWith("✓")
+                  ? "rgba(74,222,128,0.3)"
+                  : "rgba(248,113,113,0.3)",
+                background: props.brandingMessage.startsWith("✓")
+                  ? "rgba(74,222,128,0.1)"
+                  : "rgba(248,113,113,0.1)",
+                color: props.brandingMessage.startsWith("✓") ? dash.gr : dash.re,
+              }}
+            >
+              {props.brandingMessage}
+            </div>
+          ) : null}
+
+          {section === "speisekarte" && <SpeisekarteSection {...props} />}
+          {section === "restaurant" && <RestaurantSection {...props} />}
+          {section === "kontakt" && <KontaktSection {...props} />}
+          {section === "oeffnungszeiten" && <OeffnungszeitenSection {...props} />}
+          {section === "sprachen" && <SprachenSection {...props} />}
+          {section === "account" && <AccountSection {...props} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div
+      className="overflow-hidden rounded-[14px] border"
+      style={{ background: "var(--qrave-dash-surface)", borderColor: "var(--qrave-dash-border)" }}
+    >
+      <div
+        className="qrave-font-display border-b px-5 py-4 text-[15px] font-bold"
+        style={{ borderColor: "var(--qrave-dash-border)" }}
+      >
+        {title}
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function EditableTextRow({
+  label,
+  value,
+  placeholder,
+  onCommit,
+  noBorder,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onCommit: (next: string) => void;
+  noBorder?: boolean;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <div
+      className="flex min-h-[52px] w-full items-center justify-between gap-3 px-4"
+      style={noBorder ? undefined : rowBorder}
+    >
+      <span style={labelStyle} className="shrink-0">
+        {label}
+      </span>
+      <input
+        value={draft}
+        placeholder={placeholder}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft !== value) onCommit(draft);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-right text-[13px] outline-none focus:bg-white/[0.04]"
+        style={{ color: "#f2f2f2" }}
+      />
+    </div>
+  );
+}
+
+function SpeisekarteSection({
+  restaurant,
+  logoPreview,
+  currentLogoUrl,
+  extracting,
+  onLogoFileChange,
+  splashMediaUrl,
+  splashMediaType,
+  splashUploading,
+  onSplashMediaFileChange,
+  onSplashMediaRemove,
+}: Props) {
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const splashInputRef = useRef<HTMLInputElement>(null);
+  const displayLogo = logoPreview ?? currentLogoUrl;
+
+  return (
+    <SectionCard title="Speisekarte">
+      <a
+        href={`https://qrave.menu/${restaurant.slug}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex h-[52px] items-center justify-between px-4"
+        style={{ ...rowBorder, textDecoration: "none", color: "inherit" }}
+      >
+        <span style={labelStyle}>Meine Speisekarte ansehen</span>
+        <span style={valueStyle}>
+          <i className="fa-solid fa-arrow-up-right-from-square" />
+        </span>
+      </a>
+
+      <div className="flex h-[60px] items-center justify-between px-4" style={rowBorder}>
+        <span style={labelStyle}>Logo</span>
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border"
+            style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+          >
+            {displayLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={displayLogo} alt="" className="h-full w-full object-contain" />
+            ) : (
+              <i className="fa-solid fa-image text-[14px] text-white/40" />
+            )}
+          </div>
+          <button
+            type="button"
+            className="text-[13px] font-semibold"
+            style={{ color: "var(--qrave-accent-soft)" }}
+            onClick={() => logoInputRef.current?.click()}
+          >
+            Ändern
+          </button>
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/png,image/jpeg"
+            className="hidden"
+            onChange={onLogoFileChange}
+          />
+        </div>
+      </div>
+      {extracting ? (
+        <div className="px-4 py-2 text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+          Logo wird hochgeladen …
+        </div>
+      ) : null}
+
+      <div className="flex min-h-[60px] items-center justify-between px-4 py-3" style={rowBorder}>
+        <div>
+          <div style={labelStyle}>Splash Hintergrund</div>
+          <div className="mt-0.5 text-[11px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+            Foto (JPG/PNG, max 5 MB) oder Video (MP4, max 30 MB)
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border"
+            style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+          >
+            {splashMediaUrl && splashMediaType === "image" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={splashMediaUrl} alt="" className="h-full w-full object-cover" />
+            ) : splashMediaUrl && splashMediaType === "video" ? (
+              <i className="fa-solid fa-film text-[14px] text-white/60" />
+            ) : (
+              <i className="fa-solid fa-image text-[14px] text-white/40" />
+            )}
+          </div>
+          <button
+            type="button"
+            className="text-[13px] font-semibold"
+            style={{ color: "var(--qrave-accent-soft)" }}
+            onClick={() => splashInputRef.current?.click()}
+            disabled={splashUploading}
+          >
+            {splashMediaUrl ? "Ändern" : "Hochladen"}
+          </button>
+          {splashMediaUrl ? (
+            <button
+              type="button"
+              className="text-[13px] font-semibold"
+              style={{ color: dash.re }}
+              onClick={onSplashMediaRemove}
+              disabled={splashUploading}
+            >
+              Entfernen
+            </button>
+          ) : null}
+          <input
+            ref={splashInputRef}
+            type="file"
+            accept="image/png,image/jpeg,video/mp4"
+            className="hidden"
+            onChange={onSplashMediaFileChange}
+          />
+        </div>
+      </div>
+      {splashUploading ? (
+        <div className="px-4 py-2 text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+          Splash-Hintergrund wird hochgeladen …
+        </div>
+      ) : null}
+    </SectionCard>
+  );
+}
+
+function RestaurantSection({ restaurant, onPatchRestaurant }: Props) {
+  return (
+    <SectionCard title="Restaurant">
+      <div className="flex h-[52px] items-center justify-between px-4" style={rowBorder}>
+        <span style={labelStyle}>Name</span>
+        <span style={valueStyle}>{restaurant.name}</span>
+      </div>
+      <EditableTextRow
+        label="Adresse"
+        value={restaurant.adresse ?? ""}
+        placeholder="Straße & Hausnr."
+        onCommit={(next) => void onPatchRestaurant({ adresse: next.trim() || null })}
+      />
+      <EditableTextRow
+        label="Telefon"
+        value={restaurant.telefon ?? ""}
+        placeholder="+49 …"
+        onCommit={(next) => void onPatchRestaurant({ telefon: next.trim() || null })}
+        noBorder
+      />
+    </SectionCard>
+  );
+}
+
+function KontaktSection({ restaurant, onPatchRestaurant }: Props) {
+  return (
+    <SectionCard title="Kontakt (für Gäste-Splash)">
+      <EditableTextRow
+        label="WhatsApp"
+        value={restaurant.whatsapp ?? ""}
+        placeholder="+49 173 8996449"
+        onCommit={(next) => void onPatchRestaurant({ whatsapp: next.trim() || null })}
+      />
+      <EditableTextRow
+        label="Instagram"
+        value={restaurant.instagram ?? ""}
+        placeholder="@username oder URL"
+        onCommit={(next) => void onPatchRestaurant({ instagram: next.trim() || null })}
+      />
+      <EditableTextRow
+        label="Google Maps"
+        value={restaurant.maps_url ?? ""}
+        placeholder="https://maps.google.com/…"
+        onCommit={(next) => void onPatchRestaurant({ maps_url: next.trim() || null })}
+        noBorder
+      />
+    </SectionCard>
+  );
+}
+
+function OeffnungszeitenSection({ restaurant, onPatchRestaurant }: Props) {
+  return (
+    <SectionCard title="Öffnungszeiten">
+      <OeffnungszeitenInline
+        value={restaurant.oeffnungszeiten ?? null}
+        onChange={(next) => void onPatchRestaurant({ oeffnungszeiten: next })}
+      />
+    </SectionCard>
+  );
+}
+
+function SprachenSection({ restaurant, onPatchRestaurant, onToast }: Props) {
+  return (
+    <SectionCard title="Sprachen">
+      <SprachenInline
+        restaurantId={restaurant.id}
+        value={restaurant.active_languages ?? ["de"]}
+        onChange={(next) => void onPatchRestaurant({ active_languages: next })}
+        onToast={onToast}
+      />
+    </SectionCard>
+  );
+}
+
+function AccountSection({ userEmail, onLogout }: Props) {
+  const router = useRouter();
+  return (
+    <SectionCard title="Account">
+      <div className="flex h-[52px] items-center justify-between px-4" style={rowBorder}>
+        <span style={labelStyle}>E-Mail</span>
+        <span style={valueStyle}>{userEmail || "—"}</span>
+      </div>
+      <button
+        type="button"
+        onClick={() => router.push("/login")}
+        className="flex h-[52px] w-full items-center justify-between px-4 text-left"
+        style={rowBorder}
+      >
+        <span style={labelStyle}>Passwort ändern</span>
+        <i className="fa-solid fa-chevron-right text-[11px]" style={{ color: "rgba(242,242,242,0.32)" }} />
+      </button>
+      <div className="p-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== "undefined" && window.confirm("Wirklich abmelden?")) onLogout();
+          }}
+          className="w-full rounded-[10px] py-[12px] text-[13px] font-semibold"
+          style={{
+            background: "rgba(248,113,113,0.1)",
+            border: "1px solid rgba(248,113,113,0.25)",
+            color: "#f87171",
+          }}
+        >
+          Abmelden
+        </button>
+      </div>
+    </SectionCard>
+  );
+}
+
+function SprachenInline({
+  restaurantId,
+  value,
+  onChange,
+  onToast,
+}: {
+  restaurantId: string;
+  value: string[];
+  onChange: (next: string[]) => void;
+  onToast: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  function toggle(locale: SupportedLocale) {
+    if (locale === "de") return;
+    const has = value.includes(locale);
+    const next = has ? value.filter((l) => l !== locale) : [...value, locale];
+    const ordered = SUPPORTED_LOCALES.filter((l) => next.includes(l));
+    onChange(ordered);
+  }
+
+  async function handleTranslate() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/dashboard/translate-menu", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { success?: boolean; translatedFields?: number; error?: string }
+        | null;
+      if (!res.ok || !json?.success) {
+        onToast(json?.error ?? "Übersetzung fehlgeschlagen");
+        return;
+      }
+      const n = json.translatedFields ?? 0;
+      onToast(n > 0 ? `✓ ${n} Texte übersetzt` : "✓ Alles aktuell");
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : "Übersetzung fehlgeschlagen");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const others = SUPPORTED_LOCALES.filter((l) => l !== "de");
+  const hasOther = others.some((l) => value.includes(l));
+
+  return (
+    <div>
+      <div className="flex h-[52px] items-center justify-between px-4" style={rowBorder}>
+        <span style={labelStyle}>{LOCALE_LABEL.de}</span>
+        <span style={{ color: "rgba(242,242,242,0.5)", fontSize: 12 }}>Standard</span>
+      </div>
+      {others.map((locale, i) => {
+        const active = value.includes(locale);
+        const noBorder = i === others.length - 1;
+        return (
+          <div
+            key={locale}
+            className="flex h-[52px] items-center justify-between px-4"
+            style={noBorder ? undefined : rowBorder}
+          >
+            <span style={labelStyle}>{LOCALE_LABEL[locale]}</span>
+            <button
+              type="button"
+              onClick={() => toggle(locale)}
+              className="relative h-[22px] w-[40px] shrink-0 rounded-full transition-colors"
+              style={{ background: active ? "var(--qrave-accent)" : "rgba(255,255,255,0.12)" }}
+              aria-label={active ? `${LOCALE_LABEL[locale]} deaktivieren` : `${LOCALE_LABEL[locale]} aktivieren`}
+            >
+              <span
+                className="absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all"
+                style={{ left: active ? "calc(100% - 19px)" : "3px" }}
+              />
+            </button>
+          </div>
+        );
+      })}
+      <div className="border-t p-3 pt-3" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+        <button
+          type="button"
+          onClick={() => void handleTranslate()}
+          disabled={busy || !hasOther}
+          className="w-full rounded-[10px] py-[12px] text-[13px] font-bold transition disabled:opacity-50"
+          style={{
+            background: hasOther && !busy ? "var(--qrave-accent-gradient)" : "rgba(255,255,255,0.08)",
+            color: hasOther && !busy ? "#fff" : "rgba(242,242,242,0.5)",
+            boxShadow: hasOther && !busy ? "0 6px 20px rgba(147,51,234,0.4)" : "none",
+          }}
+        >
+          {busy ? "Übersetzt …" : "Speisekarte übersetzen"}
+        </button>
+        {!hasOther ? (
+          <p className="mt-2 text-center text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+            Mindestens eine weitere Sprache aktivieren.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function OeffnungszeitenInline({
+  value,
+  onChange,
+}: {
+  value: OeffnungszeitenWoche | null;
+  onChange: (next: OeffnungszeitenWoche) => void;
+}) {
+  const [draft, setDraft] = useState<OeffnungszeitenWoche>(() => value ?? defaultOeffnungszeiten());
+  const [openId, setOpenId] = useState<OeffnungszeitenWeekday | null>(null);
+
+  useEffect(() => {
+    setDraft(value ?? defaultOeffnungszeiten());
+  }, [value]);
+
+  function commit(next: OeffnungszeitenWoche) {
+    setDraft(next);
+    onChange(next);
+  }
+
+  function toggleClosed(day: OeffnungszeitenWeekday) {
+    const cur = draft[day];
+    const next: OeffnungszeitenWoche = {
+      ...draft,
+      [day]: cur ? null : { open: "11:00", close: "22:00" },
+    };
+    commit(next);
+  }
+
+  function setTime(day: OeffnungszeitenWeekday, field: "open" | "close", val: string) {
+    const cur = draft[day] ?? { open: "11:00", close: "22:00" };
+    const next: OeffnungszeitenWoche = { ...draft, [day]: { ...cur, [field]: val } };
+    setDraft(next);
+  }
+
+  function commitTime() {
+    onChange(draft);
+    setOpenId(null);
+  }
+
+  return (
+    <div>
+      {OEFFNUNGSZEITEN_WEEKDAY_KEYS.map((day, i) => {
+        const entry = draft[day];
+        const isOpen = Boolean(entry);
+        const isExpanded = openId === day;
+        const noBorder = i === OEFFNUNGSZEITEN_WEEKDAY_KEYS.length - 1;
+        return (
+          <div key={day} className="px-4" style={noBorder ? undefined : rowBorder}>
+            <div className="flex h-[52px] items-center justify-between gap-3">
+              <span
+                className="qrave-font-display w-10 text-[13px] font-bold uppercase tracking-wider"
+                style={{ color: "#f2f2f2" }}
+              >
+                {WEEKDAY_LABELS_SHORT[day]}
+              </span>
+              {isOpen && entry ? (
+                <button
+                  type="button"
+                  onClick={() => setOpenId(isExpanded ? null : day)}
+                  className="flex-1 text-left text-[13px]"
+                  style={{ color: "rgba(242,242,242,0.85)" }}
+                >
+                  {entry.open}–{entry.close}
+                </button>
+              ) : (
+                <span className="flex-1 text-[13px] italic" style={{ color: "rgba(242,242,242,0.5)" }}>
+                  geschlossen
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => toggleClosed(day)}
+                className="relative h-[22px] w-[40px] shrink-0 rounded-full transition-colors"
+                style={{ background: isOpen ? "var(--qrave-accent)" : "rgba(255,255,255,0.12)" }}
+                aria-label={isOpen ? `${day} schließen` : `${day} öffnen`}
+              >
+                <span
+                  className="absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-all"
+                  style={{ left: isOpen ? "calc(100% - 19px)" : "3px" }}
+                />
+              </button>
+            </div>
+            {isOpen && isExpanded && entry ? (
+              <div className="flex items-center gap-2 pb-3">
+                <input
+                  type="time"
+                  value={entry.open}
+                  onChange={(e) => setTime(day, "open", e.target.value)}
+                  onBlur={() => commitTime()}
+                  className="rounded-lg border px-2 py-1 text-[13px]"
+                  style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#fff" }}
+                />
+                <span className="text-[13px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+                  –
+                </span>
+                <input
+                  type="time"
+                  value={entry.close}
+                  onChange={(e) => setTime(day, "close", e.target.value)}
+                  onBlur={() => commitTime()}
+                  className="rounded-lg border px-2 py-1 text-[13px]"
+                  style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.3)", color: "#fff" }}
+                />
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

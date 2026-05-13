@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { DailyPush, MenuItem } from "@/lib/supabase";
+import type { MenuItem } from "@/lib/supabase";
 import type { KarteSub } from "../types";
 import type { AnalyticsEventRow } from "../analytics";
 import { formatDateLongDe, greetingLabel } from "../utils";
@@ -13,10 +13,7 @@ type Props = {
   restaurantName: string;
   events: AnalyticsEventRow[];
   menuItems: MenuItem[];
-  dailyPushes: DailyPush[];
-  activeLanguagesCount: number;
   onGoKarte: (sub: KarteSub, options?: { filter?: "soldout" }) => void;
-  onOpenSettings: () => void;
 };
 
 const CHART_W = 560;
@@ -236,10 +233,7 @@ export function HomeTab({
   restaurantName,
   events,
   menuItems,
-  dailyPushes,
-  activeLanguagesCount,
   onGoKarte,
-  onOpenSettings,
 }: Props) {
   const [range, setRange] = useState<Range>("7d");
   const today = startOfLocalDay(new Date());
@@ -297,8 +291,19 @@ export function HomeTab({
     [current.series, yMax],
   );
 
-  const soldOutCount = menuItems.filter((m) => m.sold_out).length;
-  const primaryDailyPush = dailyPushes[0] ?? null;
+  // Meistgeklickte Items: bis zu 6 items mit Balken; alle View-to-Click-Rates.
+  const popularItems = useMemo(() => {
+    return current.topItems.slice(0, 6).map((row) => {
+      const rate = row.views > 0 ? Math.round((row.count / row.views) * 100) : null;
+      return {
+        name: row.name,
+        category: categoryOf(nameToItem.get(row.name)),
+        clicks: row.count,
+        views: row.views,
+        rate,
+      };
+    });
+  }, [current.topItems, nameToItem]);
 
   const peakAvg = {
     morning: rangeInfo.days > 0 ? current.hourBuckets.morning / rangeInfo.days : 0,
@@ -561,38 +566,75 @@ export function HomeTab({
         </Card>
       </section>
 
-      {/* BOTTOM: Schnellzugriff + Peak-Zeiten */}
+      {/* BOTTOM: Meistgeklickte (mit View-to-Click-Balken) + Peak-Zeiten */}
       <section className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
         <Card>
-          <div className="qrave-font-display mb-4 text-[14px] font-bold">Schnellzugriff</div>
-          <QuickAction
-            icon="fa-solid fa-star"
-            tone="purple"
-            title="Tages-Special setzen"
-            sub={primaryDailyPush ? `${primaryDailyPush.item_emoji} ${primaryDailyPush.item_name}` : "Noch nicht gesetzt"}
-            onClick={() => onGoKarte("heute")}
-          />
-          <QuickAction
-            icon="fa-solid fa-pen-to-square"
-            tone="green"
-            title="Gäste-Notiz"
-            sub="Hinweis für heute setzen"
-            onClick={() => onGoKarte("notiz")}
-          />
-          <QuickAction
-            icon="fa-solid fa-ban"
-            tone="orange"
-            title="Ausverkauft markieren"
-            sub={`${soldOutCount} ${soldOutCount === 1 ? "Gericht" : "Gerichte"} ausverkauft`}
-            onClick={() => onGoKarte("menu", { filter: "soldout" })}
-          />
-          <QuickAction
-            icon="fa-solid fa-language"
-            tone="blue"
-            title="Speisekarte übersetzen"
-            sub={`${activeLanguagesCount} von 7 Sprachen aktiv`}
-            onClick={onOpenSettings}
-          />
+          <div className="qrave-font-display mb-1 text-[14px] font-bold">Meistgeklickte Gerichte</div>
+          <div className="mb-4 text-[11px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+            View-to-Click Rate · {RANGE_LABEL[range]}
+          </div>
+          {popularItems.length === 0 ? (
+            <p className="text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+              Noch keine Klick-Daten in diesem Zeitraum.
+            </p>
+          ) : (
+            popularItems.map((it, idx) => {
+              const rate = it.rate;
+              const barColor =
+                rate == null
+                  ? "rgba(242,242,242,0.25)"
+                  : rate >= 30
+                    ? "linear-gradient(90deg, #4ade80, #22c55e)"
+                    : rate < 15
+                      ? "linear-gradient(90deg, #f87171, #ef4444)"
+                      : "linear-gradient(90deg, #facc15, #eab308)";
+              const rateColor =
+                rate == null
+                  ? "rgba(242,242,242,0.5)"
+                  : rate >= 30
+                    ? "#4ade80"
+                    : rate < 15
+                      ? "#f87171"
+                      : "#facc15";
+              const fillWidth = rate == null ? 0 : Math.min(100, Math.max(2, rate));
+              return (
+                <div
+                  key={`${it.name}-${idx}`}
+                  className="mb-3 border-b pb-3 last:mb-0 last:border-b-0 last:pb-0"
+                  style={{ borderColor: "rgba(255,255,255,0.05)" }}
+                >
+                  <div className="mb-1.5 flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-medium">{it.name}</div>
+                      <div className="text-[11px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+                        {it.category}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div
+                        className="qrave-font-display text-[14px] font-bold"
+                        style={{ color: rateColor }}
+                      >
+                        {rate == null ? "—" : `${rate}%`}
+                      </div>
+                      <div className="text-[11px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+                        {it.clicks} Klicks · {it.views} Views
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="h-[6px] overflow-hidden rounded-[3px]"
+                    style={{ background: "rgba(255,255,255,0.07)" }}
+                  >
+                    <div
+                      className="h-full rounded-[3px] transition-[width] duration-300"
+                      style={{ width: `${fillWidth}%`, background: barColor }}
+                    />
+                  </div>
+                </div>
+              );
+            })
+          )}
         </Card>
 
         <Card>
@@ -892,49 +934,3 @@ function StatCard({
   );
 }
 
-function QuickAction({
-  icon,
-  tone,
-  title,
-  sub,
-  onClick,
-}: {
-  icon: string;
-  tone: "purple" | "green" | "blue" | "orange";
-  title: string;
-  sub: string;
-  onClick: () => void;
-}) {
-  const toneStyles: Record<typeof tone, { bg: string; color: string }> = {
-    purple: { bg: "rgba(147,51,234,0.18)", color: "#a855f7" },
-    green: { bg: "rgba(74,222,128,0.12)", color: "#4ade80" },
-    blue: { bg: "rgba(59,130,246,0.12)", color: "#60a5fa" },
-    orange: { bg: "rgba(251,146,60,0.12)", color: "#fb923c" },
-  };
-  const s = toneStyles[tone];
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mb-2 flex w-full items-center gap-3 rounded-[11px] border px-3.5 py-[11px] text-left transition last:mb-0"
-      style={{
-        background: "rgba(255,255,255,0.03)",
-        borderColor: "rgba(255,255,255,0.06)",
-      }}
-    >
-      <div
-        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px]"
-        style={{ background: s.bg, color: s.color, fontSize: 13 }}
-      >
-        <i className={icon} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium">{title}</div>
-        <div className="truncate text-[11px]" style={{ color: "rgba(242,242,242,0.5)" }}>
-          {sub}
-        </div>
-      </div>
-      <i className="fa-solid fa-chevron-right text-[11px]" style={{ color: "rgba(242,242,242,0.32)" }} />
-    </button>
-  );
-}

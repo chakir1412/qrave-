@@ -1,40 +1,54 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import type { DashboardTab } from "./types";
 
-/** Eintrag in der Sidebar / im Drawer. */
-type NavItem = {
-  key: DashboardTab;
+/** Eintrag in der Sidebar / im Drawer. Hat entweder eine Route (`href`)
+ *  oder einen Tab-Key — nicht beides. */
+type NavItem =
+  | { kind: "tab"; key: DashboardTab; label: string; icon: string }
+  | { kind: "link"; href: string; label: string; icon: string };
+
+const TAB_NAV: NavItem[] = [
+  { kind: "tab", key: "home", label: "Dashboard", icon: "fa-solid fa-house" },
+  { kind: "tab", key: "karte", label: "Speisekarte", icon: "fa-solid fa-utensils" },
+  { kind: "tab", key: "tische", label: "Tische", icon: "fa-solid fa-table-cells" },
+];
+
+export type QuickActionKey = "daily" | "notiz" | "soldout" | "translate";
+
+type QuickAction = {
+  key: QuickActionKey;
+  icon: string;
   label: string;
-  icon: string; // Font-Awesome-Klasse, z. B. "fa-solid fa-house"
 };
 
-const NAV_ITEMS: NavItem[] = [
-  { key: "home", label: "Dashboard", icon: "fa-solid fa-house" },
-  { key: "karte", label: "Speisekarte", icon: "fa-solid fa-utensils" },
-  { key: "tische", label: "Tische", icon: "fa-solid fa-table-cells" },
+const QUICK_ACTIONS: QuickAction[] = [
+  { key: "daily", icon: "fa-solid fa-star", label: "Tages-Special" },
+  { key: "notiz", icon: "fa-solid fa-pen-to-square", label: "Gäste-Notiz" },
+  { key: "soldout", icon: "fa-solid fa-ban", label: "Ausverkauft" },
+  { key: "translate", icon: "fa-solid fa-language", label: "Übersetzen" },
 ];
 
 type Props = {
   /** Wirt- oder Founder-Theme (lila vs. blau). */
   variant?: "wirt" | "founder";
-  /** Aktiver Tab in der Sidebar. */
-  activeTab: DashboardTab;
-  onTabChange: (next: DashboardTab) => void;
-  /** Topbar-Titel (z. B. "Dashboard"). */
+  /** Aktiver Tab — nur relevant, wenn die Page Tabs hat (DashboardApp). */
+  activeTab?: DashboardTab;
+  onTabChange?: (next: DashboardTab) => void;
+  /** Topbar-Titel. */
   title: string;
-  /** Live-Badge "Karte live" einblenden, wenn die Karte für Gäste freigegeben ist. */
+  /** "Karte live" Badge im Topbar. */
   liveBadge?: boolean;
-  /** Avatar-Buchstabe oben rechts (z. B. Initial). */
+  /** Avatar-Buchstabe oben rechts. */
   avatarLabel?: string;
-  /** Klick aufs Settings-Icon (nur in Sidebar/Drawer, nicht mehr Topbar). */
-  onOpenSettings?: () => void;
-  /** Klick auf die KI-Features-CTA in der Sidebar. */
-  onOpenAiFeatures?: () => void;
-  /** Öffentliche Speisekarten-URL (öffnet "Speisekarte ansehen"-Button im Topbar). */
+  /** Öffentliche Speisekarten-URL. */
   previewUrl?: string;
+  /** Quick-Actions in der Sidebar (Wirt-Dashboard). */
+  onQuickAction?: (action: QuickActionKey) => void;
   children: ReactNode;
 };
 
@@ -45,20 +59,20 @@ export function DashboardShell({
   title,
   liveBadge,
   avatarLabel,
-  onOpenSettings,
-  onOpenAiFeatures,
   previewUrl,
+  onQuickAction,
   children,
 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const pathname = usePathname();
 
-  // Drawer schließt automatisch beim Tab-Wechsel.
+  // Drawer schließt automatisch bei Tab- oder Routen-Wechsel.
   useEffect(() => {
     if (drawerOpen) setDrawerOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, pathname]);
 
-  // Body-Scroll lock solange Drawer offen.
+  // Body-Scroll-Lock solange Drawer offen.
   useEffect(() => {
     if (typeof document === "undefined") return;
     if (drawerOpen) {
@@ -88,17 +102,15 @@ export function DashboardShell({
       </div>
 
       <div className="relative z-[1] flex min-h-screen">
-        {/* Sidebar — nur Desktop */}
         <DashboardSidebar
           activeTab={activeTab}
           onTabChange={onTabChange}
-          onOpenSettings={onOpenSettings}
-          onOpenAiFeatures={onOpenAiFeatures}
+          onQuickAction={onQuickAction}
+          pathname={pathname}
           className="hidden md:flex"
           fixed
         />
 
-        {/* Drawer — nur Mobile, gerendert wenn offen */}
         {drawerOpen ? (
           <>
             <button
@@ -110,15 +122,14 @@ export function DashboardShell({
             <DashboardSidebar
               activeTab={activeTab}
               onTabChange={onTabChange}
-              onOpenSettings={onOpenSettings}
-              onOpenAiFeatures={onOpenAiFeatures}
+              onQuickAction={onQuickAction}
+              pathname={pathname}
               className="qrave-drawer-in fixed inset-y-0 left-0 z-[101] flex md:hidden"
             />
           </>
         ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col md:ml-[252px]">
-          {/* Topbar */}
           <div className="qrave-topbar sticky top-0 z-50 flex items-center gap-3 px-5 py-4 md:px-8">
             <button
               type="button"
@@ -176,18 +187,39 @@ export function DashboardShell({
 function DashboardSidebar({
   activeTab,
   onTabChange,
-  onOpenSettings,
-  onOpenAiFeatures,
+  onQuickAction,
+  pathname,
   className = "",
   fixed = false,
 }: {
-  activeTab: DashboardTab;
-  onTabChange: (next: DashboardTab) => void;
-  onOpenSettings?: () => void;
-  onOpenAiFeatures?: () => void;
+  activeTab?: DashboardTab;
+  onTabChange?: (next: DashboardTab) => void;
+  onQuickAction?: (action: QuickActionKey) => void;
+  pathname: string | null;
   className?: string;
   fixed?: boolean;
 }) {
+  const router = useRouter();
+
+  // Bei Tab-Klick: wenn wir auf einer Sub-Route (Einstellungen/KI) sind,
+  // erst zurück zu /dashboard navigieren — der gewählte Tab wird via
+  // sessionStorage gemerkt und beim Mount übernommen.
+  function handleTabClick(key: DashboardTab) {
+    if (pathname && pathname !== "/dashboard") {
+      try {
+        sessionStorage.setItem("qrave-dashboard-tab", key);
+      } catch {
+        // sessionStorage ggf. blockiert — Tab landet im Default.
+      }
+      router.push("/dashboard");
+      return;
+    }
+    onTabChange?.(key);
+  }
+
+  const isOnSettings = pathname === "/dashboard/einstellungen";
+  const isOnKi = pathname === "/dashboard/ki-features";
+
   return (
     <aside
       className={`qrave-sidebar w-[252px] flex-shrink-0 flex-col px-4 py-6 ${fixed ? "fixed inset-y-0 left-0" : ""} ${className}`}
@@ -195,44 +227,64 @@ function DashboardSidebar({
       <div className="qrave-font-display mb-9 flex items-center gap-2 px-2 text-[20px] font-black">
         <span
           className="inline-block h-2 w-2 rounded-full"
-          style={{
-            background: "var(--qrave-accent)",
-            boxShadow: "0 0 10px var(--qrave-accent)",
-          }}
+          style={{ background: "var(--qrave-accent)", boxShadow: "0 0 10px var(--qrave-accent)" }}
         />
         qrave
       </div>
 
       <div className="qrave-nav-section">Menu</div>
-      {NAV_ITEMS.map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          onClick={() => onTabChange(item.key)}
-          className={`qrave-nav-item${activeTab === item.key ? " active" : ""}`}
-        >
-          <span className="qrave-nav-icon">
-            <i className={item.icon} />
-          </span>
-          {item.label}
-        </button>
-      ))}
+      {TAB_NAV.map((item) => {
+        if (item.kind !== "tab") return null;
+        const active = pathname === "/dashboard" && activeTab === item.key;
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => handleTabClick(item.key)}
+            className={`qrave-nav-item${active ? " active" : ""}`}
+          >
+            <span className="qrave-nav-icon">
+              <i className={item.icon} />
+            </span>
+            {item.label}
+          </button>
+        );
+      })}
+
+      {/* Quick-Actions — kleine Icon-Buttons unter den Nav-Links */}
+      {onQuickAction ? (
+        <div className="mt-2 mb-1 flex gap-1.5 px-2">
+          {QUICK_ACTIONS.map((q) => (
+            <button
+              key={q.key}
+              type="button"
+              onClick={() => onQuickAction(q.key)}
+              title={q.label}
+              aria-label={q.label}
+              className="flex h-8 w-8 items-center justify-center rounded-[8px] border transition"
+              style={{
+                borderColor: "rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.04)",
+                color: "rgba(242,242,242,0.55)",
+              }}
+            >
+              <i className={`${q.icon} text-[11px]`} />
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="qrave-nav-section">Verwalten</div>
-      <button
-        type="button"
-        onClick={onOpenSettings}
-        className="qrave-nav-item"
+      <Link
+        href="/dashboard/einstellungen"
+        className={`qrave-nav-item${isOnSettings ? " active" : ""}`}
       >
         <span className="qrave-nav-icon">
           <i className="fa-solid fa-gear" />
         </span>
         Einstellungen
-      </button>
-      <a
-        className="qrave-nav-item"
-        href="mailto:info@qrave.menu"
-      >
+      </Link>
+      <a className="qrave-nav-item" href="mailto:info@qrave.menu">
         <span className="qrave-nav-icon">
           <i className="fa-solid fa-circle-question" />
         </span>
@@ -240,7 +292,11 @@ function DashboardSidebar({
       </a>
 
       <div className="mt-auto">
-        <div className="qrave-cta-card">
+        <Link
+          href="/dashboard/ki-features"
+          className={`qrave-cta-card block${isOnKi ? "" : ""}`}
+          style={{ textDecoration: "none", color: "inherit" }}
+        >
           <div className="mb-[10px] flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-white/15">
             <i className="fa-solid fa-wand-magic-sparkles text-[13px] text-white" />
           </div>
@@ -250,14 +306,10 @@ function DashboardSidebar({
           <div className="mb-3 text-[11px] leading-snug text-white/60">
             Beschreibungen generieren und Karte übersetzen
           </div>
-          <button
-            type="button"
-            onClick={onOpenAiFeatures}
-            className="w-full rounded-[8px] border border-white/20 bg-white/15 py-[9px] text-[12px] font-semibold text-white transition hover:bg-white/25"
-          >
+          <div className="w-full rounded-[8px] border border-white/20 bg-white/15 py-[9px] text-center text-[12px] font-semibold text-white">
             + Jetzt nutzen
-          </button>
-        </div>
+          </div>
+        </Link>
       </div>
     </aside>
   );
