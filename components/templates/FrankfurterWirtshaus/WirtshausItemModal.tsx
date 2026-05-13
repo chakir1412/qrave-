@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import Image from "next/image";
 import { supabase, type MenuItem, type SponsoredItem } from "@/lib/supabase";
 import {
+  getCompanionSuggestions,
   getDrinkSuggestions,
   isDrinkItem,
   type SponsoredSuggestion,
@@ -188,13 +189,12 @@ export default function WirtshausItemModal({
   }, [item.tags]);
 
   const isCurrentItemDrink = isDrinkItem(item);
-  const suggestions = useMemo(
-    () =>
-      isCurrentItemDrink
-        ? []
-        : getDrinkSuggestions(menuItems, item, sponsoredItems ?? []),
-    [menuItems, item, sponsoredItems, isCurrentItemDrink],
-  );
+  const suggestions = useMemo<(MenuItem | SponsoredSuggestion)[]>(() => {
+    const companions = getCompanionSuggestions(menuItems, item, 3);
+    if (companions.length > 0) return companions;
+    if (isCurrentItemDrink) return [];
+    return getDrinkSuggestions(menuItems, item, sponsoredItems ?? []);
+  }, [menuItems, item, sponsoredItems, isCurrentItemDrink]);
 
   const handleSuggestionActivate = async (s: MenuItem | SponsoredSuggestion) => {
     if (isSponsoredCard(s)) {
@@ -512,7 +512,7 @@ export default function WirtshausItemModal({
               ) : null}
             </div>
 
-            {!isCurrentItemDrink && suggestions.length > 0 ? (
+            {suggestions.length > 0 ? (
               <div
                 style={{
                   marginTop: 22,
@@ -530,7 +530,7 @@ export default function WirtshausItemModal({
                     fontWeight: 600,
                   }}
                 >
-                  🍺 Oft zusammen bestellt
+                  Oft zusammen bestellt
                 </div>
                 <div
                   className="scrollbar-hide"
@@ -616,7 +616,7 @@ export default function WirtshausItemModal({
                                 "🍽️"}
                           </div>
                         )}
-                        <div style={{ padding: "8px 10px" }}>
+                        <div style={{ padding: "8px 10px", paddingRight: 36 }}>
                           <div
                             style={{
                               fontFamily:
@@ -639,6 +639,58 @@ export default function WirtshausItemModal({
                             {suggestionPriceText(s)}
                           </div>
                         </div>
+                        {!sp ? (
+                          <button
+                            type="button"
+                            aria-label={
+                              isInWishlist((s as MenuItem).id)
+                                ? "Aus Merkliste entfernen"
+                                : "Zur Merkliste hinzufügen"
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const mi = s as MenuItem;
+                              if (onAddToWishlist && !isInWishlist(mi.id)) {
+                                onAddToWishlist(mi, 1);
+                              } else {
+                                onToggleWishlist(mi);
+                              }
+                            }}
+                            style={{
+                              position: "absolute",
+                              bottom: 8,
+                              right: 8,
+                              width: 28,
+                              height: 28,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              borderRadius: "50%",
+                              border: `1px solid ${COL.divider}`,
+                              background: isInWishlist((s as MenuItem).id)
+                                ? "rgba(200,137,78,0.16)"
+                                : "rgba(255,255,255,0.92)",
+                              color: isInWishlist((s as MenuItem).id)
+                                ? COL.accent
+                                : COL.textMuted,
+                              cursor: "pointer",
+                              boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+                              transition: "all 0.18s",
+                            }}
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill={isInWishlist((s as MenuItem).id) ? "currentColor" : "none"}
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              aria-hidden
+                            >
+                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                            </svg>
+                          </button>
+                        ) : null}
                       </div>
                     );
                   })}

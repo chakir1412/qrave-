@@ -207,6 +207,79 @@ export function getDrinkSuggestions(
   return [...results, ...drinks].slice(0, limit);
 }
 
+/** Kategorie-basierte „Oft zusammen bestellt"-Logik (substring-match,
+ *  case-insensitive). Jeder Eintrag mappt einen *aktuellen* Item-Typ
+ *  auf eine Liste passender Companion-Kategorien (substring-Pattern).
+ *  Hauptgerichte zeigen Drinks, Drinks zeigen Speisen — fluid in beide
+ *  Richtungen. */
+const COMPANION_RULES: { test: string[]; companions: string[] }[] = [
+  // Speisen → Drinks
+  { test: ["suppe"], companions: ["brot", "bier", "wasser"] },
+  { test: ["vorspeise"], companions: ["apfelwein", "bier", "softdrink", "wasser"] },
+  { test: ["salat"], companions: ["wasser", "softdrink", "wein"] },
+  { test: ["burger"], companions: ["bier", "softdrink", "cola"] },
+  { test: ["fisch", "fish", "seafood"], companions: ["wein", "wasser", "softdrink"] },
+  { test: ["flammkuchen"], companions: ["wein", "bier", "apfelwein"] },
+  { test: ["dessert", "nachspeise", "kuchen", "torte", "eis"], companions: ["heissgetränk", "kaffee", "espresso", "tee"] },
+  { test: ["beilage"], companions: ["hauptgericht", "schnitzel", "braten", "steak", "wurst"] },
+  // Drinks → Speisen
+  { test: ["heissgetränk", "kaffee", "espresso", "tee", "kakao"], companions: ["dessert", "nachspeise", "kuchen", "torte", "eis"] },
+  { test: ["bier", "wein", "apfelwein", "sekt"], companions: ["hauptgericht", "schnitzel", "vorspeise", "flammkuchen", "burger"] },
+  { test: ["softdrink", "saft", "limo"], companions: ["hauptgericht", "schnitzel", "burger", "salat"] },
+  // Catch-all für Hauptgerichte (zuletzt, damit "schnitzel" oben für Beilagen-Match nicht zuerst hier landet)
+  { test: ["hauptgericht", "schnitzel", "braten", "steak", "wurst", "fleisch", "pasta", "nudel", "pizza"], companions: ["bier", "apfelwein", "softdrink", "wein"] },
+];
+
+function matchesAny(haystack: string, needles: string[]): boolean {
+  const h = haystack.toLowerCase();
+  return needles.some((n) => h.includes(n));
+}
+
+/** Bestimmt die Companion-Pattern für ein aktuelles Item nach den Regeln.
+ *  Null, wenn keine Regel greift. */
+function companionPatternsFor(item: MenuItem): string[] | null {
+  const kat = (item.kategorie ?? "").toLowerCase();
+  const name = (item.name ?? "").toLowerCase();
+  for (const rule of COMPANION_RULES) {
+    if (matchesAny(kat, rule.test) || matchesAny(name, rule.test)) {
+      return rule.companions;
+    }
+  }
+  return null;
+}
+
+/** Liefert bis zu `limit` Items, die laut COMPANION_RULES gut zum aktuellen
+ *  Item passen. Items mit `bild_url` werden bevorzugt; danach randomisiert. */
+export function getCompanionSuggestions(
+  menuItems: MenuItem[],
+  currentItem: MenuItem,
+  limit = 3,
+): MenuItem[] {
+  const patterns = companionPatternsFor(currentItem);
+  if (!patterns) return [];
+
+  const candidates = menuItems.filter((m) => {
+    if (m.id === currentItem.id) return false;
+    if (m.aktiv === false || m.sold_out === true) return false;
+    return matchesAny(m.kategorie ?? "", patterns);
+  });
+
+  const withImage = candidates.filter((m) => (m.bild_url ?? "").trim().length > 0);
+  const withoutImage = candidates.filter((m) => (m.bild_url ?? "").trim().length === 0);
+
+  // Innerhalb der beiden Buckets randomisieren, dann zusammensetzen.
+  function shuffle<T>(arr: T[]): T[] {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  return [...shuffle(withImage), ...shuffle(withoutImage)].slice(0, limit);
+}
+
 /** Lädt aktive Sponsored-Rows; leeres `restaurant_ids` = alle Restaurants. */
 export async function loadSponsoredItems(restaurantId: string): Promise<SponsoredItem[]> {
   const { data, error } = await supabase

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import Image from "next/image";
 import { supabase, type MenuItem, type SponsoredItem } from "@/lib/supabase";
 import {
+  getCompanionSuggestions,
   getDrinkSuggestions,
   isDrinkItem,
   type SponsoredSuggestion,
@@ -298,13 +299,15 @@ export default function ItemModal({
 
   const isCurrentItemDrink = isDrinkItem(item);
 
-  const suggestions = useMemo(
-    () =>
-      isCurrentItemDrink
-        ? []
-        : getDrinkSuggestions(menuItems, item, sponsoredItems ?? []),
-    [menuItems, item, sponsoredItems, isCurrentItemDrink],
-  );
+  // Neue Kategorie-basierte Companion-Logik (auch für Drinks). Wenn keine
+  // Regel greift, Fallback auf die alte Drink-Vorschlag-Logik (mit
+  // Sponsored-Items) — so bleibt das bestehende Verhalten erhalten.
+  const suggestions = useMemo<(MenuItem | SponsoredSuggestion)[]>(() => {
+    const companions = getCompanionSuggestions(menuItems, item, 3);
+    if (companions.length > 0) return companions;
+    if (isCurrentItemDrink) return [];
+    return getDrinkSuggestions(menuItems, item, sponsoredItems ?? []);
+  }, [menuItems, item, sponsoredItems, isCurrentItemDrink]);
 
   const handleSuggestionActivate = async (s: MenuItem | SponsoredSuggestion) => {
     if (isSponsoredCard(s)) {
@@ -619,7 +622,7 @@ export default function ItemModal({
               </p>
             </div>
 
-            {!isCurrentItemDrink && suggestions.length > 0 ? (
+            {suggestions.length > 0 ? (
               <div
                 style={{
                   marginTop: 16,
@@ -635,7 +638,7 @@ export default function ItemModal({
                     fontWeight: 600,
                   }}
                 >
-                  🍺 Oft zusammen bestellt
+                  Oft zusammen bestellt
                 </div>
                 <div
                   style={{
@@ -723,7 +726,7 @@ export default function ItemModal({
                               : (s as MenuItem).emoji || getItemEmoji(s as MenuItem) || "🍽️"}
                           </div>
                         )}
-                        <div style={{ padding: "6px 8px" }}>
+                        <div style={{ padding: "6px 8px", paddingRight: 30 }}>
                           <div
                             style={{
                               fontSize: 11,
@@ -739,6 +742,58 @@ export default function ItemModal({
                             {formatSuggestionPreis(s)}
                           </div>
                         </div>
+                        {!sp ? (
+                          <button
+                            type="button"
+                            aria-label={
+                              isInWishlist((s as MenuItem).id)
+                                ? "Aus Merkliste entfernen"
+                                : "Zur Merkliste hinzufügen"
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const mi = s as MenuItem;
+                              if (onAddToWishlist && !isInWishlist(mi.id)) {
+                                onAddToWishlist(mi, 1);
+                              } else {
+                                onToggleWishlist(mi);
+                              }
+                            }}
+                            style={{
+                              position: "absolute",
+                              bottom: 6,
+                              right: 6,
+                              width: 26,
+                              height: 26,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              borderRadius: "50%",
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              background: isInWishlist((s as MenuItem).id)
+                                ? "rgba(255,75,110,0.18)"
+                                : "rgba(0,0,0,0.5)",
+                              color: isInWishlist((s as MenuItem).id)
+                                ? "#ff4b6e"
+                                : "rgba(255,255,255,0.85)",
+                              cursor: "pointer",
+                              backdropFilter: "blur(4px)",
+                              transition: "all 0.18s",
+                            }}
+                          >
+                            <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill={isInWishlist((s as MenuItem).id) ? "currentColor" : "none"}
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              aria-hidden
+                            >
+                              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                            </svg>
+                          </button>
+                        ) : null}
                       </div>
                     );
                   })}
