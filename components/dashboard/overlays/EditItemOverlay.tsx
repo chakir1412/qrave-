@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { authFetch } from "@/lib/auth-fetch";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
+import { compressImageFile } from "@/lib/compress-image";
 import { formatPreisEUR } from "../utils";
 import { dash, dashPrimaryButtonStyle } from "../constants";
 
@@ -45,6 +47,10 @@ export function EditItemOverlay({
   const [kategorie, setKategorie] = useState("");
   const [busy, setBusy] = useState(false);
   const [genBusy, setGenBusy] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -55,9 +61,11 @@ export function EditItemOverlay({
       setTags(Array.isArray(item.tags) ? [...item.tags] : []);
       setPreisStr(formatPreisEUR(item.preis));
       setKategorie(item.kategorie || "Sonstiges");
+      setImageUrl(item.bild_url ?? null);
     } else {
       setName("");
       setDesc("");
+      setImageUrl(null);
       setAllergens("");
       setTags([]);
       setPreisStr("0");
@@ -132,6 +140,90 @@ export function EditItemOverlay({
     onClose();
   }
 
+  async function handleImageUpload(file: File) {
+    if (!editing) {
+      onToast("Erst speichern, dann Bild hochladen");
+      return;
+    }
+    const mime = (file.type || "").toLowerCase();
+    if (!mime.startsWith("image/")) {
+      onToast("Nur JPG oder PNG erlaubt");
+      return;
+    }
+    setImageBusy(true);
+    try {
+      let processed: File = file;
+      try {
+        processed = await compressImageFile(file, { maxWidth: 1600, quality: 0.82 });
+      } catch {
+        processed = file;
+      }
+      if (processed.size > 5 * 1024 * 1024) {
+        onToast("Bild zu groß — bitte unter 5MB");
+        return;
+      }
+      const path = `menu-items/${restaurantId}/${editing.id}.jpg`;
+      const { error: uploadErr } = await supabase.storage
+        .from("restaurant-assets")
+        .upload(path, processed, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: "image/jpeg",
+        });
+      if (uploadErr) {
+        onToast(`Upload fehlgeschlagen: ${uploadErr.message}`);
+        return;
+      }
+      const { data } = supabase.storage.from("restaurant-assets").getPublicUrl(path);
+      const url = data.publicUrl ? `${data.publicUrl}?t=${Date.now()}` : null;
+      const { data: updateData, error: updateErr } = await supabase
+        .from("menu_items")
+        .update({ bild_url: url })
+        .eq("id", editing.id)
+        .select("id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text")
+        .single();
+      if (updateErr || !updateData) {
+        onToast(updateErr?.message ?? "Speichern fehlgeschlagen");
+        return;
+      }
+      setImageUrl(url);
+      onSaved(updateData as MenuItem);
+      onToast("✓ Bild gespeichert");
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  async function handleImageRemove() {
+    if (!editing) return;
+    setImageBusy(true);
+    try {
+      // Storage-Datei besteht, wird beim nächsten Upload mit upsert
+      // überschrieben. Hier reicht es, die URL in der DB zu löschen.
+      const { data, error } = await supabase
+        .from("menu_items")
+        .update({ bild_url: null })
+        .eq("id", editing.id)
+        .select("id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text")
+        .single();
+      if (error || !data) {
+        onToast(error?.message ?? "Entfernen fehlgeschlagen");
+        return;
+      }
+      setImageUrl(null);
+      onSaved(data as MenuItem);
+      onToast("✓ Bild entfernt");
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  function handleImageInputChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) void handleImageUpload(file);
+    e.target.value = "";
+  }
+
   async function handleGenerateDescription() {
     const trimmedName = name.trim();
     if (genBusy || trimmedName.length === 0) return;
@@ -201,6 +293,87 @@ export function EditItemOverlay({
         <h2 className="mb-4 text-xl font-extrabold tracking-tight">
           {isCreate ? "Neues Gericht" : "Gericht bearbeiten"}
         </h2>
+
+        {/* Bild-Upload — nur bei bestehenden Items (für eindeutigen Storage-Path). */}
+        {!isCreate ? (
+          <div className="mb-4">
+            <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
+              Bild
+            </label>
+            {imageUrl ? (
+              <div
+                className="relative overflow-hidden rounded-[14px] border"
+                style={{ borderColor: dash.bo, background: dash.s2 }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imageUrl} alt="" className="block h-[180px] w-full object-cover" />
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={imageBusy}
+                    className="text-[12px] font-semibold disabled:opacity-50"
+                    style={{ color: "var(--qrave-accent-soft)" }}
+                  >
+                    {imageBusy ? "Lädt …" : "Ändern"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleImageRemove()}
+                    disabled={imageBusy}
+                    className="text-[12px] font-semibold disabled:opacity-50"
+                    style={{ color: dash.re }}
+                  >
+                    Entfernen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) void handleImageUpload(file);
+                }}
+                onClick={() => imageInputRef.current?.click()}
+                className="flex h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed text-center transition"
+                style={{
+                  borderColor: dragOver ? "var(--qrave-accent)" : "rgba(255,255,255,0.15)",
+                  background: dragOver
+                    ? "color-mix(in srgb, var(--qrave-accent) 8%, transparent)"
+                    : "rgba(255,255,255,0.03)",
+                }}
+                role="button"
+                aria-label="Bild hochladen"
+              >
+                <i
+                  className="fa-solid fa-cloud-arrow-up text-[20px]"
+                  style={{ color: "var(--qrave-accent-strong)" }}
+                />
+                <div className="text-[12px] font-semibold" style={{ color: dash.mi }}>
+                  {imageBusy ? "Lädt …" : "Bild hochladen oder hierhin ziehen"}
+                </div>
+                <div className="text-[10px]" style={{ color: dash.mu }}>
+                  JPG/PNG · automatisch komprimiert
+                </div>
+              </div>
+            )}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              className="hidden"
+              onChange={handleImageInputChange}
+            />
+          </div>
+        ) : null}
+
         <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
           Name
         </label>
