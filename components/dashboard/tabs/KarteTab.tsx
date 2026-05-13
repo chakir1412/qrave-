@@ -276,6 +276,8 @@ export function KarteTab({
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
   const [renamingValue, setRenamingValue] = useState("");
+  /** Reorder-Modal: Item-Click → Dropdown zur Wahl der Ziel-Position. */
+  const [reorderTarget, setReorderTarget] = useState<{ itemId: string; kategorie: string } | null>(null);
   const [dragItemId, setDragItemId] = useState<string | null>(null);
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
   const [touchDragItemId, setTouchDragItemId] = useState<string | null>(null);
@@ -432,6 +434,41 @@ export function KarteTab({
   }, [filteredReviewRows]);
 
   const selectedCount = useMemo(() => reviewRows.filter((r) => r.selected).length, [reviewRows]);
+
+  /** Verschiebt das Item innerhalb seiner Kategorie an `targetIndex` (0-basiert).
+   *  Schreibt allen Items in der Kategorie neue, dichte sort_order-Werte
+   *  in 10er-Schritten — robust gegen spätere Einfügungen. */
+  async function reorderWithinCategory(itemId: string, kategorie: string, targetIndex: number) {
+    const baseOrder = sortOrderIndexForKategorie(kategorie);
+    const itemsInCat = menuItems
+      .filter((m) => (m.kategorie || "Sonstiges") === kategorie)
+      .sort((a, b) => (a.sort_order ?? baseOrder) - (b.sort_order ?? baseOrder));
+    const fromIdx = itemsInCat.findIndex((m) => m.id === itemId);
+    if (fromIdx < 0) return;
+    const clamped = Math.max(0, Math.min(itemsInCat.length - 1, targetIndex));
+    if (clamped === fromIdx) return;
+    const reordered = [...itemsInCat];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(clamped, 0, moved);
+
+    // Pro Item ein UPDATE — bei < 100 Items pro Kategorie unproblematisch.
+    const updates = reordered.map(async (m, i) => {
+      const nextOrder = baseOrder + i * 10;
+      if (m.sort_order === nextOrder) return m;
+      const { data, error } = await supabase
+        .from("menu_items")
+        .update({ sort_order: nextOrder })
+        .eq("id", m.id)
+        .select(DASHBOARD_MENU_ITEM_SELECT)
+        .single();
+      if (error || !data) return m;
+      return data as MenuItem;
+    });
+    const updated = await Promise.all(updates);
+    const updatedMap = new Map(updated.map((m) => [m.id, m]));
+    onItemsChange(menuItems.map((m) => updatedMap.get(m.id) ?? m));
+    onToast("✓ Position aktualisiert");
+  }
 
   async function moveItemToCategory(itemId: string, nextCategory: string) {
     const next = nextCategory.trim();
@@ -1592,41 +1629,17 @@ export function KarteTab({
                         >
                           <button
                             type="button"
-                            draggable
-                            onDragStart={() => setDragItemId(m.id)}
-                            onDragEnd={() => {
-                              setDragItemId(null);
-                              setDragOverCategory(null);
+                            onClick={() => setReorderTarget({ itemId: m.id, kategorie: m.kategorie || "Sonstiges" })}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border transition"
+                            style={{
+                              borderColor: "rgba(255,255,255,0.08)",
+                              background: "rgba(255,255,255,0.04)",
+                              color: "rgba(242,242,242,0.55)",
                             }}
-                            onTouchStart={(e) => {
-                              setTouchDragItemId(m.id);
-                              handleItemSwipeStart(m.id, e.touches[0]?.clientX ?? 0);
-                            }}
-                            onTouchMove={(e) => {
-                              const t = e.touches[0];
-                              if (!t) return;
-                              const el = document.elementFromPoint(t.clientX, t.clientY);
-                              const catContainer = el?.closest("[data-editor-category]") as HTMLElement | null;
-                              setDragOverCategory(catContainer?.dataset.editorCategory ?? null);
-                              handleItemSwipeEnd(m.id, t.clientX);
-                            }}
-                            onTouchEnd={(e) => {
-                              const t = e.changedTouches[0];
-                              if (!t) return;
-                              const el = document.elementFromPoint(t.clientX, t.clientY);
-                              const catContainer = el?.closest("[data-editor-category]") as HTMLElement | null;
-                              const dropCat = catContainer?.dataset.editorCategory;
-                              if (dropCat && dropCat !== (m.kategorie || "Sonstiges")) {
-                                void moveItemToCategory(m.id, dropCat);
-                              }
-                              setTouchDragItemId(null);
-                              handleItemSwipeEnd(m.id, t.clientX);
-                            }}
-                            className="shrink-0 rounded p-1 text-lg leading-none"
-                            style={{ color: dragItemId === m.id || touchDragItemId === m.id ? dash.or : dash.mu }}
-                            aria-label="Verschieben"
+                            aria-label="Position ändern"
+                            title="Position ändern"
                           >
-                            ☰
+                            <i className="fa-solid fa-arrows-up-down text-[11px]" />
                           </button>
                           <button
                             type="button"
@@ -1680,7 +1693,7 @@ export function KarteTab({
                           className="rounded-xl border border-dashed px-3 py-3 text-[11px] text-center"
                           style={{ borderColor: dash.bo, color: dash.mu }}
                         >
-                          Keine Items — ziehe per Handle hierhin.
+                          Noch keine Gerichte in dieser Kategorie.
                         </div>
                       )}
                     </div>
@@ -2547,6 +2560,120 @@ export function KarteTab({
           </button>
         </div>
       )}
+
+      {reorderTarget ? (
+        <ReorderItemModal
+          target={reorderTarget}
+          menuItems={menuItems}
+          onClose={() => setReorderTarget(null)}
+          onApply={async (idx) => {
+            const { itemId, kategorie } = reorderTarget;
+            setReorderTarget(null);
+            await reorderWithinCategory(itemId, kategorie, idx);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ReorderItemModal({
+  target,
+  menuItems,
+  onClose,
+  onApply,
+}: {
+  target: { itemId: string; kategorie: string };
+  menuItems: MenuItem[];
+  onClose: () => void;
+  onApply: (targetIndex: number) => Promise<void> | void;
+}) {
+  const itemsInCat = useMemo(
+    () =>
+      menuItems
+        .filter((m) => (m.kategorie || "Sonstiges") === target.kategorie)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    [menuItems, target.kategorie],
+  );
+  const currentIdx = itemsInCat.findIndex((m) => m.id === target.itemId);
+  const currentItem = itemsInCat[currentIdx];
+  const [next, setNext] = useState<number>(currentIdx);
+
+  if (!currentItem) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[210] flex items-center justify-center px-4"
+      style={{ background: "rgba(6,4,14,0.78)", backdropFilter: "blur(8px)" }}
+    >
+      <button type="button" aria-label="Schließen" onClick={onClose} className="absolute inset-0 cursor-default" />
+      <div
+        className="relative w-full max-w-[380px] overflow-hidden rounded-[18px] border p-5"
+        style={{
+          background: "var(--qrave-dash-surface)",
+          borderColor: "color-mix(in srgb, var(--qrave-accent) 30%, transparent)",
+        }}
+      >
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <div className="qrave-font-display text-[16px] font-black tracking-tight">Position ändern</div>
+            <p className="mt-1 text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+              {currentItem.name} · {target.kategorie}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Schließen"
+            className="text-[16px]"
+            style={{ color: "rgba(242,242,242,0.55)" }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: "rgba(242,242,242,0.5)" }}>
+          Zielposition (1 = oben)
+        </label>
+        <select
+          value={next}
+          onChange={(e) => setNext(Number.parseInt(e.target.value, 10))}
+          className="mb-4 w-full rounded-[10px] border bg-transparent px-3 py-2 text-[13px] outline-none"
+          style={{ borderColor: "var(--qrave-dash-border)", color: "#f2f2f2" }}
+        >
+          {itemsInCat.map((m, i) => (
+            <option key={m.id} value={i} style={{ background: "#0c0820" }}>
+              {i + 1}. {m.id === target.itemId ? "— hier —" : m.name}
+            </option>
+          ))}
+        </select>
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-[10px] border px-4 py-2 text-[13px] font-semibold"
+            style={{ borderColor: "rgba(255,255,255,0.12)", color: "rgba(242,242,242,0.75)" }}
+          >
+            Abbrechen
+          </button>
+          <button
+            type="button"
+            onClick={() => void onApply(next)}
+            disabled={next === currentIdx}
+            className="rounded-[10px] px-5 py-2 text-[13px] font-bold transition disabled:opacity-50"
+            style={{
+              background: "var(--qrave-accent-gradient)",
+              color: "#fff",
+              boxShadow: "0 6px 20px rgba(147,51,234,0.4)",
+            }}
+          >
+            Verschieben
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

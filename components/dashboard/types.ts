@@ -21,6 +21,7 @@ export type DashboardRestaurant = Pick<
   | "active_languages"
   | "splash_media_url"
   | "splash_media_type"
+  | "tisch_bereiche"
 > & {
   accent_color?: string | null;
   logo_url?: string | null;
@@ -55,7 +56,6 @@ export type OverlaysState = {
 
 export type PagesState = {
   preview: boolean;
-  tischeConfig: boolean;
 };
 
 export function heatFromScans(scans: number): TischHeat {

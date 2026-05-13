@@ -63,6 +63,9 @@ export type Restaurant = {
   /** Aktive Sprachen für die Gäste-Speisekarte. 'de' ist immer dabei.
    *  Erlaubte Werte: 'de' | 'en' | 'tr' | 'ar' | 'ru' | 'it' | 'fr'. */
   active_languages?: string[];
+  /** Bereiche für die Tisch-Übersicht ({ name, count }). Vom Wirt
+   *  pflegbar, für den Founder im Restaurant-Detail sichtbar. */
+  tisch_bereiche?: { name: string; count: number }[];
 };
 
 /** Wochentag-Keys des Öffnungszeiten-Plans. */

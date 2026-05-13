@@ -1,290 +1,198 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { Bereich } from "../types";
-import { heatFromScans } from "../types";
-import { DASH_GLASS_CARD_CLASS, dash } from "../constants";
+import { useEffect, useState } from "react";
+import { Hint } from "../Hint";
+
+type TischBereich = { name: string; count: number };
 
 type Props = {
-  slideClass: string;
-  bereiche: Bereich[];
-  loading?: boolean;
-  loadError?: string | null;
-  onOpenConfig: () => void;
-  onToast: (msg: string) => void;
+  /** Aktueller Stand aus restaurants.tisch_bereiche. */
+  initial: TischBereich[];
+  onSave: (next: TischBereich[]) => Promise<void> | void;
 };
 
-export function TischeTab({
-  slideClass,
-  bereiche: initial,
-  loading = false,
-  loadError = null,
-  onOpenConfig,
-  onToast,
-}: Props) {
-  const [bereiche, setBereiche] = useState<Bereich[]>(() =>
-    initial.map((b) => ({ ...b, tische: b.tische.map((t) => ({ ...t })) })),
-  );
+export function TischeTab({ initial, onSave }: Props) {
+  const [list, setList] = useState<TischBereich[]>(initial);
+  const [newName, setNewName] = useState("");
+  const [newCount, setNewCount] = useState<number | "">("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setBereiche(initial.map((b) => ({ ...b, tische: b.tische.map((t) => ({ ...t })) })));
+    setList(initial);
   }, [initial]);
 
-  const stats = useMemo(() => {
-    let active = 0;
-    let dead = 0;
-    for (const b of bereiche) {
-      for (const t of b.tische) {
-        if (t.active) active += 1;
-        if (t.scans === 0) dead += 1;
-      }
+  async function commit(next: TischBereich[]) {
+    setList(next);
+    setSaving(true);
+    try {
+      await onSave(next);
+    } finally {
+      setSaving(false);
     }
-    return { active, areas: bereiche.length, dead };
-  }, [bereiche]);
-
-  function toggleBereich(key: string) {
-    setBereiche((prev) =>
-      prev.map((b) => (b.key === key ? { ...b, open: !b.open } : b)),
-    );
   }
 
-  if (loading) {
-    return (
-      <div className={slideClass}>
-        <div
-          className="mx-0 mt-10 rounded-[20px] border px-5 py-8 text-center text-sm"
-          style={{ backgroundColor: dash.s1, borderColor: dash.bo, color: dash.mu }}
-        >
-          Tische werden geladen …
-        </div>
-      </div>
-    );
+  function add() {
+    const name = newName.trim();
+    const c = typeof newCount === "number" ? newCount : Number.parseInt(String(newCount), 10);
+    if (!name || !Number.isFinite(c) || c <= 0) return;
+    const next = [...list, { name, count: Math.max(1, Math.min(999, c)) }];
+    setNewName("");
+    setNewCount("");
+    void commit(next);
   }
+
+  function remove(idx: number) {
+    void commit(list.filter((_, i) => i !== idx));
+  }
+
+  function updateCount(idx: number, value: number) {
+    void commit(list.map((b, i) => (i === idx ? { ...b, count: Math.max(1, Math.min(999, value)) } : b)));
+  }
+
+  function updateName(idx: number, value: string) {
+    void commit(list.map((b, i) => (i === idx ? { ...b, name: value } : b)));
+  }
+
+  const total = list.reduce((sum, b) => sum + (Number.isFinite(b.count) ? b.count : 0), 0);
 
   return (
-    <div className={slideClass}>
-      {loadError ? (
-        <div
-          className="mx-0 mt-3.5 rounded-[14px] border px-4 py-3 text-xs leading-relaxed"
-          style={{
-            backgroundColor: dash.offlineBg,
-            borderColor: "rgba(255,75,110,0.28)",
-            color: dash.offlineFg,
-          }}
-        >
-          {loadError}
-          <p className="mt-2 opacity-80" style={{ color: dash.mu }}>
-            Prüfe, ob die Tabelle <code className="text-[10px]">restaurant_tables</code> existiert und die Migration
-            ausgeführt wurde.
-          </p>
+    <div className="space-y-4">
+      <header className="mb-2">
+        <h2 className="qrave-font-display flex items-center gap-2 text-[22px] font-black leading-tight tracking-tight">
+          Tisch-<span style={{ color: "var(--qrave-accent-strong)" }}>Bereiche</span>
+          <Hint text="Lege die Bereiche deines Restaurants an (z. B. Innen, Terrasse, Bar) mit der jeweiligen Tisch-Anzahl. Wird für die Tisch-Übersicht und Statistiken genutzt." />
+        </h2>
+        <p className="mt-1 text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
+          {list.length} {list.length === 1 ? "Bereich" : "Bereiche"} · {total} Tische gesamt
+          {saving ? " · Speichert …" : ""}
+        </p>
+      </header>
+
+      <section
+        className="rounded-[16px] border p-5"
+        style={{ background: "var(--qrave-dash-surface)", borderColor: "var(--qrave-dash-border)" }}
+      >
+        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: "rgba(242,242,242,0.5)" }}>
+          Bereiche
         </div>
-      ) : null}
 
-      {!loadError && initial.length === 0 ? (
-        <section
-          className={`${DASH_GLASS_CARD_CLASS} mx-0 mt-6 flex flex-col items-center gap-3 px-5 py-10 text-center`}
-        >
-          <span className="text-3xl">🪑</span>
-          <p className="text-[15px] font-bold" style={{ color: dash.tx }}>
-            Noch keine Tische
-          </p>
-          <p className="max-w-[280px] text-xs leading-relaxed" style={{ color: dash.mu }}>
-            Lege Bereiche und Tische an. QR-Codes und Sticker-Export laufen
-            zentral über das Founder-Dashboard.
-          </p>
-          <button
-            type="button"
-            onClick={onOpenConfig}
-            className="mt-1 rounded-[10px] px-5 py-3 text-[13px] font-bold"
-            style={{
-              backgroundColor: dash.primaryBg,
-              color: dash.primaryFg,
-              border: "none",
-            }}
+        {list.length === 0 ? (
+          <p
+            className="rounded-[12px] border border-dashed px-4 py-6 text-center text-[13px]"
+            style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(242,242,242,0.5)" }}
           >
-            Jetzt konfigurieren
-          </button>
-        </section>
-      ) : null}
-
-      {!loadError && initial.length > 0 ? (
-        <>
-          <section className={`${DASH_GLASS_CARD_CLASS} mx-0 mt-3.5 flex items-center justify-between px-5 py-4`}>
-            <div>
-              <div
-                className="mb-1 text-[11px] font-medium uppercase tracking-wider md:text-xs"
-                style={{ color: dash.mu }}
+            Noch keine Bereiche angelegt. Füge unten den ersten hinzu (z. B. „Innen" mit 12 Tischen).
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {list.map((b, idx) => (
+              <li
+                key={`${idx}`}
+                className="flex items-center gap-3 rounded-[12px] border px-3.5 py-2.5"
+                style={{ background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.06)" }}
               >
-                Aktive Tische heute
-              </div>
-              <div className="text-[28px] font-black tracking-tight md:text-[32px]">{stats.active}</div>
-            </div>
-            <div className="flex flex-col items-end gap-1.5">
-              <span
-                className="rounded-md border px-2 py-0.5 text-[11px]"
-                style={{
-                  backgroundColor: dash.onlineBg,
-                  borderColor: dash.onlineBorder,
-                  color: dash.onlineFg,
-                }}
-              >
-                ● {stats.areas} Bereiche aktiv
-              </span>
-              <span
-                className="rounded-md border px-2 py-0.5 text-[11px]"
-                style={{
-                  backgroundColor: dash.offlineBg,
-                  borderColor: "rgba(255,75,110,0.28)",
-                  color: dash.offlineFg,
-                }}
-              >
-                ● {stats.dead} ohne Scan
-              </span>
-            </div>
-          </section>
-
-          {bereiche.map((b) => (
-        <section key={b.key} className={`${DASH_GLASS_CARD_CLASS} mx-0 mt-3 overflow-hidden rounded-[18px]`}>
-          <button
-            type="button"
-            onClick={() => toggleBereich(b.key)}
-            className="flex w-full items-center justify-between px-4 py-3.5"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="text-xl">{b.emoji}</span>
-              <span className="text-[15px] font-bold">{b.label}</span>
-              <span
-                className="ml-1 rounded-md px-2 py-0.5 text-[11px]"
-                style={{ backgroundColor: dash.s2, color: dash.mu }}
-              >
-                {b.tische.length} Tische
-              </span>
-            </div>
-            <span
-              className="text-base transition-transform"
-              style={{
-                color: dash.mu,
-                transform: b.open ? "rotate(90deg)" : "rotate(0deg)",
-              }}
-            >
-              ›
-            </span>
-          </button>
-          {b.open && (
-            <div className="border-t px-3.5 pb-3.5 pt-3" style={{ borderColor: dash.bo }}>
-              <div className="mb-3 grid grid-cols-4 gap-2.5">
-                {b.tische.map((t) => {
-                  const h = heatFromScans(t.scans);
-                  const base =
-                    h === "hot"
-                      ? {
-                          backgroundColor: "rgba(255,92,26,0.18)",
-                          borderColor: "rgba(255,92,26,0.35)",
-                          color: dash.orange,
-                          boxShadow: "0 0 12px rgba(255,92,26,0.2)",
-                        }
-                      : h === "warm"
-                        ? {
-                            backgroundColor: "rgba(255,92,26,0.08)",
-                            borderColor: "rgba(255,92,26,0.2)",
-                            color: "rgba(255,92,26,0.75)",
-                            boxShadow: "0 0 8px rgba(255,92,26,0.08)",
-                          }
-                        : h === "cold"
-                          ? {
-                              backgroundColor: dash.s2,
-                              borderColor: dash.bo,
-                              color: dash.mu,
-                            }
-                          : {
-                              backgroundColor: "rgba(255,75,110,0.1)",
-                              borderColor: "rgba(255,75,110,0.22)",
-                              color: "rgba(255,75,110,0.65)",
-                            };
-                  return (
-                    <div
-                      key={t.id}
-                      className="flex aspect-square flex-col items-center justify-center rounded-[11px] border text-[11px] font-bold"
-                      style={base}
-                    >
-                      T{t.nr}
-                      <span className="mt-0.5 text-[9px] opacity-70">{t.scans}×</span>
-                    </div>
-                  );
-                })}
-              </div>
-              {b.tische.some((t) => t.scans === 0) && (
+                <i
+                  className="fa-solid fa-table-cells text-[14px]"
+                  style={{ color: "var(--qrave-accent-strong)" }}
+                />
+                <input
+                  value={b.name}
+                  onChange={(e) => updateName(idx, e.target.value)}
+                  className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-[13px] font-semibold outline-none focus:bg-white/[0.04]"
+                  style={{ color: "#f2f2f2" }}
+                />
                 <div
-                  className="mb-3 flex items-center justify-between rounded-[10px] border px-3 py-2.5"
-                  style={{
-                    backgroundColor: "rgba(255,75,110,0.1)",
-                    borderColor: "rgba(255,75,110,0.2)",
-                  }}
+                  className="flex items-center gap-2 rounded-md border px-2 py-1"
+                  style={{ borderColor: "rgba(255,255,255,0.08)" }}
                 >
-                  <span className="text-xs" style={{ color: dash.re }}>
-                    Noch nie gescannt — QR Code prüfen
-                  </span>
                   <button
                     type="button"
-                    onClick={() => onToast("Defekt-Meldung gesendet 📦 Founder informiert")}
-                    className="rounded-lg border px-2.5 py-1 text-[11px] font-bold"
-                    style={{
-                      backgroundColor: "rgba(255,75,110,0.12)",
-                      borderColor: "rgba(255,75,110,0.28)",
-                      color: dash.re,
-                    }}
+                    aria-label="Anzahl verringern"
+                    onClick={() => updateCount(idx, b.count - 1)}
+                    className="text-[11px]"
+                    style={{ color: "rgba(242,242,242,0.6)" }}
+                    disabled={b.count <= 1}
                   >
-                    QR Code defekt melden
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={999}
+                    value={b.count}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      if (Number.isFinite(n)) updateCount(idx, n);
+                    }}
+                    className="w-12 bg-transparent text-center text-[13px] font-semibold outline-none"
+                    style={{ color: "#f2f2f2" }}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Anzahl erhöhen"
+                    onClick={() => updateCount(idx, b.count + 1)}
+                    className="text-[11px]"
+                    style={{ color: "rgba(242,242,242,0.6)" }}
+                  >
+                    +
                   </button>
                 </div>
-              )}
-              <div className="flex flex-wrap gap-3">
-                <Legend color="rgba(255,92,26,0.55)" label="Aktiv" />
-                <Legend color="rgba(255,92,26,0.22)" label="Mittel" />
-                <Legend color={dash.s2} border={dash.bo} label="Wenig" />
-                <Legend color="rgba(255,75,110,0.35)" label="Kein Scan" />
-              </div>
-            </div>
-          )}
-        </section>
-          ))}
-        </>
-      ) : null}
+                <button
+                  type="button"
+                  onClick={() => remove(idx)}
+                  className="ml-1 flex h-7 w-7 items-center justify-center rounded-full transition hover:bg-white/10"
+                  style={{ color: "rgba(248,113,113,0.85)" }}
+                  aria-label={`Bereich „${b.name}" entfernen`}
+                >
+                  <i className="fa-solid fa-xmark text-[12px]" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
-      {!loadError && initial.length > 0 ? (
-        <button
-          type="button"
-          onClick={onOpenConfig}
-          className="mx-0 mb-4 mt-3 flex w-full items-center justify-center gap-1.5 rounded-[10px] border py-3 text-[13px] font-semibold transition active:opacity-90"
-          style={{
-            backgroundColor: dash.secondaryBg,
-            borderColor: dash.secondaryBorder,
-            color: dash.secondaryFg,
-          }}
-        >
-          ⚙️ Tische &amp; Bereiche bearbeiten
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function Legend({
-  color,
-  label,
-  border,
-}: {
-  color: string;
-  label: string;
-  border?: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5 text-[10px] font-medium" style={{ color: dash.mu }}>
-      <span
-        className="h-[7px] w-[7px] shrink-0 rounded-sm"
-        style={{ backgroundColor: color, border: border ? `1px solid ${border}` : undefined }}
-      />
-      {label}
+        <div className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Bereich-Name (z. B. Terrasse)"
+            className="min-w-0 flex-1 rounded-[10px] border bg-transparent px-3 py-2 text-[13px] outline-none"
+            style={{ borderColor: "var(--qrave-dash-border)", color: "#f2f2f2" }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") add();
+            }}
+          />
+          <input
+            type="number"
+            min={1}
+            max={999}
+            value={newCount}
+            onChange={(e) => {
+              const v = e.target.value;
+              setNewCount(v === "" ? "" : Number.parseInt(v, 10));
+            }}
+            placeholder="Tische"
+            className="w-full rounded-[10px] border bg-transparent px-3 py-2 text-[13px] outline-none sm:w-[90px]"
+            style={{ borderColor: "var(--qrave-dash-border)", color: "#f2f2f2" }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") add();
+            }}
+          />
+          <button
+            type="button"
+            onClick={add}
+            disabled={!newName.trim() || !newCount || (typeof newCount === "number" && newCount <= 0)}
+            className="rounded-[10px] px-4 py-2 text-[13px] font-bold transition disabled:opacity-50"
+            style={{
+              background: "var(--qrave-accent-gradient)",
+              color: "#fff",
+              boxShadow: "0 6px 20px rgba(147,51,234,0.4)",
+            }}
+          >
+            + Hinzufügen
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

@@ -6,7 +6,6 @@ import type { DailyPush, LunchOffer } from "@/lib/supabase";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
-import { useRestaurantTables } from "@/hooks/useTische";
 import { fetchDashboardAnalytics, type DashboardAnalytics } from "@/hooks/useAnalytics";
 import { DashboardShell, type QuickActionKey } from "./DashboardShell";
 import { DashboardToast } from "./DashboardToast";
@@ -15,7 +14,6 @@ import { KarteTab } from "./tabs/KarteTab";
 import { TischeTab } from "./tabs/TischeTab";
 import { EditItemOverlay } from "./overlays/EditItemOverlay";
 import { AddCategoryOverlay } from "./overlays/AddCategoryOverlay";
-import { TischeConfigPage } from "./pages/TischeConfigPage";
 import { PreviewPage } from "./pages/PreviewPage";
 import type {
   DashboardRestaurant,
@@ -66,13 +64,6 @@ export function DashboardApp({
   const [dailyPushes, setDailyPushes] = useState<DailyPush[]>(initialDailyPushes);
   const [lunchOffers, setLunchOffers] = useState<LunchOffer[]>(initialLunchOffers);
 
-  const {
-    bereiche: tischBereiche,
-    loading: tischeLoading,
-    error: tischeError,
-    refresh: refreshTables,
-  } = useRestaurantTables(restaurant.id);
-
   const [activeTab, setActiveTab] = useState<DashboardTab>("home");
   const prevTabRef = useRef<DashboardTab>("home");
   const [slideClass, setSlideClass] = useState("dashboard-slR");
@@ -89,7 +80,6 @@ export function DashboardApp({
   });
   const [pages, setPages] = useState<PagesState>({
     preview: false,
-    tischeConfig: false,
   });
 
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
@@ -386,13 +376,24 @@ export function DashboardApp({
           )}
           {activeTab === "tische" && (
             <TischeTab
-              key={`tische-${slideClass}`}
-              slideClass={slideClass}
-              bereiche={tischBereiche}
-              loading={tischeLoading}
-              loadError={tischeError}
-              onOpenConfig={() => setPages((p) => ({ ...p, tischeConfig: true }))}
-              onToast={showToast}
+              key="tische-tab"
+              initial={restaurant.tisch_bereiche ?? []}
+              onSave={async (next) => {
+                const { data, error } = await supabase
+                  .from("restaurants")
+                  .update({ tisch_bereiche: next })
+                  .eq("id", restaurant.id)
+                  .select("id");
+                if (error) {
+                  showToast(error.message ?? "Speichern fehlgeschlagen");
+                  return;
+                }
+                if (!data || data.length === 0) {
+                  showToast("Speichern fehlgeschlagen — keine Berechtigung");
+                  return;
+                }
+                setRestaurant((r) => ({ ...r, tisch_bereiche: next }));
+              }}
             />
           )}
         </main>
@@ -427,19 +428,6 @@ export function DashboardApp({
         open={overlays.addCat}
         onClose={() => setOverlays((o) => ({ ...o, addCat: false }))}
         onAdd={handleAddCategory}
-      />
-
-      <TischeConfigPage
-        open={pages.tischeConfig}
-        onClose={() => {
-          setPages((p) => ({ ...p, tischeConfig: false }));
-          void refreshTables();
-        }}
-        restaurantId={restaurant.id}
-        slug={restaurant.slug}
-        bereiche={tischBereiche}
-        onToast={showToast}
-        onTablesUpdated={() => void refreshTables()}
       />
 
       <PreviewPage

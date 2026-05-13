@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import type { DashboardTab } from "./types";
+import { KiInfoPanel } from "./ki/KiInfoPanel";
 
 /** Eintrag in der Sidebar / im Drawer. Hat entweder eine Route (`href`)
  *  oder einen Tab-Key — nicht beides. */
@@ -64,6 +65,7 @@ export function DashboardShell({
   children,
 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [kiPanelOpen, setKiPanelOpen] = useState(false);
   const pathname = usePathname();
 
   // Drawer schließt automatisch bei Tab- oder Routen-Wechsel.
@@ -106,6 +108,7 @@ export function DashboardShell({
           activeTab={activeTab}
           onTabChange={onTabChange}
           onQuickAction={onQuickAction}
+          onOpenKiPanel={() => setKiPanelOpen(true)}
           pathname={pathname}
           className="hidden md:flex"
           fixed
@@ -123,11 +126,17 @@ export function DashboardShell({
               activeTab={activeTab}
               onTabChange={onTabChange}
               onQuickAction={onQuickAction}
+              onOpenKiPanel={() => {
+                setKiPanelOpen(true);
+                setDrawerOpen(false);
+              }}
               pathname={pathname}
               className="qrave-drawer-in fixed inset-y-0 left-0 z-[101] flex md:hidden"
             />
           </>
         ) : null}
+
+        <KiInfoPanel open={kiPanelOpen} onClose={() => setKiPanelOpen(false)} />
 
         <div className="flex min-w-0 flex-1 flex-col md:ml-[252px]">
           <div className="qrave-topbar sticky top-0 z-50 flex items-center gap-3 px-5 py-4 md:px-8">
@@ -194,6 +203,7 @@ function DashboardSidebar({
   activeTab,
   onTabChange,
   onQuickAction,
+  onOpenKiPanel,
   pathname,
   className = "",
   fixed = false,
@@ -201,6 +211,7 @@ function DashboardSidebar({
   activeTab?: DashboardTab;
   onTabChange?: (next: DashboardTab) => void;
   onQuickAction?: (action: QuickActionKey) => void;
+  onOpenKiPanel?: () => void;
   pathname: string | null;
   className?: string;
   fixed?: boolean;
@@ -224,7 +235,6 @@ function DashboardSidebar({
   }
 
   const isOnSettings = pathname === "/dashboard/einstellungen";
-  const isOnKi = pathname === "/dashboard/ki-features";
 
   return (
     <aside
@@ -301,24 +311,26 @@ function DashboardSidebar({
       </a>
 
       <div className="mt-auto">
-        <Link
-          href="/dashboard/ki-features"
-          className={`qrave-cta-card block${isOnKi ? "" : ""}`}
-          style={{ textDecoration: "none", color: "inherit" }}
+        <button
+          type="button"
+          onClick={onOpenKiPanel}
+          className="qrave-cta-card block w-full text-left"
+          style={{ color: "inherit" }}
         >
           <div className="mb-[10px] flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-white/15">
             <i className="fa-solid fa-wand-magic-sparkles text-[13px] text-white" />
           </div>
           <div className="qrave-font-display mb-1 truncate text-[13px] font-bold">
-            KI-Features nutzen
+            KI-Features
           </div>
           <div className="mb-3 text-[11px] leading-snug text-white/60">
-            Beschreibungen generieren und Karte übersetzen
+            Was die KI für deine Karte tun kann
           </div>
-          <div className="w-full rounded-[8px] border border-white/20 bg-white/15 py-[9px] text-center text-[12px] font-semibold text-white">
-            + Jetzt nutzen
+          <div className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-white/20 bg-white/15 py-[9px] text-center text-[12px] font-semibold text-white">
+            <i className="fa-solid fa-circle-info text-[11px]" />
+            Mehr erfahren
           </div>
-        </Link>
+        </button>
       </div>
     </aside>
   );

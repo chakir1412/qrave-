@@ -708,3 +708,56 @@ body {
 .qrave-drawer-in {
   animation: qrave-drawer-in 220ms cubic-bezier(0.32, 0.72, 0.32, 1) both;
 }
+
+/* KI-Info-Panel — slide-in von rechts + dezente Pulse-Animation */
+@keyframes qrave-ki-panel-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes qrave-ki-panel-backdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes qrave-ki-panel-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.08); opacity: 0.85; }
+}
+@keyframes qrave-ki-panel-fadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes qrave-ki-panel-icon {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg) scale(1.04); }
+}
+.qrave-ki-panel {
+  animation: qrave-ki-panel-in 280ms cubic-bezier(0.32, 0.72, 0.32, 1) both;
+}
+.qrave-ki-panel-backdrop {
+  animation: qrave-ki-panel-backdrop 240ms ease-out both;
+}
+.qrave-ki-panel-pulse {
+  animation: qrave-ki-panel-pulse 4s ease-in-out infinite;
+}
+.qrave-ki-panel-icon {
+  animation: qrave-ki-panel-icon 3.2s ease-in-out infinite;
+}
+.qrave-ki-panel-fadein {
+  animation: qrave-ki-panel-fadein 320ms ease-out both;
+  animation-delay: 120ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .qrave-ki-panel,
+  .qrave-ki-panel-backdrop,
+  .qrave-ki-panel-pulse,
+  .qrave-ki-panel-icon,
+  .qrave-ki-panel-fadein {
+    animation: none;
+  }
+}

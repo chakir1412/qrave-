@@ -991,6 +991,41 @@ function RestaurantCard({
             </p>
           )}
 
+          {Array.isArray(r.tisch_bereiche) && r.tisch_bereiche.length > 0 ? (
+            <div className="mb-5">
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.1em",
+                  color: "rgba(255,255,255,0.4)",
+                }}
+              >
+                BEREICHE (vom Wirt gepflegt)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {r.tisch_bereiche.map((b, idx) => (
+                  <span
+                    key={`${b.name}-${idx}`}
+                    className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs"
+                    style={{
+                      background: "rgba(255,255,255,0.06)",
+                      border: "0.5px solid rgba(255,255,255,0.1)",
+                      color: "rgba(255,255,255,0.85)",
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>{b.name}</span>
+                    <span style={{ color: "rgba(255,255,255,0.5)" }}>·</span>
+                    <span style={{ color: "rgba(255,255,255,0.65)" }}>
+                      {b.count} {b.count === 1 ? "Tisch" : "Tische"}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <p
             style={{
               margin: "0 0 10px",
