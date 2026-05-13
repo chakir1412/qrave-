@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
 import { sendPublishConfirmation } from "@/lib/email";
+import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,17 @@ function safeEqual(a: string, b: string): boolean {
  * Setzt restaurants.published=true und status='live' und schickt die
  * Bestätigungs-Mail an den Wirt. Idempotent — mehrfacher Aufruf macht nichts. */
 export async function GET(req: Request) {
+  // Rate-Limit gegen Token-Brute-Force: 30 Aufrufe/h pro IP.
+  // Legitime Aufrufe (Founder klickt Mail-Link) liegen weit darunter.
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("publish-restaurant", ip, 30, "1 h");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Zu viele Versuche. Bitte später erneut versuchen." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
+
   const adminSecret = process.env.ADMIN_SECRET?.trim();
   if (!adminSecret) {
     return NextResponse.json({ error: "Server nicht konfiguriert (ADMIN_SECRET fehlt)" }, { status: 500 });
