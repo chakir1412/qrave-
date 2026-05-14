@@ -118,12 +118,18 @@ export type FounderAnalyticsDailyRow = {
   day_berlin: string;
   sessions_count: number;
   scan_count: number;
+  sessions_with_consent?: number | null;
+  scans_morning?: number | null;
+  scans_midday?: number | null;
+  scans_evening?: number | null;
+  scans_night?: number | null;
   item_detail_count?: number | null;
   category_clicks?: Record<string, number> | null;
   beverage_subcategory_clicks?: Record<string, number> | null;
-  top_items?: Array<{ name: string; clicks: number; price: number | null }> | null;
+  top_items?: Array<{ name: string; clicks: number; price: number | null; kategorie?: string | null }> | null;
   vegan_clicks?: number | null;
   vegetarian_clicks?: number | null;
+  avg_item_price_clicked?: number | null;
 };
 
 export type FounderMenuItem = {

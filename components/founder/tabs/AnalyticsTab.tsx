@@ -1,13 +1,29 @@
 "use client";
 
+/*
+ * AnalyticsTab — komplett umgestellt am 14.05.2026.
+ *
+ * Vorher: alle Aggregate kamen aus `data.scanEvents` (= scanEventsWeek,
+ * gedeckelt auf 4000 Rows + dedupe). Bei aktivem Traffic war das Window
+ * zu klein, alle event_type-Filter (category_enter, item_detail) trafen
+ * leere Slices → der Tab zeigte überall 0 trotz vorhandener Daten.
+ *
+ * Jetzt: Aggregate aus `data.analyticsDaily30d` (Service-Role-Read auf
+ * restaurant_analytics_daily, identisch zur Logik in FounderOverview).
+ * Plus Königsblau-CI (gleiche Card-Styles wie FounderOverview).
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import type { FounderDashboardData, FounderScanEventRow } from "@/lib/founder-types";
-import { berlinYmd, lastNCalendarDaysBerlin } from "@/lib/berlin-time";
+import type {
+  FounderAnalyticsDailyRow,
+  FounderDashboardData,
+} from "@/lib/founder-types";
 
-const OR = "#FF5C1A";
-const GREEN = "#34E89E";
-const BLUE = "#5B9BFF";
+const ACCENT = "#3b82f6";
+const ACCENT_SOFT = "rgba(59,130,246,0.18)";
+const ACCENT_BORDER = "rgba(59,130,246,0.4)";
+const GREEN = "#4ade80";
 
 type AnalyticsSubTab = "overview" | "restaurant" | "ab" | "ads";
 
@@ -18,107 +34,48 @@ type Props = {
 };
 
 const card: CSSProperties = {
-  background: "linear-gradient(145deg, #17171f, #141420)",
-  borderRadius: 20,
-  border: "0.5px solid rgba(255,255,255,0.09)",
-  boxShadow: "0 12px 40px rgba(0,0,0,0.35)",
+  background: "rgba(255,255,255,0.04)",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: 12,
 };
 
-const HOURS_CHART = [6, 8, 10, 12, 14, 16, 18, 20, 22] as const;
+const SLOT_KEYS = ["scans_morning", "scans_midday", "scans_evening", "scans_night"] as const;
+const SLOT_LABELS = ["Morgen", "Mittag", "Abend", "Nacht"] as const;
+const SLOT_RANGES = ["06:00–11:00", "11:00–15:00", "15:00–22:00", "22:00–06:00"] as const;
 
-function sessionKey(e: FounderScanEventRow): string {
-  const sidRaw = e.session_id?.trim() ? e.session_id : e.id;
-  if (sidRaw != null && String(sidRaw).length > 0) return String(sidRaw);
-  return `row:${e.created_at}:${e.event_type}:${e.restaurant_id ?? ""}`;
-}
-
-function globalSessionTiers(events: FounderScanEventRow[]): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const e of events) {
-    const k = sessionKey(e);
-    const t = e.tier ?? 0;
-    const cur = m.get(k) ?? 0;
-    if (t > cur) m.set(k, t);
-  }
-  return m;
-}
-
-function sessionsForRestaurant(events: FounderScanEventRow[], restaurantId: string): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const e of events) {
-    if (e.restaurant_id !== restaurantId) continue;
-    const k = sessionKey(e);
-    const t = e.tier ?? 0;
-    const cur = m.get(k) ?? 0;
-    if (t > cur) m.set(k, t);
-  }
-  return m;
-}
-
-function consentPctFromSessions(sessions: Map<string, number>): number {
-  const total = sessions.size;
-  if (total === 0) return 0;
-  const withC = [...sessions.values()].filter((t) => t >= 1).length;
-  return Math.round((withC / total) * 100);
-}
-
-function eventHourBerlin(e: FounderScanEventRow): number {
-  if (e.stunde != null && Number.isFinite(e.stunde) && e.stunde >= 0 && e.stunde <= 23) {
-    return e.stunde;
-  }
-  const parts = new Intl.DateTimeFormat("en-GB", {
+function todayBerlinIso(): string {
+  return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Berlin",
-    hour: "numeric",
-    hour12: false,
-  }).formatToParts(new Date(e.created_at));
-  const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
-  return Number.isFinite(h) ? h : 0;
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+function shiftIso(iso: string, deltaDays: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
 }
 
-function peakHourLabel(events: FounderScanEventRow[]): string {
-  const counts = Array.from({ length: 24 }, () => 0);
-  for (const e of events) {
-    counts[eventHourBerlin(e)]++;
+function sumDailyNumber<K extends keyof FounderAnalyticsDailyRow>(
+  rows: FounderAnalyticsDailyRow[],
+  key: K,
+): number {
+  let s = 0;
+  for (const r of rows) {
+    const v = r[key];
+    if (typeof v === "number") s += v;
   }
-  let maxH = 0;
-  let maxC = -1;
-  for (let h = 0; h < 24; h++) {
-    if (counts[h]! > maxC) {
-      maxC = counts[h]!;
-      maxH = h;
-    }
-  }
-  if (maxC <= 0) return "—";
-  return `${String(maxH).padStart(2, "0")}:00 Uhr`;
-}
-
-function topCategoryFromEnters(events: FounderScanEventRow[]): string {
-  const m = new Map<string, number>();
-  for (const e of events) {
-    if (e.event_type !== "category_enter") continue;
-    const k = e.kategorie?.trim();
-    if (!k) continue;
-    m.set(k, (m.get(k) ?? 0) + 1);
-  }
-  let best = "";
-  let bestN = 0;
-  for (const [k, n] of m) {
-    if (n > bestN) {
-      bestN = n;
-      best = k;
-    }
-  }
-  return bestN > 0 ? best : "—";
+  return s;
 }
 
 function csvEscape(cell: string): string {
   if (/[",\r\n]/.test(cell)) return `"${cell.replace(/"/g, '""')}"`;
   return cell;
 }
-
 function downloadCsv(filename: string, header: string[], rows: string[][]) {
   const lines = [header.map(csvEscape).join(","), ...rows.map((r) => r.map(csvEscape).join(","))];
-  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([`﻿${lines.join("\r\n")}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -135,9 +92,11 @@ const subTabs: { id: AnalyticsSubTab; label: string }[] = [
 ];
 
 export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
-  const { scanEvents, restaurants, pipeline } = data;
+  const { analyticsDaily30d, restaurants, pipeline } = data;
   const [sub, setSub] = useState<AnalyticsSubTab>("overview");
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>(() => restaurants[0]?.id ?? "");
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>(
+    () => restaurants[0]?.id ?? "",
+  );
 
   useEffect(() => {
     if (restaurants.length === 0) return;
@@ -146,107 +105,124 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
     }
   }, [restaurants, selectedRestaurantId]);
 
-  const globalSessions = useMemo(() => globalSessionTiers(scanEvents), [scanEvents]);
-  const totalUniqueSessions = globalSessions.size;
-  const withConsentGlobal = useMemo(
-    () => [...globalSessions.values()].filter((t) => t >= 1).length,
-    [globalSessions],
-  );
-  const avgConsentPct =
-    totalUniqueSessions > 0 ? Math.round((withConsentGlobal / totalUniqueSessions) * 100) : 0;
-  const peakLabel = useMemo(() => peakHourLabel(scanEvents), [scanEvents]);
-  const topCat = useMemo(() => topCategoryFromEnters(scanEvents), [scanEvents]);
+  // Letzte 7 Tage (rolling) — alle Aggregate beziehen sich darauf
+  const today = todayBerlinIso();
+  const weekFrom = shiftIso(today, -6);
 
-  const scansByRestaurant = useMemo(() => {
+  const dailyWeek = useMemo(
+    () => analyticsDaily30d.filter((r) => r.day_berlin >= weekFrom && r.day_berlin <= today),
+    [analyticsDaily30d, weekFrom, today],
+  );
+
+  // GLOBAL — alle Restaurants
+  const totalSessions = sumDailyNumber(dailyWeek, "sessions_count");
+  const totalConsent = sumDailyNumber(dailyWeek, "sessions_with_consent");
+  const avgConsentPct =
+    totalSessions > 0 ? Math.round((totalConsent / totalSessions) * 100) : 0;
+
+  // Tageszeit-Slots aus daily summiert
+  const slotCounts: [number, number, number, number] = [
+    sumDailyNumber(dailyWeek, "scans_morning"),
+    sumDailyNumber(dailyWeek, "scans_midday"),
+    sumDailyNumber(dailyWeek, "scans_evening"),
+    sumDailyNumber(dailyWeek, "scans_night"),
+  ];
+  const slotMax = Math.max(1, ...slotCounts);
+
+  const peakSlotIdx = slotCounts.reduce((maxI, v, i, arr) => (v > arr[maxI] ? i : maxI), 0);
+  const peakLabel = slotCounts[peakSlotIdx] > 0
+    ? `${SLOT_LABELS[peakSlotIdx]} ${SLOT_RANGES[peakSlotIdx]}`
+    : "—";
+
+  // Top-Kategorie aus category_clicks jsonb über alle Restaurants
+  const categoryCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const r of dailyWeek) {
+      const o = r.category_clicks ?? {};
+      for (const [k, v] of Object.entries(o)) {
+        m[k] = (m[k] ?? 0) + (typeof v === "number" ? v : 0);
+      }
+    }
+    return Object.entries(m)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+  }, [dailyWeek]);
+  const topCat = categoryCounts[0]?.[0] ?? "—";
+  const maxCatCount = Math.max(1, ...categoryCounts.map(([, n]) => n));
+
+  // Sessions pro Restaurant
+  const sessionsByRestaurant = useMemo(() => {
     const m = new Map<string, number>();
-    for (const r of restaurants) {
-      m.set(r.id, sessionsForRestaurant(scanEvents, r.id).size);
+    for (const r of dailyWeek) {
+      m.set(r.restaurant_id, (m.get(r.restaurant_id) ?? 0) + (r.sessions_count ?? 0));
     }
     return m;
-  }, [restaurants, scanEvents]);
+  }, [dailyWeek]);
 
-  const ranking = useMemo(() => {
-    return [...restaurants]
-      .map((r) => ({ r, n: scansByRestaurant.get(r.id) ?? 0 }))
-      .sort((a, b) => b.n - a.n);
-  }, [restaurants, scansByRestaurant]);
-
-  const maxScans = useMemo(() => Math.max(1, ...ranking.map((x) => x.n)), [ranking]);
-
-  const hourSlotCounts = useMemo(() => {
-    return HOURS_CHART.map((h) => scanEvents.filter((e) => eventHourBerlin(e) === h).length);
-  }, [scanEvents]);
-  const maxHourSlot = Math.max(1, ...hourSlotCounts);
-
-  const categoryEnterCounts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const e of scanEvents) {
-      if (e.event_type !== "category_enter") continue;
-      const k = e.kategorie?.trim();
-      if (!k) continue;
-      m.set(k, (m.get(k) ?? 0) + 1);
-    }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  }, [scanEvents]);
-  const maxCatCount = Math.max(1, ...categoryEnterCounts.map(([, n]) => n), 1);
+  const ranking = useMemo(
+    () =>
+      [...restaurants]
+        .map((r) => ({ r, n: sessionsByRestaurant.get(r.id) ?? 0 }))
+        .sort((a, b) => b.n - a.n),
+    [restaurants, sessionsByRestaurant],
+  );
+  const maxScans = Math.max(1, ...ranking.map((x) => x.n));
 
   const impressionsEstimate = restaurants.length * 1500 * 30;
 
   function exportOverviewCsv() {
-    const header = ["Restaurant", "Slug", "Scans_Woche_Unique_Sessions", "Consent_Rate_Prozent"];
+    const header = ["Restaurant", "Slug", "Sessions_7d", "Consent_Rate_Prozent"];
     const rows = restaurants.map((r) => {
-      const sess = sessionsForRestaurant(scanEvents, r.id);
-      const pct = consentPctFromSessions(sess);
-      return [r.name, r.slug, String(sess.size), String(pct)];
+      const sessions = sessionsByRestaurant.get(r.id) ?? 0;
+      // Pro-Restaurant Consent aus daily filtered
+      const rd = dailyWeek.filter((d) => d.restaurant_id === r.id);
+      const sess = sumDailyNumber(rd, "sessions_count");
+      const cons = sumDailyNumber(rd, "sessions_with_consent");
+      const pct = sess > 0 ? Math.round((cons / sess) * 100) : 0;
+      return [r.name, r.slug, String(sessions), String(pct)];
     });
-    downloadCsv(`qrave-analytics-${new Date().toISOString().slice(0, 10)}.csv`, header, rows);
+    downloadCsv(`qrave-analytics-${today}.csv`, header, rows);
   }
 
+  // PER RESTAURANT
   const selectedRestaurant = restaurants.find((r) => r.id === selectedRestaurantId);
-  const perRestSessions = useMemo(() => {
-    if (!selectedRestaurantId) return new Map<string, number>();
-    return sessionsForRestaurant(scanEvents, selectedRestaurantId);
-  }, [scanEvents, selectedRestaurantId]);
+  const dailyPerRest = useMemo(
+    () => dailyWeek.filter((d) => d.restaurant_id === selectedRestaurantId),
+    [dailyWeek, selectedRestaurantId],
+  );
 
   const sevenDaySeries = useMemo(() => {
-    if (!selectedRestaurantId) return { labels: [] as string[], counts: [] as number[] };
-    const ymds = lastNCalendarDaysBerlin(7);
-    const idx = new Map(ymds.map((y, i) => [y, i]));
-    const counts = ymds.map(() => 0);
-    for (const e of scanEvents) {
-      if (e.restaurant_id !== selectedRestaurantId) continue;
-      const y = berlinYmd(new Date(e.created_at));
-      const i = idx.get(y);
-      if (i !== undefined) counts[i]++;
+    const byDay = new Map<string, number>();
+    for (const r of dailyPerRest) byDay.set(r.day_berlin, r.scan_count ?? 0);
+    const labels: string[] = [];
+    const counts: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      const iso = shiftIso(weekFrom, i);
+      const d = new Date(`${iso}T12:00:00Z`);
+      labels.push(d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric" }));
+      counts.push(byDay.get(iso) ?? 0);
     }
-    const labels = ymds.map((y) => {
-      const d = new Date(`${y}T12:00:00Z`);
-      return d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric" });
-    });
     return { labels, counts };
-  }, [scanEvents, selectedRestaurantId]);
+  }, [dailyPerRest, weekFrom]);
 
   const topItems = useMemo(() => {
-    if (!selectedRestaurantId) return [] as { name: string; n: number }[];
     const m = new Map<string, number>();
-    for (const e of scanEvents) {
-      if (e.restaurant_id !== selectedRestaurantId) continue;
-      if (e.event_type !== "item_detail") continue;
-      const n = e.item_name?.trim();
-      if (!n) continue;
-      m.set(n, (m.get(n) ?? 0) + 1);
+    for (const r of dailyPerRest) {
+      for (const it of r.top_items ?? []) {
+        m.set(it.name, (m.get(it.name) ?? 0) + (it.clicks ?? 0));
+      }
     }
     return [...m.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 12)
       .map(([name, n]) => ({ name, n }));
-  }, [scanEvents, selectedRestaurantId]);
+  }, [dailyPerRest]);
 
   const funnel = useMemo(() => {
-    const total = perRestSessions.size;
-    const withC = [...perRestSessions.values()].filter((t) => t >= 1).length;
-    return { total, withC, without: total - withC };
-  }, [perRestSessions]);
+    const total = sumDailyNumber(dailyPerRest, "sessions_count");
+    const withC = sumDailyNumber(dailyPerRest, "sessions_with_consent");
+    return { total, withC, without: Math.max(0, total - withC) };
+  }, [dailyPerRest]);
 
   function exportRestaurantCsv() {
     if (!selectedRestaurant) return;
@@ -254,13 +230,13 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
     const rows: string[][] = [
       ["Restaurant", selectedRestaurant.name],
       ["Slug", selectedRestaurant.slug],
-      ["Besucher_gesamt", String(funnel.total)],
+      ["Besucher_gesamt_7d", String(funnel.total)],
       ["Mit_Consent", String(funnel.withC)],
       ["Ohne_Consent", String(funnel.without)],
       ...sevenDaySeries.labels.map((lbl, i) => [`Tag_${lbl}`, String(sevenDaySeries.counts[i] ?? 0)]),
       ...topItems.map((it, i) => [`Top_Item_${i + 1}`, `${it.name} (${it.n})`]),
     ];
-    downloadCsv(`qrave-${selectedRestaurant.slug}-analytics.csv`, header, rows);
+    downloadCsv(`qrave-${selectedRestaurant.slug}-analytics-${today}.csv`, header, rows);
   }
 
   const kpiGrid = isDesktop ? "repeat(2, minmax(0, 1fr))" : "1fr";
@@ -275,9 +251,9 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
             onClick={() => setSub(t.id)}
             className="rounded-full px-4 py-2 text-sm font-bold"
             style={{
-              border: sub === t.id ? `1px solid ${OR}` : "1px solid rgba(255,255,255,0.12)",
-              background: sub === t.id ? "rgba(255,92,26,0.14)" : "rgba(255,255,255,0.05)",
-              color: sub === t.id ? "#fff" : "rgba(255,255,255,0.5)",
+              border: sub === t.id ? `1px solid ${ACCENT_BORDER}` : "1px solid rgba(255,255,255,0.12)",
+              background: sub === t.id ? ACCENT_SOFT : "rgba(255,255,255,0.05)",
+              color: sub === t.id ? "#fff" : "rgba(242,242,242,0.55)",
               cursor: "pointer",
             }}
           >
@@ -292,43 +268,59 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
             className="grid gap-3"
             style={{ ...card, padding: isTablet ? 16 : 20, gridTemplateColumns: kpiGrid }}
           >
-            <KpiCell label="SCANS GESAMT" value={String(totalUniqueSessions)} sub="Unique Sessions (7 Tage)" accent={OR} />
-            <KpiCell label="Ø CONSENT-RATE" value={`${avgConsentPct}%`} sub="tier ≥ 1 · Sessions" accent={GREEN} />
-            <KpiCell label="PEAK-ZEIT" value={peakLabel} sub="Meiste Events (Stunde)" accent={BLUE} />
-            <KpiCell label="TOP KATEGORIE" value={topCat} sub="category_enter" accent={OR} />
+            <KpiCell
+              label="SCANS GESAMT"
+              value={totalSessions.toLocaleString("de-DE")}
+              sub="Unique Sessions · 7 Tage"
+              accent={ACCENT}
+            />
+            <KpiCell
+              label="Ø CONSENT-RATE"
+              value={`${avgConsentPct}%`}
+              sub="Sessions mit Consent / Gesamt"
+              accent={GREEN}
+            />
+            <KpiCell
+              label="PEAK-ZEIT"
+              value={peakLabel}
+              sub="Dominanter Tagesabschnitt"
+              accent={ACCENT}
+            />
+            <KpiCell
+              label="TOP KATEGORIE"
+              value={topCat}
+              sub="category_clicks (jsonb-Aggregat)"
+              accent={ACCENT}
+            />
           </div>
 
           <div style={{ ...card, padding: isTablet ? 16 : 20 }}>
-            <p
-              style={{
-                margin: "0 0 14px",
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: "0.1em",
-                color: "rgba(255,255,255,0.4)",
-              }}
-            >
-              RESTAURANT RANKING · SCANS/WOCHE
-            </p>
+            <SectionLabel>RESTAURANT RANKING · SCANS/WOCHE</SectionLabel>
             <div className="flex flex-col gap-3">
               {ranking.map(({ r, n }, i) => (
                 <div key={r.id} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="min-w-0 text-sm font-bold text-white">
-                      <span style={{ color: "rgba(255,255,255,0.35)", marginRight: 8 }}>{i + 1}.</span>
+                      <span style={{ color: "rgba(242,242,242,0.35)", marginRight: 8 }}>{i + 1}.</span>
                       {r.name}
                     </span>
-                    <span className="shrink-0 text-sm font-extrabold tabular-nums" style={{ color: OR }}>
+                    <span
+                      className="shrink-0 text-sm font-extrabold tabular-nums"
+                      style={{ color: ACCENT }}
+                    >
                       {n}
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                  <div
+                    className="h-1.5 overflow-hidden rounded-full"
+                    style={{ background: "rgba(255,255,255,0.08)" }}
+                  >
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${(n / maxScans) * 100}%`,
-                        background: OR,
-                        boxShadow: n === maxScans ? `0 0 8px ${OR}` : "none",
+                        background: ACCENT,
+                        boxShadow: n === maxScans && n > 0 ? `0 0 8px ${ACCENT}` : "none",
                       }}
                     />
                   </div>
@@ -338,35 +330,39 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
           </div>
 
           <div style={{ ...card, padding: isTablet ? 16 : 20 }}>
-            <p
-              style={{
-                margin: "0 0 14px",
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: "0.1em",
-                color: "rgba(255,255,255,0.4)",
-              }}
-            >
-              SCANS NACH TAGESZEIT
-            </p>
-            <div className="flex items-end justify-between gap-1" style={{ height: 140 }}>
-              {HOURS_CHART.map((h, i) => {
-                const c = hourSlotCounts[i] ?? 0;
-                const innerMax = 100;
-                const barPx = c === 0 ? 4 : Math.max(8, (c / maxHourSlot) * innerMax);
-                const isPeak = c === maxHourSlot && c > 0;
+            <SectionLabel>SCANS NACH TAGESZEIT</SectionLabel>
+            <div className="flex items-end justify-between gap-2" style={{ height: 160 }}>
+              {SLOT_KEYS.map((_, i) => {
+                const c = slotCounts[i];
+                const barPx = c === 0 ? 4 : Math.max(8, (c / slotMax) * 110);
+                const isPeak = c === slotMax && c > 0;
                 return (
-                  <div key={h} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
+                  <div
+                    key={SLOT_LABELS[i]}
+                    className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1.5"
+                  >
+                    <span
+                      className="qrave-font-display text-[14px] font-bold tabular-nums"
+                      style={{ color: isPeak ? ACCENT : "rgba(242,242,242,0.65)" }}
+                    >
+                      {c.toLocaleString("de-DE")}
+                    </span>
                     <div
-                      className="w-full max-w-[32px] rounded-t-md"
+                      className="w-full max-w-[64px] rounded-t-md"
                       style={{
                         height: barPx,
-                        background: `linear-gradient(180deg, ${OR}, rgba(255,92,26,0.35))`,
-                        boxShadow: isPeak ? `0 0 10px ${OR}` : "none",
+                        background: `linear-gradient(180deg, ${ACCENT}, rgba(59,130,246,0.35))`,
+                        boxShadow: isPeak ? `0 0 12px ${ACCENT}` : "none",
                       }}
                     />
-                    <span className="text-center text-[10px] font-bold" style={{ color: "rgba(255,255,255,0.45)" }}>
-                      {h}h
+                    <span
+                      className="text-center text-[11px] font-semibold"
+                      style={{ color: "rgba(242,242,242,0.55)" }}
+                    >
+                      {SLOT_LABELS[i]}
+                    </span>
+                    <span className="text-center text-[10px]" style={{ color: "rgba(242,242,242,0.4)" }}>
+                      {SLOT_RANGES[i]}
                     </span>
                   </div>
                 );
@@ -375,26 +371,21 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
           </div>
 
           <div style={{ ...card, padding: isTablet ? 16 : 20 }}>
-            <p
-              style={{
-                margin: "0 0 14px",
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: "0.1em",
-                color: "rgba(255,255,255,0.4)",
-              }}
-            >
-              KATEGORIE-KLICKS · TOP 5
-            </p>
+            <SectionLabel>KATEGORIE-KLICKS · TOP 5</SectionLabel>
             <div className="flex flex-col gap-3">
-              {categoryEnterCounts.length === 0 ? (
-                <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 13 }}>Keine category_enter Events.</p>
+              {categoryCounts.length === 0 ? (
+                <p style={{ color: "rgba(242,242,242,0.5)", fontSize: 13 }}>
+                  Keine Kategorie-Klicks im 7-Tage-Aggregat.
+                </p>
               ) : (
-                categoryEnterCounts.map(([name, n]) => (
+                categoryCounts.map(([name, n]) => (
                   <div key={name}>
                     <div className="mb-1 flex justify-between text-xs font-bold">
                       <span className="truncate text-white">{name}</span>
-                      <span className="shrink-0 tabular-nums" style={{ color: OR }}>
+                      <span
+                        className="shrink-0 tabular-nums"
+                        style={{ color: ACCENT }}
+                      >
                         {n}
                       </span>
                     </div>
@@ -403,7 +394,7 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
                         className="h-full rounded-full"
                         style={{
                           width: `${(n / maxCatCount) * 100}%`,
-                          background: OR,
+                          background: ACCENT,
                         }}
                       />
                     </div>
@@ -416,15 +407,16 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
           <button
             type="button"
             onClick={exportOverviewCsv}
-            className="w-full rounded-2xl py-4 text-sm font-extrabold"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-extrabold"
             style={{
-              border: `1px solid ${OR}`,
-              background: "rgba(255,92,26,0.12)",
+              background: "linear-gradient(135deg, #1d4ed8, #1e40af)",
               color: "#fff",
+              boxShadow: "0 6px 20px rgba(29,78,216,0.4)",
               cursor: "pointer",
             }}
           >
-            ⬇️ Analytics als CSV exportieren
+            <i className="fa-solid fa-download text-[12px]" />
+            Analytics als CSV exportieren
           </button>
         </>
       ) : null}
@@ -440,9 +432,13 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
                   onClick={() => setSelectedRestaurantId(r.id)}
                   className="shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold"
                   style={{
-                    border: selectedRestaurantId === r.id ? `1px solid ${OR}` : "1px solid rgba(255,255,255,0.12)",
-                    background: selectedRestaurantId === r.id ? "rgba(255,92,26,0.15)" : "rgba(255,255,255,0.05)",
-                    color: selectedRestaurantId === r.id ? "#fff" : "rgba(255,255,255,0.55)",
+                    border:
+                      selectedRestaurantId === r.id
+                        ? `1px solid ${ACCENT_BORDER}`
+                        : "1px solid rgba(255,255,255,0.12)",
+                    background:
+                      selectedRestaurantId === r.id ? ACCENT_SOFT : "rgba(255,255,255,0.05)",
+                    color: selectedRestaurantId === r.id ? "#fff" : "rgba(242,242,242,0.55)",
                     cursor: "pointer",
                   }}
                 >
@@ -455,32 +451,34 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
           {selectedRestaurant ? (
             <>
               <div style={{ ...card, padding: isTablet ? 16 : 20 }}>
-                <p
-                  style={{
-                    margin: "0 0 12px",
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: "0.1em",
-                    color: "rgba(255,255,255,0.4)",
-                  }}
-                >
-                  SCANS · 7 TAGE (EUROPE/BERLIN)
-                </p>
-                <div className="flex items-end gap-1" style={{ height: 160, minWidth: 280 }}>
+                <SectionLabel>SCANS · 7 TAGE (EUROPE/BERLIN)</SectionLabel>
+                <div className="flex items-end gap-2" style={{ height: 160, minWidth: 280 }}>
                   {sevenDaySeries.counts.map((c, i) => {
                     const maxD = Math.max(1, ...sevenDaySeries.counts);
                     const barPx = c === 0 ? 6 : Math.max(10, (c / maxD) * 110);
                     return (
-                      <div key={sevenDaySeries.labels[i] ?? i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
+                      <div
+                        key={sevenDaySeries.labels[i] ?? i}
+                        className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1.5"
+                      >
+                        <span
+                          className="qrave-font-display text-[12px] font-bold tabular-nums"
+                          style={{ color: c === maxD && c > 0 ? ACCENT : "rgba(242,242,242,0.5)" }}
+                        >
+                          {c}
+                        </span>
                         <div
-                          className="w-full max-w-[36px] rounded-t-md"
+                          className="w-full max-w-[42px] rounded-t-md"
                           style={{
                             height: barPx,
-                            background: `linear-gradient(180deg, ${BLUE}, rgba(91,155,255,0.35))`,
-                            boxShadow: c === maxD && c > 0 ? `0 0 8px ${BLUE}` : "none",
+                            background: `linear-gradient(180deg, ${ACCENT}, rgba(59,130,246,0.35))`,
+                            boxShadow: c === maxD && c > 0 ? `0 0 8px ${ACCENT}` : "none",
                           }}
                         />
-                        <span className="text-center text-[9px] font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        <span
+                          className="text-center text-[10px] font-semibold"
+                          style={{ color: "rgba(242,242,242,0.4)" }}
+                        >
                           {sevenDaySeries.labels[i]}
                         </span>
                       </div>
@@ -490,25 +488,20 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
               </div>
 
               <div style={{ ...card, padding: isTablet ? 16 : 20 }}>
-                <p
-                  style={{
-                    margin: "0 0 12px",
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: "0.1em",
-                    color: "rgba(255,255,255,0.4)",
-                  }}
-                >
-                  TOP ITEMS · ITEM_DETAIL
-                </p>
+                <SectionLabel>TOP ITEMS · ITEM-KLICKS</SectionLabel>
                 {topItems.length === 0 ? (
-                  <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 13 }}>Keine Item-Aufrufe.</p>
+                  <p style={{ color: "rgba(242,242,242,0.5)", fontSize: 13 }}>
+                    Keine Item-Klicks im 7-Tage-Aggregat.
+                  </p>
                 ) : (
                   <ul className="m-0 list-none space-y-2 p-0">
                     {topItems.map((it) => (
                       <li key={it.name} className="flex items-center justify-between gap-2 text-sm">
                         <span className="min-w-0 truncate text-white">{it.name}</span>
-                        <span className="shrink-0 font-extrabold tabular-nums" style={{ color: OR }}>
+                        <span
+                          className="shrink-0 font-extrabold tabular-nums"
+                          style={{ color: ACCENT }}
+                        >
                           {it.n}
                         </span>
                       </li>
@@ -518,48 +511,55 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
               </div>
 
               <div style={{ ...card, padding: isTablet ? 16 : 20 }}>
-                <p
-                  style={{
-                    margin: "0 0 12px",
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: "0.1em",
-                    color: "rgba(255,255,255,0.4)",
-                  }}
+                <SectionLabel>CONSENT-FUNNEL</SectionLabel>
+                <div
+                  className="grid gap-3"
+                  style={{ gridTemplateColumns: isDesktop ? "repeat(3, 1fr)" : "1fr" }}
                 >
-                  CONSENT-FUNNEL
-                </p>
-                <div className="grid gap-3" style={{ gridTemplateColumns: isDesktop ? "repeat(3, 1fr)" : "1fr" }}>
                   <FunnelBox label="Besucher gesamt" value={funnel.total} color="#fff" />
                   <FunnelBox label="Mit Consent" value={funnel.withC} color={GREEN} />
-                  <FunnelBox label="Ohne Consent" value={funnel.without} color="rgba(255,255,255,0.45)" />
+                  <FunnelBox
+                    label="Ohne Consent"
+                    value={funnel.without}
+                    color="rgba(242,242,242,0.55)"
+                  />
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={exportRestaurantCsv}
-                className="w-full rounded-2xl py-4 text-sm font-extrabold"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-extrabold"
                 style={{
-                  border: `1px solid ${BLUE}`,
-                  background: "rgba(91,155,255,0.12)",
+                  background: "linear-gradient(135deg, #1d4ed8, #1e40af)",
                   color: "#fff",
+                  boxShadow: "0 6px 20px rgba(29,78,216,0.4)",
                   cursor: "pointer",
                 }}
               >
-                ⬇️ {selectedRestaurant.name} Daten exportieren
+                <i className="fa-solid fa-download text-[12px]" />
+                {selectedRestaurant.name} Daten exportieren
               </button>
             </>
           ) : (
-            <p style={{ color: "rgba(255,255,255,0.45)" }}>Kein Restaurant ausgewählt.</p>
+            <p style={{ color: "rgba(242,242,242,0.5)" }}>Kein Restaurant ausgewählt.</p>
           )}
         </>
       ) : null}
 
       {sub === "ab" ? (
         <div style={{ ...card, padding: isTablet ? 20 : 24 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#fff" }}>A/B Tests kommen in Phase 2</h2>
-          <p style={{ margin: "12px 0 0", fontSize: 14, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#fff" }}>
+            A/B Tests kommen in Phase 2
+          </h2>
+          <p
+            style={{
+              margin: "12px 0 0",
+              fontSize: 14,
+              color: "rgba(242,242,242,0.55)",
+              lineHeight: 1.6,
+            }}
+          >
             Teste verschiedene Speisekarten-Layouts und miss welche mehr Interaktionen generiert.
           </p>
           <button
@@ -569,11 +569,11 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
             style={{
               border: "1px solid rgba(255,255,255,0.1)",
               background: "rgba(255,255,255,0.04)",
-              color: "rgba(255,255,255,0.25)",
+              color: "rgba(242,242,242,0.25)",
               cursor: "not-allowed",
             }}
           >
-            ⬇️ Export (demnächst)
+            Export (demnächst)
           </button>
         </div>
       ) : null}
@@ -582,34 +582,34 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
         <div style={{ ...card, padding: isTablet ? 16 : 20 }}>
           {pipeline.length === 0 ? (
             <>
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#fff" }}>Noch keine Werbepartner aktiv</h2>
-              <p style={{ margin: "10px 0 0", fontSize: 14, color: "rgba(255,255,255,0.5)" }}>Ab 50 Restaurants relevant.</p>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#fff" }}>
+                Noch keine Werbepartner aktiv
+              </h2>
+              <p style={{ margin: "10px 0 0", fontSize: 14, color: "rgba(242,242,242,0.5)" }}>
+                Ab 50 Restaurants relevant.
+              </p>
             </>
           ) : (
             <>
-              <p
-                style={{
-                  margin: "0 0 14px",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  letterSpacing: "0.1em",
-                  color: "rgba(255,255,255,0.4)",
-                }}
+              <SectionLabel>PIPELINE / PARTNER</SectionLabel>
+              <div
+                className="mb-4 rounded-2xl p-4"
+                style={{ background: "rgba(0,0,0,0.25)", border: "0.5px solid rgba(255,255,255,0.08)" }}
               >
-                PIPELINE / PARTNER
-              </p>
-              <div className="mb-4 rounded-2xl p-4" style={{ background: "rgba(0,0,0,0.25)", border: "0.5px solid rgba(255,255,255,0.08)" }}>
-                <p className="m-0 text-xs font-bold" style={{ color: "rgba(255,255,255,0.45)" }}>
+                <p className="m-0 text-xs font-bold" style={{ color: "rgba(242,242,242,0.5)" }}>
                   Impressionen-Schätzung (Monat)
                 </p>
-                <p className="mt-1 text-2xl font-extrabold tabular-nums" style={{ color: BLUE }}>
+                <p
+                  className="mt-1 text-2xl font-extrabold tabular-nums"
+                  style={{ color: ACCENT }}
+                >
                   {impressionsEstimate.toLocaleString("de-DE")}
                 </p>
-                <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                <p className="mt-1 text-xs" style={{ color: "rgba(242,242,242,0.4)" }}>
                   {restaurants.length} Restaurants × 1500 × 30 Tage
                 </p>
               </div>
-              <p className="mb-3 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+              <p className="mb-3 text-xs" style={{ color: "rgba(242,242,242,0.45)" }}>
                 MRR-Felder folgen mit Werbepartner-Schema; Status aus Pipeline-Stage.
               </p>
               <div className="flex flex-col gap-2">
@@ -617,15 +617,21 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
                   <div
                     key={p.id}
                     className="flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-3"
-                    style={{ background: "rgba(255,255,255,0.04)", border: "0.5px solid rgba(255,255,255,0.08)" }}
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "0.5px solid rgba(255,255,255,0.08)",
+                    }}
                   >
                     <div className="min-w-0">
                       <div className="font-bold text-white">{p.name}</div>
-                      <div className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+                      <div className="text-xs" style={{ color: "rgba(242,242,242,0.5)" }}>
                         {p.stage ?? "—"} {p.bezirk ? `· ${p.bezirk}` : ""}
                       </div>
                     </div>
-                    <div className="text-right text-sm font-bold tabular-nums" style={{ color: "rgba(255,255,255,0.35)" }}>
+                    <div
+                      className="text-right text-sm font-bold tabular-nums"
+                      style={{ color: "rgba(242,242,242,0.4)" }}
+                    >
                       MRR: —
                     </div>
                   </div>
@@ -639,6 +645,23 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      style={{
+        margin: "0 0 14px",
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        color: ACCENT,
+      }}
+    >
+      {children}
+    </p>
   );
 }
 
@@ -656,15 +679,23 @@ function KpiCell({
   return (
     <div
       className="rounded-2xl p-4"
-      style={{ background: "rgba(0,0,0,0.22)", border: "0.5px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
     >
-      <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", color: "rgba(255,255,255,0.4)" }}>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 10,
+          fontWeight: 800,
+          letterSpacing: "0.08em",
+          color: "rgba(242,242,242,0.5)",
+        }}
+      >
         {label}
       </p>
       <p className="mt-2 text-2xl font-extrabold tabular-nums" style={{ color: accent }}>
         {value}
       </p>
-      <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+      <p className="mt-1 text-xs" style={{ color: "rgba(242,242,242,0.4)" }}>
         {sub}
       </p>
     </div>
@@ -675,13 +706,21 @@ function FunnelBox({ label, value, color }: { label: string; value: number; colo
   return (
     <div
       className="rounded-2xl p-4 text-center"
-      style={{ background: "rgba(0,0,0,0.22)", border: "0.5px solid rgba(255,255,255,0.08)" }}
+      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
     >
-      <p style={{ margin: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "rgba(255,255,255,0.4)" }}>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 10,
+          fontWeight: 800,
+          letterSpacing: "0.06em",
+          color: "rgba(242,242,242,0.5)",
+        }}
+      >
         {label}
       </p>
       <p className="mt-2 text-3xl font-extrabold tabular-nums" style={{ color }}>
-        {value}
+        {value.toLocaleString("de-DE")}
       </p>
     </div>
   );

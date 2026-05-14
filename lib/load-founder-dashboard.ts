@@ -48,7 +48,7 @@ export async function loadFounderDashboardData(
       const { data, error } = await srv
         .from("restaurant_analytics_daily")
         .select(
-          "restaurant_id, day_berlin, sessions_count, scan_count, item_detail_count, category_clicks, beverage_subcategory_clicks, top_items, vegan_clicks, vegetarian_clicks",
+          "restaurant_id, day_berlin, sessions_count, scan_count, sessions_with_consent, scans_morning, scans_midday, scans_evening, scans_night, item_detail_count, category_clicks, beverage_subcategory_clicks, top_items, vegan_clicks, vegetarian_clicks, avg_item_price_clicked",
         )
         .gte("day_berlin", dailyFrom)
         .order("day_berlin", { ascending: true });
