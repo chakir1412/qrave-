@@ -113,6 +113,13 @@ export type FounderKpiDeltas = {
   consent: FounderKpiDeltaLine;
 };
 
+export type FounderAnalyticsDailyRow = {
+  restaurant_id: string;
+  day_berlin: string;
+  sessions_count: number;
+  scan_count: number;
+};
+
 export type FounderDashboardData = {
   restaurants: FounderRestaurantRow[];
   /** @deprecated Alias für scanEventsWeek (Kompatibilität). */
@@ -127,4 +134,9 @@ export type FounderDashboardData = {
   restaurantTables: FounderRestaurantTableRow[];
   /** Aus `restaurant_analytics_daily` (Service Role); fehlt z. B. ohne Key. */
   kpiDeltas: FounderKpiDeltas;
+  /** Rolling-30-Tage-Aggregat aus restaurant_analytics_daily. Wird für
+   *  "Scans diese Woche" (letzte 7 Tage) und den 30-Tage-Chart in der
+   *  Founder-Übersicht verwendet — verlässlicher als das gedeckelte
+   *  scan_events-Window. */
+  analyticsDaily30d: FounderAnalyticsDailyRow[];
 };

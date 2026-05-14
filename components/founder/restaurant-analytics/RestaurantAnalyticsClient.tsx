@@ -16,19 +16,23 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
+/** Royal-Blue Founder-CI (v7). `teal`/`orange` heißen aus historischen
+ *  Gründen weiter so, zeigen jetzt aber auf Königsblau-Töne — passt damit
+ *  zur neuen FounderOverview ohne dass jede Render-Stelle umgeschrieben
+ *  werden muss. */
 const C = {
-  bg: "#0c0c0f",
-  teal: "#00c8a0",
-  orange: "#ff5c1a",
-  blue: "#5b9bff",
-  yellow: "#ffd426",
-  green: "#34e89e",
-  red: "#ff4b6e",
-  textMuted: "rgba(255,255,255,0.55)",
-  textFaint: "rgba(255,255,255,0.4)",
-  borderFaint: "rgba(255,255,255,0.06)",
-  cardBg: "rgba(255,255,255,0.035)",
-  cardBgInner: "rgba(0,0,0,0.22)",
+  bg: "#06040e",
+  teal: "#3b82f6",
+  orange: "#60a5fa",
+  blue: "#60a5fa",
+  yellow: "#facc15",
+  green: "#4ade80",
+  red: "#f87171",
+  textMuted: "rgba(242,242,242,0.55)",
+  textFaint: "rgba(242,242,242,0.4)",
+  borderFaint: "rgba(255,255,255,0.07)",
+  cardBg: "rgba(255,255,255,0.04)",
+  cardBgInner: "rgba(0,0,0,0.25)",
 } as const;
 
 const card: CSSProperties = {
@@ -257,15 +261,22 @@ export function RestaurantAnalyticsClient({ restaurantId, fromYmd, toYmd }: Prop
 
   return (
     <div
-      className={`${dmSans.className} relative min-h-screen pb-12`}
-      style={{ background: C.bg, color: "#fff" }}
+      className={`qrave-shell qrave-shell--founder ${dmSans.className} relative min-h-screen pb-12`}
+      style={{ color: "#f2f2f2" }}
       aria-busy={loading}
       aria-live="polite"
     >
-      <div className="founder-bg-blobs" aria-hidden>
-        <div className="founder-blob founder-blob--1" />
-        <div className="founder-blob founder-blob--2" />
-        <div className="founder-blob founder-blob--3" />
+      {/* Royal-Blue Lichtstrahlen + Vignette (CI v7) */}
+      <div className="qrave-bg" aria-hidden>
+        <div className="qrave-rays">
+          <div className="qrave-ray qrave-ray-1" />
+          <div className="qrave-ray qrave-ray-2" />
+          <div className="qrave-ray qrave-ray-3" />
+          <div className="qrave-ray qrave-ray-4" />
+          <div className="qrave-ray qrave-ray-5" />
+        </div>
+        <div className="qrave-corner-glow" />
+        <div className="qrave-grid-overlay" />
       </div>
       <div
         style={{

@@ -5,8 +5,7 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { DashboardToast } from "@/components/dashboard/DashboardToast";
 import { authFetch } from "@/lib/auth-fetch";
-import type { FounderDashboardData, FounderScanEventRow } from "@/lib/founder-types";
-import { uniqueSessionsFromEvents } from "@/lib/founder-types";
+import type { FounderDashboardData } from "@/lib/founder-types";
 import { RestaurantsTab } from "./tabs/RestaurantsTab";
 import { AnalyticsTab } from "./tabs/AnalyticsTab";
 import { KontakteTab } from "./tabs/KontakteTab";
@@ -27,15 +26,6 @@ const NAV_ITEMS = [
 
 const CHART_W = 720;
 const CHART_H = 160;
-
-function startOfLocalDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
 
 function buildYScale(maxValue: number): { max: number; stops: number[] } {
   const m = Math.max(maxValue, 1);
@@ -93,48 +83,57 @@ export function FounderOverview({ data, initialLoadError }: Props) {
     [restaurants],
   );
 
-  // Scans heute/Woche aus den vorhandenen Events
-  const sessionsToday = useMemo(
-    () => uniqueSessionsFromEvents(data.scanEventsToday),
-    [data.scanEventsToday],
-  );
-  const sessionsWeek = useMemo(
-    () => uniqueSessionsFromEvents(data.scanEventsWeek),
-    [data.scanEventsWeek],
-  );
+  // Sessions aus restaurant_analytics_daily aggregieren. Diese Tabelle
+  // wird nightly per Cron befüllt und ist die authoritative Quelle für
+  // tagesgenaue Aggregate (Berlin-Zeitzone).
+  function todayBerlinIso(): string {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Berlin",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  }
+  function shiftIso(iso: string, deltaDays: number): string {
+    const d = new Date(`${iso}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + deltaDays);
+    return d.toISOString().slice(0, 10);
+  }
 
-  // 30-Tage-Series — Sessions pro Tag, deduped per session_id
+  const sessionsByDay = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of data.analyticsDaily30d) {
+      m.set(r.day_berlin, (m.get(r.day_berlin) ?? 0) + (r.sessions_count ?? 0));
+    }
+    return m;
+  }, [data.analyticsDaily30d]);
+
+  const todayIso = todayBerlinIso();
+
+  const sessionsToday = sessionsByDay.get(todayIso) ?? 0;
+
+  // Diese Woche = letzte 7 Tage inkl. heute (rolling).
+  const sessionsWeek = useMemo(() => {
+    let sum = 0;
+    for (let i = 0; i < 7; i++) {
+      sum += sessionsByDay.get(shiftIso(todayIso, -i)) ?? 0;
+    }
+    return sum;
+  }, [sessionsByDay, todayIso]);
+
+  // 30-Tage-Series aus dem gleichen Daily-Aggregat.
   const series30 = useMemo(() => {
-    const today = startOfLocalDay(new Date());
-    const sessionsByDay = new Map<string, Set<string>>();
-    function sk(e: FounderScanEventRow): string {
-      return e.session_id?.trim() && e.session_id.trim().length > 0
-        ? e.session_id
-        : `row:${e.id ?? e.created_at}`;
-    }
-    for (const e of data.scanEventsMonth) {
-      const t = new Date(e.created_at);
-      const k = dayKey(startOfLocalDay(t));
-      let s = sessionsByDay.get(k);
-      if (!s) {
-        s = new Set();
-        sessionsByDay.set(k, s);
-      }
-      s.add(sk(e));
-    }
-    const out: { label: string; count: number; date: Date }[] = [];
+    const out: { label: string; count: number }[] = [];
     for (let i = 29; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const c = sessionsByDay.get(dayKey(d))?.size ?? 0;
+      const iso = shiftIso(todayIso, -i);
+      const [, m, d] = iso.split("-");
       out.push({
-        label: `${d.getDate()}.${d.getMonth() + 1}.`,
-        count: c,
-        date: d,
+        label: `${parseInt(d, 10)}.${parseInt(m, 10)}.`,
+        count: sessionsByDay.get(iso) ?? 0,
       });
     }
     return out;
-  }, [data.scanEventsMonth]);
+  }, [sessionsByDay, todayIso]);
 
   const monthTotal = series30.reduce((a, b) => a + b.count, 0);
   const { max: yMax, stops: yStops } = buildYScale(Math.max(0, ...series30.map((s) => s.count)));
@@ -145,21 +144,15 @@ export function FounderOverview({ data, initialLoadError }: Props) {
     CHART_H,
   );
 
-  // Scans heute pro Restaurant — Map über die heutigen Events
+  // Scans heute pro Restaurant — aus analyticsDaily30d gefiltert auf heute (Berlin).
   const scansTodayByRestaurant = useMemo(() => {
-    const out = new Map<string, Set<string>>();
-    for (const e of data.scanEventsToday) {
-      const rid = e.restaurant_id ?? "";
-      if (!rid) continue;
-      let s = out.get(rid);
-      if (!s) {
-        s = new Set();
-        out.set(rid, s);
-      }
-      s.add(e.session_id?.trim() || `row:${e.id ?? e.created_at}`);
+    const out = new Map<string, number>();
+    for (const r of data.analyticsDaily30d) {
+      if (r.day_berlin !== todayIso) continue;
+      out.set(r.restaurant_id, (out.get(r.restaurant_id) ?? 0) + (r.sessions_count ?? 0));
     }
     return out;
-  }, [data.scanEventsToday]);
+  }, [data.analyticsDaily30d, todayIso]);
 
   // Neue Registrierungen letzte 7 Tage
   const newLast7Days = useMemo(() => {
@@ -410,7 +403,7 @@ export function FounderOverview({ data, initialLoadError }: Props) {
                 <ul className="space-y-1.5">
                   {restaurants.slice(0, 12).map((r) => {
                     const isLive = r.aktiv === true && r.published !== false;
-                    const scansToday = scansTodayByRestaurant.get(r.id)?.size ?? 0;
+                    const scansToday = scansTodayByRestaurant.get(r.id) ?? 0;
                     return (
                       <li
                         key={r.id}

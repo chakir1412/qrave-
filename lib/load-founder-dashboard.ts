@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FounderDashboardData } from "@/lib/founder-types";
+import type { FounderDashboardData, FounderAnalyticsDailyRow } from "@/lib/founder-types";
 import { loadFounderKpiDeltas } from "@/lib/founder-kpi-deltas";
 import { startOfBerlinYearUtcIso } from "@/lib/berlin-time";
 import { dedupeSessionsKeepFirstEvent } from "@/lib/dedupe-scan-sessions";
+import { createServiceRoleClient } from "@/lib/supabase-service-role";
 
 const SCAN_SELECT =
   "id,session_id,event_type,stunde,wochentag,monat,tisch_nummer,item_name,kategorie,main_tab,duration_seconds,tier,created_at,restaurant_id";
@@ -32,7 +33,31 @@ export async function loadFounderDashboardData(
       .order("created_at", { ascending: false })
       .limit(SESSION_WINDOW_ROW_LIMIT);
 
-  const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl, kpiDeltas] = await Promise.all([
+  // restaurant_analytics_daily hat RLS und anon kann nicht lesen — service-role.
+  // Berlin-Datum (YYYY-MM-DD) für die letzten 30 Tage.
+  const todayBerlin = now.toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" });
+  const dailyFrom = new Date(
+    new Date(`${todayBerlin}T00:00:00+00:00`).getTime() - 29 * 86400000,
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  async function loadAnalyticsDaily(): Promise<FounderAnalyticsDailyRow[]> {
+    try {
+      const srv = createServiceRoleClient();
+      const { data, error } = await srv
+        .from("restaurant_analytics_daily")
+        .select("restaurant_id, day_berlin, sessions_count, scan_count")
+        .gte("day_berlin", dailyFrom)
+        .order("day_berlin", { ascending: true });
+      if (error || !data) return [];
+      return data as FounderAnalyticsDailyRow[];
+    } catch {
+      return [];
+    }
+  }
+
+  const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl, kpiDeltas, analyticsDaily30d] = await Promise.all([
     supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
     scanBaseAllTypes(SESSION_WINDOW_ROW_LIMIT).gte("created_at", weekStart),
     sessionWindowBase().gte("created_at", todayStart),
@@ -48,6 +73,7 @@ export async function loadFounderDashboardData(
       .order("restaurant_id", { ascending: true })
       .order("tisch_nummer", { ascending: true }),
     loadFounderKpiDeltas(now),
+    loadAnalyticsDaily(),
   ]);
 
   const errors: string[] = [];
@@ -90,6 +116,7 @@ export async function loadFounderDashboardData(
     restaurantExtras: (rExt.data ?? []) as FounderDashboardData["restaurantExtras"],
     restaurantTables: (rTbl.data ?? []) as FounderDashboardData["restaurantTables"],
     kpiDeltas,
+    analyticsDaily30d,
   };
 
   return { data, errors };
