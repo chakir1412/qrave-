@@ -180,7 +180,7 @@ export function ProduktTabV2({ restaurants, analyticsDaily30d, allMenuItems }: P
             style={{
               background: "var(--qrave-accent-gradient)",
               color: "#fff",
-              boxShadow: "0 6px 20px rgba(29,78,216,0.4)",
+              boxShadow: "0 6px 20px rgba(147,51,234,0.4)",
             }}
           >
             <i className="fa-solid fa-download text-[10px]" />

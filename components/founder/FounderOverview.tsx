@@ -290,7 +290,7 @@ export function FounderOverview({ data, initialLoadError }: Props) {
                           style={{
                             background: "var(--qrave-accent-gradient)",
                             color: "#fff",
-                            boxShadow: "0 6px 20px rgba(29,78,216,0.4)",
+                            boxShadow: "0 6px 20px rgba(147,51,234,0.4)",
                           }}
                         >
                           {publishingId === r.id ? "Schalte frei …" : "Freischalten"}

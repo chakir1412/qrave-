@@ -20,9 +20,9 @@ import type {
   FounderDashboardData,
 } from "@/lib/founder-types";
 
-const ACCENT = "#3b82f6";
-const ACCENT_SOFT = "rgba(59,130,246,0.18)";
-const ACCENT_BORDER = "rgba(59,130,246,0.4)";
+const ACCENT = "#9333ea";
+const ACCENT_SOFT = "rgba(147,51,234,0.18)";
+const ACCENT_BORDER = "rgba(147,51,234,0.4)";
 const GREEN = "#4ade80";
 
 type AnalyticsSubTab = "overview" | "restaurant" | "ab" | "ads";
@@ -351,7 +351,7 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
                       className="w-full max-w-[64px] rounded-t-md"
                       style={{
                         height: barPx,
-                        background: `linear-gradient(180deg, ${ACCENT}, rgba(59,130,246,0.35))`,
+                        background: `linear-gradient(180deg, ${ACCENT}, rgba(147,51,234,0.35))`,
                         boxShadow: isPeak ? `0 0 12px ${ACCENT}` : "none",
                       }}
                     />
@@ -409,9 +409,9 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
             onClick={exportOverviewCsv}
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-extrabold"
             style={{
-              background: "linear-gradient(135deg, #1d4ed8, #1e40af)",
+              background: "linear-gradient(135deg, #7c3aed, #6d28d9)",
               color: "#fff",
-              boxShadow: "0 6px 20px rgba(29,78,216,0.4)",
+              boxShadow: "0 6px 20px rgba(147,51,234,0.4)",
               cursor: "pointer",
             }}
           >
@@ -471,7 +471,7 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
                           className="w-full max-w-[42px] rounded-t-md"
                           style={{
                             height: barPx,
-                            background: `linear-gradient(180deg, ${ACCENT}, rgba(59,130,246,0.35))`,
+                            background: `linear-gradient(180deg, ${ACCENT}, rgba(147,51,234,0.35))`,
                             boxShadow: c === maxD && c > 0 ? `0 0 8px ${ACCENT}` : "none",
                           }}
                         />
@@ -531,9 +531,9 @@ export function AnalyticsTab({ data, isTablet, isDesktop }: Props) {
                 onClick={exportRestaurantCsv}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-extrabold"
                 style={{
-                  background: "linear-gradient(135deg, #1d4ed8, #1e40af)",
+                  background: "linear-gradient(135deg, #7c3aed, #6d28d9)",
                   color: "#fff",
-                  boxShadow: "0 6px 20px rgba(29,78,216,0.4)",
+                  boxShadow: "0 6px 20px rgba(147,51,234,0.4)",
                   cursor: "pointer",
                 }}
               >

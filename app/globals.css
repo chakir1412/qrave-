@@ -505,18 +505,18 @@ body {
   --qrave-corner-glow: rgba(160, 70, 255, 0.18);
 }
 
-/* Royal-Blue-Variante fürs Founder-Dashboard */
+/* Lila-Variante fürs Founder-Dashboard */
 .qrave-shell--founder {
-  --qrave-accent: #1d4ed8;
-  --qrave-accent-strong: #3b82f6;
-  --qrave-accent-soft: #bfdbfe;
-  --qrave-accent-gradient: linear-gradient(135deg, #1d4ed8, #1e40af);
-  --qrave-accent-glow: rgba(29, 78, 216, 0.5);
-  --qrave-hero-gradient: linear-gradient(145deg, #0f172a, #1e3a8a);
-  --qrave-hero-corner: radial-gradient(ellipse 100% 80% at 0% 0%, #0b2660 0%, #050f2c 30%, #06040e 60%);
-  --qrave-ray-1: rgba(60, 110, 255, 0.25);
-  --qrave-ray-2: rgba(80, 130, 255, 0.3);
-  --qrave-corner-glow: rgba(70, 120, 255, 0.18);
+  --qrave-accent: #7c3aed;
+  --qrave-accent-strong: #9333ea;
+  --qrave-accent-soft: #d8b4fe;
+  --qrave-accent-gradient: linear-gradient(135deg, #7c3aed, #6d28d9);
+  --qrave-accent-glow: rgba(147, 51, 234, 0.5);
+  --qrave-hero-gradient: linear-gradient(145deg, #1a1033, #2e1065);
+  --qrave-hero-corner: radial-gradient(ellipse 100% 80% at 0% 0%, #3b1078 0%, #1a0633 30%, #06040e 60%);
+  --qrave-ray-1: rgba(160, 110, 255, 0.25);
+  --qrave-ray-2: rgba(180, 130, 255, 0.3);
+  --qrave-corner-glow: rgba(170, 120, 255, 0.18);
 }
 
 .qrave-shell {
@@ -660,8 +660,8 @@ body {
   box-shadow: 0 8px 32px rgba(109, 40, 217, 0.4);
 }
 .qrave-shell--founder .qrave-cta-card {
-  background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
-  box-shadow: 0 8px 32px rgba(29, 78, 216, 0.4);
+  background: linear-gradient(135deg, #5b21b6, #7c3aed);
+  box-shadow: 0 8px 32px rgba(147, 51, 234, 0.4);
 }
 
 /* Topbar */

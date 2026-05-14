@@ -380,7 +380,7 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
               style={{
                 background: "var(--qrave-accent-gradient)",
                 color: "#fff",
-                boxShadow: "0 6px 20px rgba(29,78,216,0.4)",
+                boxShadow: "0 6px 20px rgba(147,51,234,0.4)",
               }}
               aria-label="Export CSV"
             >
@@ -624,7 +624,7 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
                 style={{
                   width: `${consentRate}%`,
                   background: "var(--qrave-accent-gradient)",
-                  boxShadow: "0 0 12px rgba(59,130,246,0.5)",
+                  boxShadow: "0 0 12px rgba(147,51,234,0.5)",
                 }}
               />
             </div>
@@ -686,7 +686,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
         fontWeight: 700,
         letterSpacing: "0.16em",
         textTransform: "uppercase",
-        color: "#3b82f6",
+        color: "#9333ea",
         marginBottom: 8,
       }}
     >
