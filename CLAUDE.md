@@ -116,3 +116,19 @@ Nach jedem Deploy (`npx vercel --prod`) folgende Dateien aktualisieren:
 - `03 - Restaurants/Onboarding Workflow.md` — wenn sich Onboarding-Prozess ändert
 
 Regel: Nur die Dateien updaten die von der aktuellen Session betroffen sind. Nicht alle Dateien bei jedem Deploy neu schreiben.
+
+### Obsidian → founder_todos Auto-Sync
+
+Bei jedem **"Schau dir Obsidian an"** am Anfang einer Session sofort folgenden Sync ausführen, bevor mit der eigentlichen Aufgabe begonnen wird:
+
+1. `05 - Tech/Offene Aufgaben.md` lesen
+2. Alle Bullet-Tasks parsen (Tasks mit `- [ ]` oder `- [x]` Prefix, Markdown-Formatierung im Text behalten)
+3. Aktuellen Stand der `founder_todos`-Tabelle laden (via Supabase MCP `execute_sql`)
+4. Sync-Regeln:
+   - **Offen in Obsidian** (`- [ ]`) und nicht in `founder_todos` → INSERT mit `text` = Task-Roh-Text (kompakt, ≤180 Zeichen), `sub` = `'obsidian'`, `prio` = `'1'`/`'2'`/`'3'` je nach Sektion (Priorität 1 / 2 / 3), `done` = `false`
+   - **Erledigt in Obsidian** (`- [x]`) und entsprechender Eintrag in `founder_todos` mit `done=false` → UPDATE auf `done=true`
+   - **Match-Kriterium**: Titel-Text (Substring-Match nach Trim/lowercase, ohne Markdown-Sterne)
+   - **Bestand in `founder_todos` ohne Obsidian-Pendant** → unverändert lassen (User kann manuell anlegen)
+5. Keine Duplikate erzeugen — vor jedem INSERT prüfen ob `text ILIKE '%<kerntext>%'` schon existiert
+
+Tabelle: `founder_todos (id uuid, text text NOT NULL, sub text, prio text, done bool, created_at timestamptz)`. Wird vom Founder-Dashboard To-Do-Tab angezeigt.
