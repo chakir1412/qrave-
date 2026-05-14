@@ -36,7 +36,7 @@ function fmt(n: number): string {
 
 export function LineChart({
   data,
-  color = "#3b82f6",
+  color = "#9333ea",
   showAvgLine = true,
   showMinMax = true,
   className = "h-[200px] md:h-[280px]",
@@ -114,13 +114,55 @@ export function LineChart({
   const xStep = Math.max(1, Math.ceil(filtered.length / 5));
   const avgY = toY(avg);
 
+  // Y-Achse: 5 Stops aus echten Datenwerten zwischen min und max,
+  // gerundet und dedupliziert (bei flachen Reihen können einige
+  // Werte zusammenfallen).
+  const stopCount = 5;
+  const rawStops = Array.from({ length: stopCount }, (_, i) =>
+    min + ((max - min) * i) / (stopCount - 1),
+  ).map((v) => Math.round(v));
+  const yStops = [...new Set(rawStops)].sort((a, b) => b - a);
+
   // Eindeutige Filter-IDs damit mehrere Charts auf derselben Seite nicht
   // gegenseitig den Glow überschreiben.
   const uid = `lc-${Math.abs(hashCode(color + filtered.length + (filtered[0]?.label ?? "")))}`;
 
+  // Anteil-im-Container für einen Wert (0..100%), nutzt dasselbe Mapping
+  // wie das SVG (toY in viewBox-Koordinaten, durch H normalisiert).
+  function topPct(v: number): number {
+    return (toY(v) / H) * 100;
+  }
+
+  // SVG bekommt links Platz für die Y-Labels, damit die Linie nicht durch
+  // die Labels läuft. ~32px = genug für 4 Ziffern + Margin.
+  const Y_LABEL_WIDTH = 32;
+
   return (
-    <div className="relative w-full">
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className={`w-full overflow-visible ${className}`}>
+    <div className={`relative w-full ${className}`}>
+      {/* Y-Achse: Labels links außerhalb des Chart-Bereichs */}
+      <div className="pointer-events-none absolute inset-y-0 left-0" style={{ width: Y_LABEL_WIDTH }}>
+        {yStops.map((v) => (
+          <span
+            key={`y-${v}`}
+            className="absolute text-[11px]"
+            style={{
+              right: 6,
+              top: `${topPct(v)}%`,
+              transform: "translateY(-50%)",
+              color: "rgba(255,255,255,0.4)",
+            }}
+          >
+            {fmt(v)}
+          </span>
+        ))}
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full overflow-visible"
+        style={{ left: Y_LABEL_WIDTH, width: `calc(100% - ${Y_LABEL_WIDTH}px)` }}
+      >
         <defs>
           <filter id={`${uid}-tight`} x="-20%" y="-50%" width="140%" height="200%">
             <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor={color} floodOpacity="0.8" />
@@ -129,6 +171,23 @@ export function LineChart({
             <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={color} floodOpacity="0.4" />
           </filter>
         </defs>
+
+        {/* Horizontale Grid-Linien — eine pro Y-Stop */}
+        {yStops.map((v) => {
+          const y = toY(v);
+          return (
+            <line
+              key={`grid-${v}`}
+              x1="0"
+              y1={y}
+              x2={W}
+              y2={y}
+              stroke="#ffffff"
+              strokeOpacity="0.06"
+              strokeWidth="1"
+            />
+          );
+        })}
 
         {showAvgLine ? (
           <line
