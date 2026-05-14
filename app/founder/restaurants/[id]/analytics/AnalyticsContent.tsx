@@ -753,25 +753,33 @@ function TageszeitCard({ label, sub, value, color, max }: { label: string; sub: 
 }
 
 function LineChart({ series }: { series: { day: string; scans: number; sessions: number }[] }) {
+  // Revolut-Stil: keine Box, keine Y-Achse, kein Grid, kein Area-Fill — nur
+  // Linie mit Glow, Punkte, dezente Durchschnitts-Referenz, Min/Max rechts
+  // außerhalb des SVG.
   const W = 1000;
   const H = 200;
   const padBottom = 24;
-  const padLeft = 36;
-  const usableW = W - padLeft;
-  const usableH = H - padBottom - 8;
+  const padTop = 12;
+  const usableW = W;
+  const usableH = H - padBottom - padTop;
 
-  const max = Math.max(1, ...series.map((s) => s.scans));
-  // Y-Skala: 4 Stops
-  const niceMax = (() => {
-    const cands = [10, 25, 50, 100, 200, 500, 1000, 2000, 5000];
-    return cands.find((c) => c >= max) ?? Math.ceil(max / 100) * 100;
-  })();
-  const yStops = [niceMax, Math.round((niceMax * 2) / 3), Math.round(niceMax / 3), 0];
+  const values = series.map((s) => s.scans);
+  const max = Math.max(1, ...values);
+  const min = Math.min(...values);
+  const avg = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
+  // Y-Domain so wählen, dass die Linie nicht am Rand klebt: min mit kleinem
+  // Headroom oben/unten, mindestens 1 Spanne.
+  const domainTop = max + Math.max(1, Math.ceil(max * 0.1));
+  const domainBottom = Math.max(0, min - Math.max(0, Math.ceil(max * 0.05)));
+  const span = Math.max(1, domainTop - domainBottom);
 
   const stepX = series.length > 1 ? usableW / (series.length - 1) : usableW;
+  function toY(v: number): number {
+    return padTop + (1 - (v - domainBottom) / span) * usableH;
+  }
   const points = series.map((s, i) => ({
-    x: padLeft + i * stepX,
-    y: 8 + (1 - s.scans / niceMax) * usableH,
+    x: i * stepX,
+    y: toY(s.scans),
     scans: s.scans,
     day: s.day,
   }));
@@ -779,13 +787,8 @@ function LineChart({ series }: { series: { day: string; scans: number; sessions:
   const linePath = points.length > 0
     ? points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ")
     : "";
-  const areaPath = points.length > 0
-    ? `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${H - padBottom} L ${points[0].x.toFixed(1)} ${H - padBottom} Z`
-    : "";
 
-  // X-Labels: max ~7 sichtbar
-  // Labels: max ~5–6 sichtbar — funktioniert auf Mobile (375px) und Desktop
-  // gleichermaßen, da SVG via viewBox skaliert.
+  // X-Labels: max ~5 sichtbar
   const xStep = Math.max(1, Math.ceil(series.length / 5));
 
   if (series.length === 0) {
@@ -799,42 +802,101 @@ function LineChart({ series }: { series: { day: string; scans: number; sessions:
     );
   }
 
+  const avgY = toY(avg);
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-[200px] w-full overflow-visible md:h-[280px]">
-      <defs>
-        <linearGradient id="rest-chart-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-        </linearGradient>
-        <filter id="rest-chart-glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#3b82f6" floodOpacity="0.6" />
-        </filter>
-      </defs>
-      {yStops.map((v, i) => {
-        const y = 8 + (i / (yStops.length - 1)) * usableH;
-        return (
-          <g key={`y-${i}`}>
-            <line x1={padLeft} y1={y} x2={W} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-            <text x={padLeft - 6} y={y + 4} textAnchor="end" fontSize="11" fill="rgba(242,242,242,0.5)" fontFamily="DM Sans">
-              {v}
+    <div className="relative w-full">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="h-[200px] w-full overflow-visible md:h-[280px]"
+      >
+        <defs>
+          <filter id="rest-chart-glow-tight" x="-20%" y="-50%" width="140%" height="200%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#3b82f6" floodOpacity="0.8" />
+          </filter>
+          <filter id="rest-chart-glow-wide" x="-20%" y="-50%" width="140%" height="200%">
+            <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#3b82f6" floodOpacity="0.4" />
+          </filter>
+        </defs>
+
+        {/* Durchschnitts-Referenzlinie — sehr dezent */}
+        <line
+          x1="0"
+          y1={avgY}
+          x2={W}
+          y2={avgY}
+          stroke="#ffffff"
+          strokeOpacity="0.15"
+          strokeWidth="1"
+          strokeDasharray="4,4"
+        />
+
+        {/* Linie mit zweistufigem Glow (wider + tight, beide #3b82f6) */}
+        <path
+          d={linePath}
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#rest-chart-glow-wide)"
+        />
+        <path
+          d={linePath}
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#rest-chart-glow-tight)"
+        />
+
+        {/* Punkte mit Glow */}
+        {points.map((p, i) => (
+          <circle
+            key={`p-${i}`}
+            cx={p.x}
+            cy={p.y}
+            r="3"
+            fill="#3b82f6"
+            filter="url(#rest-chart-glow-tight)"
+          />
+        ))}
+
+        {/* X-Labels — unten */}
+        {points.map((p, i) => {
+          if (i % xStep !== 0 && i !== points.length - 1) return null;
+          const [, m, d] = p.day.split("-");
+          return (
+            <text
+              key={`x-${i}`}
+              x={p.x}
+              y={H - 6}
+              textAnchor={i === 0 ? "start" : i === points.length - 1 ? "end" : "middle"}
+              fontSize="11"
+              fill="rgba(242,242,242,0.5)"
+              fontFamily="DM Sans"
+            >
+              {parseInt(d, 10)}.{parseInt(m, 10)}.
             </text>
-          </g>
-        );
-      })}
-      <path d={areaPath} fill="url(#rest-chart-fill)" />
-      <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#rest-chart-glow)" />
-      {points.map((p, i) => (
-        <circle key={`p-${i}`} cx={p.x} cy={p.y} r="3" fill="#3b82f6" />
-      ))}
-      {points.map((p, i) => {
-        if (i % xStep !== 0 && i !== points.length - 1) return null;
-        const [, m, d] = p.day.split("-");
-        return (
-          <text key={`x-${i}`} x={p.x} y={H - 6} textAnchor="middle" fontSize="11" fill="rgba(242,242,242,0.5)" fontFamily="DM Sans">
-            {parseInt(d, 10)}.{parseInt(m, 10)}.
-          </text>
-        );
-      })}
-    </svg>
+          );
+        })}
+      </svg>
+
+      {/* Min/Max-Werte rechts außerhalb der Linie — absolut positioniert */}
+      <span
+        className="pointer-events-none absolute right-0 top-0 text-[11px]"
+        style={{ color: "rgba(242,242,242,0.5)" }}
+      >
+        {fmt(max)}
+      </span>
+      <span
+        className="pointer-events-none absolute bottom-[26px] right-0 text-[11px]"
+        style={{ color: "rgba(242,242,242,0.5)" }}
+      >
+        {fmt(min)}
+      </span>
+    </div>
   );
 }
