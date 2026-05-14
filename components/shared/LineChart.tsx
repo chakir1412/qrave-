@@ -24,6 +24,10 @@ type Props = {
   className?: string;
   /** Text wenn `data` leer ist. */
   emptyLabel?: string;
+  /** Datenpunkte mit value=0 vor Render filtern. Sinnvoll für Wirt-
+   *  Dashboards mit vereinzelten Tagen ohne Scans, damit die Linie nicht
+   *  ständig auf Null fällt. Default false. */
+  skipZeros?: boolean;
 };
 
 function fmt(n: number): string {
@@ -37,6 +41,7 @@ export function LineChart({
   showMinMax = true,
   className = "h-[200px] md:h-[280px]",
   emptyLabel = "Keine Daten im Zeitraum.",
+  skipZeros = false,
 }: Props) {
   const W = 1000;
   const H = 200;
@@ -45,7 +50,10 @@ export function LineChart({
   const usableW = W;
   const usableH = H - padBottom - padTop;
 
-  if (data.length === 0) {
+  // Optionales Filtern von Null-Werten BEVOR alles andere berechnet wird.
+  const filtered = skipZeros ? data.filter((d) => d.value > 0) : data;
+
+  if (filtered.length < 2) {
     return (
       <div
         className={`flex items-center justify-center rounded-[10px] border border-dashed text-[12px] ${className}`}
@@ -56,7 +64,7 @@ export function LineChart({
     );
   }
 
-  const values = data.map((d) => d.value);
+  const values = filtered.map((d) => d.value);
   const max = Math.max(1, ...values);
   const min = Math.min(...values);
   const avg = values.reduce((s, v) => s + v, 0) / values.length;
@@ -66,27 +74,49 @@ export function LineChart({
   const domainBottom = Math.max(0, min - Math.max(0, Math.ceil(max * 0.05)));
   const span = Math.max(1, domainTop - domainBottom);
 
-  const stepX = data.length > 1 ? usableW / (data.length - 1) : usableW;
+  const stepX = filtered.length > 1 ? usableW / (filtered.length - 1) : usableW;
   function toY(v: number): number {
     return padTop + (1 - (v - domainBottom) / span) * usableH;
   }
-  const points = data.map((d, i) => ({
+  const points = filtered.map((d, i) => ({
     x: i * stepX,
     y: toY(d.value),
     value: d.value,
     label: d.label,
   }));
 
-  const linePath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
-    .join(" ");
+  // Catmull-Rom → Cubic-Bezier-Pfad für sanfte Kurve. Erster Punkt ist
+  // der Start (M), für jedes Segment werden zwei Control-Points aus den
+  // Nachbarn abgeleitet (Tangente proportional zur Distanz Vorgänger →
+  // Nachfolger). Edge-Cases am Anfang/Ende: Control-Point auf den Punkt
+  // selbst clampen, damit die Kurve dort ruhig ausläuft.
+  function buildSmoothPath(): string {
+    const n = points.length;
+    if (n === 0) return "";
+    if (n === 1) return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    for (let i = 0; i < n - 1; i++) {
+      const p0 = points[Math.max(0, i - 1)];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[Math.min(n - 1, i + 2)];
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+    return d;
+  }
 
-  const xStep = Math.max(1, Math.ceil(data.length / 5));
+  const linePath = buildSmoothPath();
+
+  const xStep = Math.max(1, Math.ceil(filtered.length / 5));
   const avgY = toY(avg);
 
   // Eindeutige Filter-IDs damit mehrere Charts auf derselben Seite nicht
   // gegenseitig den Glow überschreiben.
-  const uid = `lc-${Math.abs(hashCode(color + data.length + (data[0]?.label ?? "")))}`;
+  const uid = `lc-${Math.abs(hashCode(color + filtered.length + (filtered[0]?.label ?? "")))}`;
 
   return (
     <div className="relative w-full">

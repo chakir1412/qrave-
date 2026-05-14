@@ -367,6 +367,7 @@ export function HomeTab({
               color="#9333ea"
               className="h-[170px] md:h-[220px]"
               emptyLabel="Noch keine Scans in diesem Zeitraum."
+              skipZeros
             />
           </div>
         </Card>
