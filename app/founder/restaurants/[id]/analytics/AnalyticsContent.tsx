@@ -293,99 +293,112 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
   const isLive = restaurant.published !== false && restaurant.aktiv !== false;
 
   return (
-    <div className="px-4 py-4 md:px-6 md:py-6" style={{ color: "#f2f2f2" }}>
-      {/* TOPBAR */}
+    <div style={{ color: "#f2f2f2" }}>
+      {/* TOPBAR — volle Shell-Breite, kein max-width */}
       <div
-        className="sticky top-0 z-10 -mx-4 mb-5 flex flex-wrap items-center gap-3 px-4 py-3 backdrop-blur md:-mx-6 md:px-6"
+        className="sticky top-0 z-10 mb-5 backdrop-blur"
         style={{ background: "rgba(6,4,14,0.9)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
-        <Link
-          href="/founder"
-          className="inline-flex items-center gap-1.5 rounded-[8px] border px-3 py-1.5 text-[12px] font-semibold transition"
-          style={{
-            borderColor: "color-mix(in srgb, var(--qrave-accent) 30%, transparent)",
-            background: "color-mix(in srgb, var(--qrave-accent) 12%, transparent)",
-            color: "var(--qrave-accent-soft)",
-          }}
-        >
-          <i className="fa-solid fa-arrow-left text-[11px]" />
-          Restaurants
-        </Link>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="qrave-font-display truncate text-[18px] font-black tracking-tight md:text-[22px]">
-              {restaurant.name}
-            </h1>
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[10px] font-bold uppercase tracking-wider"
-              style={
-                isLive
-                  ? { background: "rgba(74,222,128,0.12)", border: "1px solid rgba(74,222,128,0.25)", color: "#4ade80" }
-                  : { background: "rgba(251,146,60,0.12)", border: "1px solid rgba(251,146,60,0.25)", color: "#fb923c" }
-              }
-            >
-              <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: isLive ? "#4ade80" : "#fb923c" }} />
-              {isLive ? "Live" : "Pending"}
-            </span>
-          </div>
-          <div className="mt-0.5 text-[11px]" style={{ color: "rgba(242,242,242,0.5)" }}>
-            {[restaurant.cuisine_type, restaurant.stadtbezirk, restaurant.restaurant_typ].filter(Boolean).join(" · ") || "—"}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1.5">
-            {(["7d", "30d", "month"] as Range[]).map((r) => {
-              const active = range === r;
-              const label = r === "7d" ? "7 Tage" : r === "30d" ? "30 Tage" : "Dieser Monat";
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRange(r)}
-                  className="rounded-[8px] border px-3 py-1.5 text-[11px] font-semibold transition"
-                  style={
-                    active
-                      ? {
-                          borderColor: "color-mix(in srgb, var(--qrave-accent) 40%, transparent)",
-                          background: "color-mix(in srgb, var(--qrave-accent) 20%, transparent)",
-                          color: "var(--qrave-accent-soft)",
-                        }
-                      : {
-                          borderColor: "rgba(255,255,255,0.08)",
-                          background: "transparent",
-                          color: "rgba(242,242,242,0.55)",
-                        }
-                  }
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-[8px] px-3 py-1.5 text-[11px] font-bold"
+        <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center gap-2 px-4 py-3 sm:gap-3 md:px-6">
+          <Link
+            href="/founder"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-[8px] border px-2.5 py-1.5 text-[12px] font-semibold transition sm:px-3"
             style={{
-              background: "var(--qrave-accent-gradient)",
-              color: "#fff",
-              boxShadow: "0 6px 20px rgba(29,78,216,0.4)",
+              borderColor: "color-mix(in srgb, var(--qrave-accent) 30%, transparent)",
+              background: "color-mix(in srgb, var(--qrave-accent) 12%, transparent)",
+              color: "var(--qrave-accent-soft)",
             }}
+            aria-label="Zurück zu Restaurants"
           >
-            <i className="fa-solid fa-download text-[10px]" />
-            Export CSV
-          </button>
+            <i className="fa-solid fa-arrow-left text-[11px]" />
+            <span className="hidden sm:inline">Restaurants</span>
+          </Link>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="qrave-font-display min-w-0 truncate text-[16px] font-black tracking-tight sm:text-[18px] md:text-[22px]">
+                {restaurant.name}
+              </h1>
+              <span
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-[3px] text-[10px] font-bold uppercase tracking-wider sm:px-2.5"
+                style={
+                  isLive
+                    ? { background: "rgba(74,222,128,0.12)", border: "1px solid rgba(74,222,128,0.25)", color: "#4ade80" }
+                    : { background: "rgba(251,146,60,0.12)", border: "1px solid rgba(251,146,60,0.25)", color: "#fb923c" }
+                }
+              >
+                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: isLive ? "#4ade80" : "#fb923c" }} />
+                {isLive ? "Live" : "Pending"}
+              </span>
+            </div>
+            <div
+              className="mt-0.5 truncate text-[11px]"
+              style={{ color: "rgba(242,242,242,0.5)" }}
+            >
+              {[restaurant.cuisine_type, restaurant.stadtbezirk, restaurant.restaurant_typ].filter(Boolean).join(" · ") || "—"}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <div className="flex gap-1">
+              {(["7d", "30d", "month"] as Range[]).map((r) => {
+                const active = range === r;
+                const shortLabel = r === "7d" ? "7T" : r === "30d" ? "30T" : "Monat";
+                const fullLabel = r === "7d" ? "7 Tage" : r === "30d" ? "30 Tage" : "Dieser Monat";
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRange(r)}
+                    className="rounded-[8px] border px-2 py-1.5 text-[11px] font-semibold transition sm:px-3"
+                    style={
+                      active
+                        ? {
+                            borderColor: "color-mix(in srgb, var(--qrave-accent) 40%, transparent)",
+                            background: "color-mix(in srgb, var(--qrave-accent) 20%, transparent)",
+                            color: "var(--qrave-accent-soft)",
+                          }
+                        : {
+                            borderColor: "rgba(255,255,255,0.08)",
+                            background: "transparent",
+                            color: "rgba(242,242,242,0.55)",
+                          }
+                    }
+                    aria-label={fullLabel}
+                  >
+                    <span className="sm:hidden">{shortLabel}</span>
+                    <span className="hidden sm:inline">{fullLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="inline-flex items-center gap-2 rounded-[8px] px-2.5 py-1.5 text-[11px] font-bold sm:px-3"
+              style={{
+                background: "var(--qrave-accent-gradient)",
+                color: "#fff",
+                boxShadow: "0 6px 20px rgba(29,78,216,0.4)",
+              }}
+              aria-label="Export CSV"
+            >
+              <i className="fa-solid fa-download text-[10px]" />
+              <span className="hidden sm:inline">Export CSV</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-4">
+      {/* Content-Wrapper — max-width 1280, zentriert, responsives Padding */}
+      <div className="mx-auto w-full max-w-[1280px] space-y-4 px-4 pb-6 md:px-6">
         {/* 1. SCANS PRO TAG */}
         <Card>
           <SectionLabel>Scans pro Tag</SectionLabel>
-          <div className="qrave-font-display mt-1 mb-3 flex items-baseline gap-4">
-            <span className="text-[32px] font-black leading-none tracking-[-1.5px]">{fmt(totalScans)}</span>
+          <div className="qrave-font-display mt-1 mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-[24px] font-black leading-none tracking-[-1px] sm:text-[32px] sm:tracking-[-1.5px]">
+              {fmt(totalScans)}
+            </span>
             <span className="text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
               {fmt(totalSessions)} unique Sessions · {bounds.days} {bounds.days === 1 ? "Tag" : "Tage"}
             </span>
@@ -542,7 +555,7 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
         {/* 5. DIÄT & PREIS */}
         <Card>
           <SectionLabel>Diät &amp; Preis</SectionLabel>
-          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <BigStat label="Vegane Items angeklickt" value={fmt(totalVegan)} hint={totalItemDetail > 0 ? `${Math.round((totalVegan / totalItemDetail) * 100)}% aller Klicks` : null} />
             <BigStat label="Vegetarische Items angeklickt" value={fmt(totalVegetarian)} hint={totalItemDetail > 0 ? `${Math.round((totalVegetarian / totalItemDetail) * 100)}% aller Klicks` : null} />
             <BigStat label="Ø Preis angeklickter Items" value={avgPrice > 0 ? `${avgPrice.toFixed(2)} €` : "—"} hint={`Über ${bounds.days} ${bounds.days === 1 ? "Tag" : "Tage"}`} />
@@ -586,7 +599,7 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
         {/* 7. CONSENT-FUNNEL */}
         <Card>
           <SectionLabel>Consent-Funnel</SectionLabel>
-          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="mt-2 grid grid-cols-3 gap-2 sm:gap-3">
             <BigStat label="Besucher gesamt" value={fmt(totalSessions)} hint={null} />
             <BigStat label="Mit Consent" value={fmt(totalConsent)} hint={`${consentRate}% Quote`} />
             <BigStat label="Ohne Consent" value={fmt(Math.max(0, totalSessions - totalConsent))} hint={null} />
@@ -645,11 +658,11 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div
+      className="px-4 py-4 sm:px-6 sm:py-5"
       style={{
         background: "rgba(255,255,255,0.04)",
         border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: 12,
-        padding: "20px 24px",
       }}
     >
       {children}
@@ -771,12 +784,14 @@ function LineChart({ series }: { series: { day: string; scans: number; sessions:
     : "";
 
   // X-Labels: max ~7 sichtbar
-  const xStep = Math.max(1, Math.ceil(series.length / 7));
+  // Labels: max ~5–6 sichtbar — funktioniert auf Mobile (375px) und Desktop
+  // gleichermaßen, da SVG via viewBox skaliert.
+  const xStep = Math.max(1, Math.ceil(series.length / 5));
 
   if (series.length === 0) {
     return (
       <div
-        className="flex h-[200px] items-center justify-center rounded-[10px] border border-dashed text-[12px]"
+        className="flex h-[200px] items-center justify-center rounded-[10px] border border-dashed text-[12px] md:h-[280px]"
         style={{ borderColor: "rgba(255,255,255,0.08)", color: "rgba(242,242,242,0.5)" }}
       >
         Keine Scans im Zeitraum.
@@ -785,7 +800,7 @@ function LineChart({ series }: { series: { day: string; scans: number; sessions:
   }
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-[200px] w-full overflow-visible">
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-[200px] w-full overflow-visible md:h-[280px]">
       <defs>
         <linearGradient id="rest-chart-fill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
