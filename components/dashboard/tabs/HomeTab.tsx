@@ -6,6 +6,7 @@ import type { KarteSub } from "../types";
 import type { AnalyticsEventRow } from "../analytics";
 import { formatDateLongDe, greetingLabel } from "../utils";
 import { Hint } from "../Hint";
+import { LineChart } from "@/components/shared/LineChart";
 
 type Range = "7d" | "30d" | "month" | "custom";
 
@@ -17,8 +18,6 @@ type Props = {
   onGoKarte: (sub: KarteSub, options?: { filter?: "soldout" }) => void;
 };
 
-const CHART_W = 560;
-const CHART_H = 145;
 const WEEKDAY_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"] as const;
 
 function startOfLocalDay(d: Date): Date {
@@ -158,49 +157,6 @@ function formatAxisLabel(d: Date, totalDays: number): string {
   return `${d.getDate()}.${d.getMonth() + 1}.`;
 }
 
-function buildYScale(maxValue: number): { max: number; stops: number[] } {
-  const m = Math.max(maxValue, 1);
-  const candidates = [4, 8, 10, 20, 40, 60, 80, 100, 150, 200, 300, 500, 750, 1000, 1500, 2000];
-  const max = candidates.find((c) => c >= m) ?? Math.ceil(m / 100) * 100;
-  return { max, stops: [max, Math.round((max * 2) / 3), Math.round(max / 3), 0] };
-}
-
-function buildSmoothPath(
-  values: number[],
-  max: number,
-  w: number,
-  h: number,
-  padBottom: number,
-): { line: string; area: string } {
-  const n = values.length;
-  if (n === 0) return { line: "", area: "" };
-  const stepX = w / Math.max(1, n - 1);
-  const usableH = h - padBottom - 6;
-  const pts = values.map((v, i) => ({
-    x: i * stepX,
-    y: 6 + (1 - Math.min(1, v / max)) * usableH,
-  }));
-  if (pts.length === 1) {
-    const p = pts[0];
-    return { line: `M ${p.x} ${p.y}`, area: `M ${p.x} ${p.y} L ${p.x} ${h - padBottom} Z` };
-  }
-  let line = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-    const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
-    const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
-    line += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
-  }
-  const last = pts[pts.length - 1];
-  const first = pts[0];
-  return { line, area: `${line} L ${last.x} ${h - padBottom} L ${first.x} ${h - padBottom} Z` };
-}
-
 function categoryOf(item: MenuItem | undefined): string {
   if (!item) return "—";
   return item.kategorie?.trim() || "—";
@@ -283,15 +239,6 @@ export function HomeTab({
 
   const topItem = current.topItems[0] ?? null;
 
-  const { max: yMax, stops: yStops } = useMemo(
-    () => buildYScale(Math.max(0, ...(current.series.length ? current.series : [0]))),
-    [current.series],
-  );
-  const { line: chartLine, area: chartArea } = useMemo(
-    () => buildSmoothPath(current.series, yMax, CHART_W, CHART_H, 18),
-    [current.series, yMax],
-  );
-
   // Meistgeklickte Items: bis zu 6 items mit Balken; alle View-to-Click-Rates.
   const popularItems = useMemo(() => {
     return current.topItems.slice(0, 6).map((row) => {
@@ -322,9 +269,6 @@ export function HomeTab({
   ];
 
   const hasData = current.totalSessions > 0;
-
-  // Anzahl X-Labels begrenzen, damit sie bei 30 Tagen lesbar bleiben.
-  const xLabelStep = Math.max(1, Math.ceil(current.labels.length / 8));
 
   return (
     <div className="space-y-4">
@@ -414,96 +358,17 @@ export function HomeTab({
             </div>
           </div>
 
-          {!hasData ? (
-            <div
-              className="mt-6 flex h-[160px] items-center justify-center rounded-[12px] border border-dashed text-[13px]"
-              style={{
-                borderColor: "rgba(255,255,255,0.08)",
-                color: "rgba(242,242,242,0.5)",
-              }}
-            >
-              Noch keine Scans in diesem Zeitraum.
-            </div>
-          ) : (
-            <div className="mt-5 flex gap-2.5">
-              <div className="flex flex-col justify-between pb-5">
-                {yStops.map((s, i) => (
-                  <div
-                    key={`${s}-${i}`}
-                    className="w-8 text-right text-[11px] font-medium"
-                    style={{ color: "rgba(242,242,242,0.5)" }}
-                  >
-                    {s}
-                  </div>
-                ))}
-              </div>
-              <div className="relative h-[170px] flex-1">
-                <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
-                  <defs>
-                    <linearGradient id="qrave-chart-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--qrave-accent)" stopOpacity="0.28" />
-                      <stop offset="100%" stopColor="var(--qrave-accent)" stopOpacity="0" />
-                    </linearGradient>
-                    <filter id="qrave-chart-glow">
-                      <feGaussianBlur stdDeviation="3" result="b" />
-                      <feMerge>
-                        <feMergeNode in="b" />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                  </defs>
-                  {yStops.map((_, i) => {
-                    const y = (i / (yStops.length - 1)) * (CHART_H - 18) + 6;
-                    return (
-                      <line key={i} x1="0" y1={y} x2={CHART_W} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
-                    );
-                  })}
-                  <path d={chartArea} fill="url(#qrave-chart-fill)" />
-                  <path
-                    d={chartLine}
-                    fill="none"
-                    stroke="var(--qrave-accent)"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    filter="url(#qrave-chart-glow)"
-                  />
-                  {current.series.length > 0 ? (
-                    (() => {
-                      const stepX = CHART_W / Math.max(1, current.series.length - 1);
-                      const v = current.series[current.series.length - 1];
-                      const x = (current.series.length - 1) * stepX;
-                      const usableH = CHART_H - 18 - 6;
-                      const y = 6 + (1 - Math.min(1, v / yMax)) * usableH;
-                      return (
-                        <g>
-                          <circle cx={x} cy={y} r={9} fill="rgba(147,51,234,0.18)" />
-                          <circle cx={x} cy={y} r={5} fill="var(--qrave-accent)" filter="url(#qrave-chart-glow)" />
-                        </g>
-                      );
-                    })()
-                  ) : null}
-                  {current.labels.map((label, i) => {
-                    if (i % xLabelStep !== 0 && i !== current.labels.length - 1) return null;
-                    const stepX = CHART_W / Math.max(1, current.labels.length - 1);
-                    const x = Math.min(CHART_W - 18, Math.max(0, i * stepX));
-                    return (
-                      <text
-                        key={`${label}-${i}`}
-                        x={x}
-                        y={CHART_H - 2}
-                        fill="rgba(242,242,242,0.5)"
-                        fontSize="11"
-                        fontFamily="DM Sans"
-                      >
-                        {label}
-                      </text>
-                    );
-                  })}
-                </svg>
-              </div>
-            </div>
-          )}
+          <div className="mt-5">
+            <LineChart
+              data={current.series.map((value, i) => ({
+                label: current.labels[i] ?? "",
+                value,
+              }))}
+              color="#9333ea"
+              className="h-[170px] md:h-[220px]"
+              emptyLabel="Noch keine Scans in diesem Zeitraum."
+            />
+          </div>
         </Card>
 
         <Card>

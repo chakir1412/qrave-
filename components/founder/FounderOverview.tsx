@@ -11,6 +11,7 @@ import { AnalyticsTab } from "./tabs/AnalyticsTab";
 import { KontakteTab } from "./tabs/KontakteTab";
 import { TodoTab } from "./tabs/TodoTab";
 import { ProduktTabV2 } from "./tabs/ProduktTabV2";
+import { LineChart } from "@/components/shared/LineChart";
 
 type Tab = "overview" | "restaurants" | "analytics" | "pipeline" | "todo" | "produkte" | "einstellungen";
 
@@ -23,45 +24,6 @@ const NAV_ITEMS = [
   { kind: "tab" as const, key: "produkte", label: "Produkte", icon: "fa-solid fa-box" },
   { kind: "tab" as const, key: "einstellungen", label: "Einstellungen", icon: "fa-solid fa-gear" },
 ];
-
-const CHART_W = 720;
-const CHART_H = 160;
-
-function buildYScale(maxValue: number): { max: number; stops: number[] } {
-  const m = Math.max(maxValue, 1);
-  const candidates = [10, 25, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
-  const max = candidates.find((c) => c >= m) ?? Math.ceil(m / 100) * 100;
-  return { max, stops: [max, Math.round((max * 2) / 3), Math.round(max / 3), 0] };
-}
-
-function buildSmoothPath(values: number[], max: number, w: number, h: number): { line: string; area: string } {
-  const n = values.length;
-  if (n === 0) return { line: "", area: "" };
-  const padBottom = 18;
-  const usableH = h - padBottom - 6;
-  const stepX = w / Math.max(1, n - 1);
-  const pts = values.map((v, i) => ({
-    x: i * stepX,
-    y: 6 + (1 - Math.min(1, v / max)) * usableH,
-  }));
-  if (pts.length === 1) {
-    const p = pts[0];
-    return { line: `M ${p.x} ${p.y}`, area: `M ${p.x} ${p.y} L ${p.x} ${h - padBottom} Z` };
-  }
-  let line = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-    const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
-    const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
-    line += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
-  }
-  return { line, area: `${line} L ${pts[pts.length - 1].x} ${h - padBottom} L ${pts[0].x} ${h - padBottom} Z` };
-}
 
 type Props = {
   data: FounderDashboardData;
@@ -136,13 +98,6 @@ export function FounderOverview({ data, initialLoadError }: Props) {
   }, [sessionsByDay, todayIso]);
 
   const monthTotal = series30.reduce((a, b) => a + b.count, 0);
-  const { max: yMax, stops: yStops } = buildYScale(Math.max(0, ...series30.map((s) => s.count)));
-  const { line: chartLine, area: chartArea } = buildSmoothPath(
-    series30.map((s) => s.count),
-    yMax,
-    CHART_W,
-    CHART_H,
-  );
 
   // Scans heute pro Restaurant — aus analyticsDaily30d gefiltert auf heute (Berlin).
   const scansTodayByRestaurant = useMemo(() => {
@@ -279,67 +234,22 @@ export function FounderOverview({ data, initialLoadError }: Props) {
             {/* Chart 30 Tage */}
             <section>
               <Card>
-                <div className="mb-2 flex items-baseline justify-between">
+                <div className="mb-4 flex items-baseline justify-between">
                   <div>
                     <div className="text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
                       Scans · letzte 30 Tage
                     </div>
-                    <div className="qrave-font-display mt-1 text-[36px] font-black leading-none tracking-[-2px]">
+                    <div className="qrave-font-display mt-1 text-[28px] font-black leading-none tracking-[-1.5px] sm:text-[36px] sm:tracking-[-2px]">
                       {monthTotal.toLocaleString("de-DE")}
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 flex gap-2.5">
-                  <div className="flex flex-col justify-between pb-5">
-                    {yStops.map((s, i) => (
-                      <div key={`${s}-${i}`} className="w-9 text-right text-[11px] font-medium" style={{ color: "rgba(242,242,242,0.5)" }}>
-                        {s}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="relative h-[180px] flex-1">
-                    <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} preserveAspectRatio="none" className="h-full w-full overflow-visible">
-                      <defs>
-                        <linearGradient id="founder-chart-fill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--qrave-accent)" stopOpacity="0.32" />
-                          <stop offset="100%" stopColor="var(--qrave-accent)" stopOpacity="0" />
-                        </linearGradient>
-                        <filter id="founder-chart-glow">
-                          <feGaussianBlur stdDeviation="3" result="b" />
-                          <feMerge>
-                            <feMergeNode in="b" />
-                            <feMergeNode in="SourceGraphic" />
-                          </feMerge>
-                        </filter>
-                      </defs>
-                      {yStops.map((_, i) => {
-                        const y = (i / (yStops.length - 1)) * (CHART_H - 18) + 6;
-                        return <line key={i} x1="0" y1={y} x2={CHART_W} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />;
-                      })}
-                      <path d={chartArea} fill="url(#founder-chart-fill)" />
-                      <path
-                        d={chartLine}
-                        fill="none"
-                        stroke="var(--qrave-accent)"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        filter="url(#founder-chart-glow)"
-                      />
-                      {series30.map((s, i) => {
-                        if (i % 5 !== 0 && i !== series30.length - 1) return null;
-                        const stepX = CHART_W / Math.max(1, series30.length - 1);
-                        const x = Math.min(CHART_W - 22, Math.max(0, i * stepX));
-                        return (
-                          <text key={`${s.label}-${i}`} x={x} y={CHART_H - 2} fill="rgba(242,242,242,0.5)" fontSize="11" fontFamily="DM Sans">
-                            {s.label}
-                          </text>
-                        );
-                      })}
-                    </svg>
-                  </div>
-                </div>
+                <LineChart
+                  data={series30.map((s) => ({ label: s.label, value: s.count }))}
+                  className="h-[180px] md:h-[240px]"
+                  emptyLabel="Keine Scans in den letzten 30 Tagen."
+                />
               </Card>
             </section>
 
