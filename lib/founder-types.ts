@@ -118,6 +118,21 @@ export type FounderAnalyticsDailyRow = {
   day_berlin: string;
   sessions_count: number;
   scan_count: number;
+  item_detail_count?: number | null;
+  category_clicks?: Record<string, number> | null;
+  beverage_subcategory_clicks?: Record<string, number> | null;
+  top_items?: Array<{ name: string; clicks: number; price: number | null }> | null;
+  vegan_clicks?: number | null;
+  vegetarian_clicks?: number | null;
+};
+
+export type FounderMenuItem = {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  kategorie: string;
+  preis: number;
+  tags: string[] | null;
 };
 
 export type FounderDashboardData = {
@@ -137,6 +152,11 @@ export type FounderDashboardData = {
   /** Rolling-30-Tage-Aggregat aus restaurant_analytics_daily. Wird für
    *  "Scans diese Woche" (letzte 7 Tage) und den 30-Tage-Chart in der
    *  Founder-Übersicht verwendet — verlässlicher als das gedeckelte
-   *  scan_events-Window. */
+   *  scan_events-Window. Plus für den Produkte-Tab (top_items,
+   *  beverage_subcategory_clicks, vegan/vegetarian_clicks). */
   analyticsDaily30d: FounderAnalyticsDailyRow[];
+  /** Alle menu_items aller Restaurants — für Brand-/Kategorie-Aggregation
+   *  im Produkte-Tab. Schlanker Select (id, restaurant_id, name, kategorie,
+   *  preis, tags). */
+  allMenuItems: FounderMenuItem[];
 };

@@ -26,6 +26,11 @@ type Props = {
   restaurantTables: FounderRestaurantTableRow[];
   isMobile: boolean;
   onRefresh: () => Promise<void>;
+  /** Optional: pre-aggregierte Sessions/Woche pro Restaurant (aus
+   *  restaurant_analytics_daily, letzte 7 Tage). Wenn gesetzt, hat
+   *  Priorität vor dem `scanEvents`-Window — verlässlicher bei viel
+   *  Traffic, da das Daily-Aggregat nicht gedeckelt ist. */
+  sessionsWeekOverride?: Map<string, number>;
 };
 
 const STICKER_TIERS = [
@@ -466,6 +471,7 @@ export function RestaurantsTab({
   restaurantTables,
   isMobile,
   onRefresh,
+  sessionsWeekOverride,
 }: Props) {
   const router = useRouter();
   const [restaurantItems, setRestaurantItems] = useState<FounderRestaurantRow[]>(restaurants);
@@ -510,10 +516,14 @@ export function RestaurantsTab({
   const sessionsByRestaurant = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of restaurantItems) {
-      m.set(r.id, uniqueSessionsCountForRestaurant(scanEvents, r.id));
+      if (sessionsWeekOverride) {
+        m.set(r.id, sessionsWeekOverride.get(r.id) ?? 0);
+      } else {
+        m.set(r.id, uniqueSessionsCountForRestaurant(scanEvents, r.id));
+      }
     }
     return m;
-  }, [restaurantItems, scanEvents]);
+  }, [restaurantItems, scanEvents, sessionsWeekOverride]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

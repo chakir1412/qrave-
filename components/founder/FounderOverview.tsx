@@ -10,7 +10,7 @@ import { RestaurantsTab } from "./tabs/RestaurantsTab";
 import { AnalyticsTab } from "./tabs/AnalyticsTab";
 import { KontakteTab } from "./tabs/KontakteTab";
 import { TodoTab } from "./tabs/TodoTab";
-import { ProduktTab } from "./tabs/ProduktTab";
+import { ProduktTabV2 } from "./tabs/ProduktTabV2";
 
 type Tab = "overview" | "restaurants" | "analytics" | "pipeline" | "todo" | "produkte" | "einstellungen";
 
@@ -149,6 +149,25 @@ export function FounderOverview({ data, initialLoadError }: Props) {
     const out = new Map<string, number>();
     for (const r of data.analyticsDaily30d) {
       if (r.day_berlin !== todayIso) continue;
+      out.set(r.restaurant_id, (out.get(r.restaurant_id) ?? 0) + (r.sessions_count ?? 0));
+    }
+    return out;
+  }, [data.analyticsDaily30d, todayIso]);
+
+  // Scans pro Restaurant über die letzten 7 Tage — wird an die alte
+  // RestaurantsTab als `sessionsWeekOverride` durchgereicht, damit die
+  // "Scans/Wo"-Spalte korrekt aus dem Daily-Aggregat statt aus dem
+  // gedeckelten scan_events-Window kommt.
+  const sessionsWeekByRestaurant = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const r of data.analyticsDaily30d) {
+      const inRange = (() => {
+        for (let i = 0; i < 7; i++) {
+          if (r.day_berlin === shiftIso(todayIso, -i)) return true;
+        }
+        return false;
+      })();
+      if (!inRange) continue;
       out.set(r.restaurant_id, (out.get(r.restaurant_id) ?? 0) + (r.sessions_count ?? 0));
     }
     return out;
@@ -466,6 +485,7 @@ export function FounderOverview({ data, initialLoadError }: Props) {
             restaurantTables={data.restaurantTables}
             isMobile={false}
             onRefresh={async () => undefined}
+            sessionsWeekOverride={sessionsWeekByRestaurant}
           />
         ) : null}
 
@@ -481,7 +501,13 @@ export function FounderOverview({ data, initialLoadError }: Props) {
           <TodoTab isMobile={false} onRefresh={async () => undefined} todos={data.todos} />
         ) : null}
 
-        {tab === "produkte" ? <ProduktTab isMobile={false} /> : null}
+        {tab === "produkte" ? (
+          <ProduktTabV2
+            restaurants={restaurants}
+            analyticsDaily30d={data.analyticsDaily30d}
+            allMenuItems={data.allMenuItems}
+          />
+        ) : null}
 
         {tab === "einstellungen" ? (
           <Card>

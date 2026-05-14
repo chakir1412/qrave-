@@ -47,7 +47,9 @@ export async function loadFounderDashboardData(
       const srv = createServiceRoleClient();
       const { data, error } = await srv
         .from("restaurant_analytics_daily")
-        .select("restaurant_id, day_berlin, sessions_count, scan_count")
+        .select(
+          "restaurant_id, day_berlin, sessions_count, scan_count, item_detail_count, category_clicks, beverage_subcategory_clicks, top_items, vegan_clicks, vegetarian_clicks",
+        )
         .gte("day_berlin", dailyFrom)
         .order("day_berlin", { ascending: true });
       if (error || !data) return [];
@@ -57,7 +59,16 @@ export async function loadFounderDashboardData(
     }
   }
 
-  const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl, kpiDeltas, analyticsDaily30d] = await Promise.all([
+  async function loadAllMenuItems(): Promise<import("@/lib/founder-types").FounderMenuItem[]> {
+    const { data, error } = await supabase
+      .from("menu_items")
+      .select("id, restaurant_id, name, kategorie, preis, tags")
+      .eq("aktiv", true);
+    if (error || !data) return [];
+    return data as import("@/lib/founder-types").FounderMenuItem[];
+  }
+
+  const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl, kpiDeltas, analyticsDaily30d, allMenuItems] = await Promise.all([
     supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
     scanBaseAllTypes(SESSION_WINDOW_ROW_LIMIT).gte("created_at", weekStart),
     sessionWindowBase().gte("created_at", todayStart),
@@ -74,6 +85,7 @@ export async function loadFounderDashboardData(
       .order("tisch_nummer", { ascending: true }),
     loadFounderKpiDeltas(now),
     loadAnalyticsDaily(),
+    loadAllMenuItems(),
   ]);
 
   const errors: string[] = [];
@@ -117,6 +129,7 @@ export async function loadFounderDashboardData(
     restaurantTables: (rTbl.data ?? []) as FounderDashboardData["restaurantTables"],
     kpiDeltas,
     analyticsDaily30d,
+    allMenuItems,
   };
 
   return { data, errors };
