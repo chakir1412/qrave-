@@ -1,8 +1,6 @@
 import type { ComponentType } from "react";
 import { notFound } from "next/navigation";
-import { headers } from "next/headers";
 import { supabase } from "@/lib/supabase";
-import { berlinDateParts } from "@/lib/berlin-time";
 import { loadPublicSpeisekarteBySlug } from "@/lib/load-public-speisekarte";
 import { loadSponsoredItems } from "@/lib/speisekarte-logic";
 import type { SpeisekarteProps } from "@/components/speisekarte";
@@ -89,36 +87,9 @@ export default async function TischSpeisekartePage({
     });
   }
 
-  const headersList = await headers();
-  const ua = headersList.get("user-agent") ?? "";
-  const deviceType = /mobile|android|iphone|ipad/i.test(ua) ? "mobile" : "desktop";
-  const forwarded = headersList.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() ?? "";
-  const ipHash =
-    ip.length > 0 ? Buffer.from(ip, "utf8").toString("base64").slice(0, 16) : null;
-  const referer = headersList.get("referer") ?? "";
-  const qrScanSource = referer.toLowerCase().includes("nfc") ? "nfc" : "qr_code";
-
-  // Vercel läuft in UTC — wir speichern Zeitfelder in Europe/Berlin, damit
-  // Aggregationen konsistent sind. wochentag = 1=Mo … 7=So.
-  const { hour, weekdayMon1, month, year } = berlinDateParts(new Date());
-
-  const { error: scanErr } = await supabase.from("scan_events").insert({
-    restaurant_id: data.restaurant.id,
-    tisch_nummer: tischNr,
-    tier: 0,
-    event_type: "scan",
-    stunde: hour,
-    wochentag: weekdayMon1,
-    monat: month,
-    jahr: year,
-    device_type: deviceType,
-    ip_hash: ipHash,
-    qr_scan_source: qrScanSource,
-  });
-  if (scanErr) {
-    console.error("Tier-0 scan_events:", scanErr);
-  }
+  // Tisch-Tracking vorbereitet — INSERT deaktiviert bis Phase 2
+  // (dynamische QR-Codes pro Tisch). Tier-0 Scan wird aktuell in der
+  // Splash-Route `app/[slug]/page.tsx` getrackt.
 
   const sponsoredItems = await loadSponsoredItems(data.restaurant.id);
 
