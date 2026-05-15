@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { extractAccentColorFromImage } from "@/lib/logo-color";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 const ACCENT = "#9333ea";
 const ACCENT_LIGHT = "#7c3aed";
@@ -21,7 +21,7 @@ const TYPES: Array<{ value: string; label: string }> = [
 ];
 
 type WizardState = {
-  step: 1 | 2 | 3;
+  step: 1 | 2;
   name: string;
   email: string;
   password: string;
@@ -30,10 +30,8 @@ type WizardState = {
   telefon: string;
   logoFile: File | null;
   logoPreview: string | null;
-  accentColor: string;
   submitting: boolean;
   submitError: string | null;
-  resultSlug: string | null;
 };
 
 const initialState: WizardState = {
@@ -46,10 +44,8 @@ const initialState: WizardState = {
   telefon: "",
   logoFile: null,
   logoPreview: null,
-  accentColor: ACCENT,
   submitting: false,
   submitError: null,
-  resultSlug: null,
 };
 
 export default function RegistrierenWizard() {
@@ -67,16 +63,10 @@ export default function RegistrierenWizard() {
   }, []);
 
   function next() {
-    setS((prev) => {
-      const n = Math.min(3, prev.step + 1) as 1 | 2 | 3;
-      return { ...prev, step: n };
-    });
+    setS((prev) => ({ ...prev, step: 2 }));
   }
   function back() {
-    setS((prev) => {
-      const n = Math.max(1, prev.step - 1) as 1 | 2 | 3;
-      return { ...prev, step: n };
-    });
+    setS((prev) => ({ ...prev, step: 1 }));
   }
 
   const step1Valid = useMemo(() => {
@@ -87,24 +77,10 @@ export default function RegistrierenWizard() {
     );
   }, [s.name, s.email, s.password]);
 
+  // Logo ist optional — Wirt kann ohne Logo weitergehen.
   const step2Valid = useMemo(() => {
-    return s.restaurantTyp !== "" && s.logoFile !== null;
-  }, [s.restaurantTyp, s.logoFile]);
-
-  // Akzentfarbe automatisch aus dem Logo extrahieren — der User bekommt
-  // hier keinen Color-Picker mehr, der Vorschlag wird direkt übernommen.
-  const logoColorRequestRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!s.logoPreview) return;
-    if (logoColorRequestRef.current === s.logoPreview) return;
-    logoColorRequestRef.current = s.logoPreview;
-    void (async () => {
-      const hex = await extractAccentColorFromImage(s.logoPreview as string);
-      if (hex && logoColorRequestRef.current === s.logoPreview) {
-        setS((prev) => ({ ...prev, accentColor: hex }));
-      }
-    })();
-  }, [s.logoPreview]);
+    return s.restaurantTyp !== "";
+  }, [s.restaurantTyp]);
 
   function onPickLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -118,11 +94,14 @@ export default function RegistrierenWizard() {
     setS((prev) => ({ ...prev, logoFile: file, logoPreview: blobUrl, submitError: null }));
   }
 
+  function skipLogo() {
+    setS((prev) => {
+      if (prev.logoPreview?.startsWith("blob:")) URL.revokeObjectURL(prev.logoPreview);
+      return { ...prev, logoFile: null, logoPreview: null };
+    });
+  }
+
   async function submitRegistration() {
-    if (!s.logoFile) {
-      set("submitError", "Logo fehlt");
-      return;
-    }
     set("submitting", true);
     set("submitError", null);
     try {
@@ -133,8 +112,7 @@ export default function RegistrierenWizard() {
       fd.set("restaurant_typ", s.restaurantTyp);
       if (s.adresse.trim()) fd.set("adresse", s.adresse.trim());
       if (s.telefon.trim()) fd.set("telefon", s.telefon.trim());
-      fd.set("accent_color", s.accentColor);
-      fd.set("logo", s.logoFile);
+      if (s.logoFile) fd.set("logo", s.logoFile);
       fd.set("items", "[]");
       const res = await fetch("/api/onboarding/register", { method: "POST", body: fd });
       const j = (await res.json().catch(() => ({}))) as {
@@ -142,7 +120,7 @@ export default function RegistrierenWizard() {
         restaurant?: { slug: string };
         error?: string;
       };
-      if (!res.ok || !j.ok || !j.restaurant) {
+      if (!res.ok || !j.ok) {
         setS((prev) => ({
           ...prev,
           submitting: false,
@@ -150,12 +128,13 @@ export default function RegistrierenWizard() {
         }));
         return;
       }
-      setS((prev) => ({
-        ...prev,
-        submitting: false,
-        step: 3,
-        resultSlug: j.restaurant?.slug ?? null,
-      }));
+      // Auto-Login direkt im Browser-Client, damit /dashboard die Session
+      // im localStorage findet und nicht zum Login redirected.
+      await supabase.auth.signInWithPassword({
+        email: s.email.trim().toLowerCase(),
+        password: s.password,
+      });
+      window.location.assign("/dashboard");
     } catch (err) {
       setS((prev) => ({
         ...prev,
@@ -177,12 +156,7 @@ export default function RegistrierenWizard() {
           from { opacity: 0; transform: translateX(20px); }
           to   { opacity: 1; transform: translateX(0); }
         }
-        @keyframes qraveGlowPulse {
-          0%, 100% { box-shadow: 0 0 24px rgba(147,51,234,0.25); }
-          50%      { box-shadow: 0 0 48px rgba(147,51,234,0.55); }
-        }
         .qrave-step-anim { animation: qraveFadeSlideIn 0.3s ease both; }
-        .qrave-pulse     { animation: qraveGlowPulse 2.5s ease-in-out infinite; }
 
         .qrave-input {
           width: 100%;
@@ -277,6 +251,20 @@ export default function RegistrierenWizard() {
           transition: color 0.2s;
         }
         .qrave-back-link:hover { color: rgba(255,255,255,0.8); }
+
+        .qrave-skip-link {
+          background: transparent;
+          border: 0;
+          padding: 0;
+          font-family: ${FONT_DM};
+          font-size: 12px;
+          color: rgba(255,255,255,0.5);
+          cursor: pointer;
+          transition: color 0.2s;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+        .qrave-skip-link:hover { color: ${ACCENT}; }
       `}</style>
 
       <div className="relative z-10 mx-auto w-full max-w-md px-6 pt-10 pb-12">
@@ -293,23 +281,21 @@ export default function RegistrierenWizard() {
           </span>
         </div>
 
-        {/* Progress (zwei Steps; auf dem Success-Screen ausgeblendet) */}
-        {s.step < 3 ? (
-          <div className="mb-10 flex items-center gap-2">
-            {[1, 2].map((n) => (
-              <div
-                key={n}
-                className="h-1.5 flex-1 rounded-full transition-all duration-300"
-                style={{
-                  background:
-                    n <= s.step
-                      ? `linear-gradient(135deg, ${ACCENT}, ${ACCENT_LIGHT})`
-                      : "rgba(255,255,255,0.06)",
-                }}
-              />
-            ))}
-          </div>
-        ) : null}
+        {/* Progress */}
+        <div className="mb-10 flex items-center gap-2">
+          {[1, 2].map((n) => (
+            <div
+              key={n}
+              className="h-1.5 flex-1 rounded-full transition-all duration-300"
+              style={{
+                background:
+                  n <= s.step
+                    ? `linear-gradient(135deg, ${ACCENT}, ${ACCENT_LIGHT})`
+                    : "rgba(255,255,255,0.06)",
+              }}
+            />
+          ))}
+        </div>
 
         <div key={s.step} className="qrave-step-anim">
           {s.step === 1 ? (
@@ -320,8 +306,7 @@ export default function RegistrierenWizard() {
               onChange={set}
               onNext={step1Valid ? next : null}
             />
-          ) : null}
-          {s.step === 2 ? (
+          ) : (
             <Step2
               restaurantTyp={s.restaurantTyp}
               logoFile={s.logoFile}
@@ -332,11 +317,11 @@ export default function RegistrierenWizard() {
               submitError={s.submitError}
               onChange={set}
               onPickLogo={onPickLogo}
+              onSkipLogo={skipLogo}
               onBack={back}
               onSubmit={step2Valid ? submitRegistration : null}
             />
-          ) : null}
-          {s.step === 3 ? <SuccessStep slug={s.resultSlug} restaurantName={s.name} /> : null}
+          )}
         </div>
       </div>
     </div>
@@ -438,6 +423,7 @@ function Step2({
   submitError,
   onChange,
   onPickLogo,
+  onSkipLogo,
   onBack,
   onSubmit,
 }: {
@@ -450,6 +436,7 @@ function Step2({
   submitError: string | null;
   onChange: <K extends keyof WizardState>(k: K, v: WizardState[K]) => void;
   onPickLogo: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSkipLogo: () => void;
   onBack: () => void;
   onSubmit: (() => void) | null;
 }) {
@@ -477,7 +464,7 @@ function Step2({
         </div>
       </Field>
 
-      <Field label="Logo (PNG / JPG / SVG, max. 2 MB)" hint="Wird auf Splash + Karte angezeigt.">
+      <Field label="Logo (PNG / JPG / SVG, max. 2 MB, optional)" hint="Wird auf Splash + Karte angezeigt.">
         <label
           data-active={Boolean(logoPreview)}
           className="qrave-dropzone flex h-32 cursor-pointer items-center justify-center"
@@ -497,11 +484,18 @@ function Step2({
             onChange={onPickLogo}
           />
         </label>
-        {logoFile ? (
-          <p className="mt-2 text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
-            {logoFile.name}
-          </p>
-        ) : null}
+        <div className="mt-2 flex items-center justify-between">
+          {logoFile ? (
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
+              {logoFile.name}
+            </p>
+          ) : (
+            <span />
+          )}
+          <button type="button" onClick={onSkipLogo} className="qrave-skip-link">
+            Später hinzufügen
+          </button>
+        </div>
       </Field>
 
       <Field label="Adresse (optional)">
@@ -541,62 +535,6 @@ function Step2({
         </button>
       </div>
     </>
-  );
-}
-
-function SuccessStep({ slug, restaurantName }: { slug: string | null; restaurantName: string }) {
-  const url = slug ? `https://qrave.menu/${slug}` : null;
-  return (
-    <div className="pt-6 text-center">
-      <div
-        className="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-full"
-        style={{
-          background: "rgba(147,51,234,0.15)",
-          border: "1px solid rgba(147,51,234,0.4)",
-        }}
-      >
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth={2.2} aria-hidden>
-          <path d="M5 12l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-
-      <h1
-        className="text-[2.4rem] leading-tight tracking-tight"
-        style={{ fontFamily: FONT_ROBOTO, fontWeight: 900, color: "#fff" }}
-      >
-        Geschafft.
-      </h1>
-      <p className="mt-3 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-        {restaurantName} ist registriert. Wir prüfen kurz und schalten dich frei — du bekommst eine Mail sobald die Karte live ist.
-      </p>
-      <p className="mt-3 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
-        Deine Speisekarte kannst du direkt im Dashboard hochladen oder manuell anlegen.
-      </p>
-
-      {url ? (
-        <div
-          className="qrave-pulse mx-auto mt-8 max-w-[320px] rounded-2xl px-5 py-4"
-          style={{
-            border: `1px solid rgba(147,51,234,0.4)`,
-            background: "rgba(147,51,234,0.06)",
-          }}
-        >
-          <p
-            className="text-[10px] uppercase tracking-[0.14em]"
-            style={{ color: "rgba(255,255,255,0.5)", fontWeight: 600 }}
-          >
-            Deine zukünftige URL
-          </p>
-          <p className="mt-1 break-all text-sm font-semibold" style={{ color: ACCENT }}>
-            {url}
-          </p>
-        </div>
-      ) : null}
-
-      <a href="/dashboard" className="qrave-cta mt-8 inline-block">
-        Zum Dashboard
-      </a>
-    </div>
   );
 }
 

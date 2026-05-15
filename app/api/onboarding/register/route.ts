@@ -100,10 +100,9 @@ export async function POST(req: Request) {
   if (!ALLOWED_RESTAURANT_TYPES.has(restaurantTyp)) {
     return NextResponse.json({ error: "Ungültiger Betriebstyp" }, { status: 400 });
   }
-  if (!(logoFile instanceof File) || logoFile.size === 0) {
-    return NextResponse.json({ error: "Logo-Upload fehlt (PNG/SVG)" }, { status: 400 });
-  }
-  if (logoFile.size > MAX_LOGO_BYTES) {
+  // Logo ist optional — Wirt kann es im Dashboard nachreichen.
+  const hasLogo = logoFile instanceof File && logoFile.size > 0;
+  if (hasLogo && logoFile.size > MAX_LOGO_BYTES) {
     return NextResponse.json({ error: `Logo zu groß (max. ${Math.round(MAX_LOGO_BYTES / 1_000_000)} MB)` }, { status: 400 });
   }
   const accentColor = accentColorRaw && isHex(accentColorRaw) ? normalizeHex(accentColorRaw) : null;
@@ -140,31 +139,33 @@ export async function POST(req: Request) {
   }
   const userId = createUserRes.data.user.id;
 
-  // 3. Logo in Storage hochladen (Pfad: restaurant-assets/<userId>/logo.<ext>).
-  const ext = (() => {
-    const lower = (logoFile.name || "").toLowerCase();
-    if (lower.endsWith(".svg")) return "svg";
-    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "jpg";
-    return "png";
-  })();
-  const logoPath = `${userId}/logo.${ext}`;
+  // 3. Logo in Storage hochladen — nur wenn ein File mitgesendet wurde.
   let logoUrl: string | null = null;
-  try {
-    const logoBuf = Buffer.from(await logoFile.arrayBuffer());
-    const { error: upErr } = await supabase.storage
-      .from("restaurant-assets")
-      .upload(logoPath, logoBuf, {
-        upsert: true,
-        contentType: logoFile.type || (ext === "svg" ? "image/svg+xml" : "image/png"),
-      });
-    if (!upErr) {
-      const { data: pub } = supabase.storage.from("restaurant-assets").getPublicUrl(logoPath);
-      logoUrl = pub.publicUrl ?? null;
-    } else {
-      console.error("[onboarding/register] logo upload:", upErr);
+  if (hasLogo) {
+    const ext = (() => {
+      const lower = (logoFile.name || "").toLowerCase();
+      if (lower.endsWith(".svg")) return "svg";
+      if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "jpg";
+      return "png";
+    })();
+    const logoPath = `${userId}/logo.${ext}`;
+    try {
+      const logoBuf = Buffer.from(await logoFile.arrayBuffer());
+      const { error: upErr } = await supabase.storage
+        .from("restaurant-assets")
+        .upload(logoPath, logoBuf, {
+          upsert: true,
+          contentType: logoFile.type || (ext === "svg" ? "image/svg+xml" : "image/png"),
+        });
+      if (!upErr) {
+        const { data: pub } = supabase.storage.from("restaurant-assets").getPublicUrl(logoPath);
+        logoUrl = pub.publicUrl ?? null;
+      } else {
+        console.error("[onboarding/register] logo upload:", upErr);
+      }
+    } catch (e) {
+      console.error("[onboarding/register] logo:", e);
     }
-  } catch (e) {
-    console.error("[onboarding/register] logo:", e);
   }
 
   // 4. Restaurant-Eintrag (published=false → wartet auf Admin-Freischaltung)
