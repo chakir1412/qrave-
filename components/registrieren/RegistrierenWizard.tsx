@@ -20,16 +20,8 @@ const TYPES: Array<{ value: string; label: string }> = [
   { value: "imbiss", label: "Pizzeria / Imbiss" },
 ];
 
-type ExtractedItem = {
-  name: string;
-  beschreibung: string | null;
-  preis: number;
-  kategorie: string;
-  main_tab: string;
-};
-
 type WizardState = {
-  step: 1 | 2 | 3 | 4;
+  step: 1 | 2 | 3;
   name: string;
   email: string;
   password: string;
@@ -38,12 +30,7 @@ type WizardState = {
   telefon: string;
   logoFile: File | null;
   logoPreview: string | null;
-  pdfFile: File | null;
-  extractedItems: ExtractedItem[];
-  suggestedColor: string | null;
   accentColor: string;
-  extracting: boolean;
-  extractError: string | null;
   submitting: boolean;
   submitError: string | null;
   resultSlug: string | null;
@@ -59,12 +46,7 @@ const initialState: WizardState = {
   telefon: "",
   logoFile: null,
   logoPreview: null,
-  pdfFile: null,
-  extractedItems: [],
-  suggestedColor: null,
   accentColor: ACCENT,
-  extracting: false,
-  extractError: null,
   submitting: false,
   submitError: null,
   resultSlug: null,
@@ -86,13 +68,13 @@ export default function RegistrierenWizard() {
 
   function next() {
     setS((prev) => {
-      const n = Math.min(4, prev.step + 1) as 1 | 2 | 3 | 4;
+      const n = Math.min(3, prev.step + 1) as 1 | 2 | 3;
       return { ...prev, step: n };
     });
   }
   function back() {
     setS((prev) => {
-      const n = Math.max(1, prev.step - 1) as 1 | 2 | 3 | 4;
+      const n = Math.max(1, prev.step - 1) as 1 | 2 | 3;
       return { ...prev, step: n };
     });
   }
@@ -109,6 +91,8 @@ export default function RegistrierenWizard() {
     return s.restaurantTyp !== "" && s.logoFile !== null;
   }, [s.restaurantTyp, s.logoFile]);
 
+  // Akzentfarbe automatisch aus dem Logo extrahieren — der User bekommt
+  // hier keinen Color-Picker mehr, der Vorschlag wird direkt übernommen.
   const logoColorRequestRef = useRef<string | null>(null);
   useEffect(() => {
     if (!s.logoPreview) return;
@@ -117,7 +101,7 @@ export default function RegistrierenWizard() {
     void (async () => {
       const hex = await extractAccentColorFromImage(s.logoPreview as string);
       if (hex && logoColorRequestRef.current === s.logoPreview) {
-        setS((prev) => ({ ...prev, suggestedColor: hex, accentColor: hex }));
+        setS((prev) => ({ ...prev, accentColor: hex }));
       }
     })();
   }, [s.logoPreview]);
@@ -132,46 +116,6 @@ export default function RegistrierenWizard() {
     }
     const blobUrl = URL.createObjectURL(file);
     setS((prev) => ({ ...prev, logoFile: file, logoPreview: blobUrl, submitError: null }));
-  }
-
-  async function onPickPdf(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const MAX_PDF_BYTES_CLIENT = 3_000_000;
-    if (file.size > MAX_PDF_BYTES_CLIENT) {
-      e.target.value = "";
-      setS((prev) => ({
-        ...prev,
-        pdfFile: null,
-        extracting: false,
-        extractedItems: [],
-        extractError:
-          "PDF zu groß — bitte unter 3 MB. Du kannst Items auch später im Dashboard ergänzen.",
-      }));
-      return;
-    }
-    setS((prev) => ({ ...prev, pdfFile: file, extracting: true, extractError: null, extractedItems: [] }));
-    try {
-      const fd = new FormData();
-      fd.set("file", file);
-      const res = await fetch("/api/onboarding/extract-menu", { method: "POST", body: fd });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; items?: ExtractedItem[]; error?: string };
-      if (!res.ok || !j.ok) {
-        setS((prev) => ({
-          ...prev,
-          extracting: false,
-          extractError: j.error ?? "Speisekarte konnte nicht analysiert werden.",
-        }));
-        return;
-      }
-      setS((prev) => ({ ...prev, extracting: false, extractedItems: j.items ?? [] }));
-    } catch (err) {
-      setS((prev) => ({
-        ...prev,
-        extracting: false,
-        extractError: err instanceof Error ? err.message : "Netzwerkfehler",
-      }));
-    }
   }
 
   async function submitRegistration() {
@@ -191,7 +135,7 @@ export default function RegistrierenWizard() {
       if (s.telefon.trim()) fd.set("telefon", s.telefon.trim());
       fd.set("accent_color", s.accentColor);
       fd.set("logo", s.logoFile);
-      fd.set("items", JSON.stringify(s.extractedItems));
+      fd.set("items", "[]");
       const res = await fetch("/api/onboarding/register", { method: "POST", body: fd });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -209,7 +153,7 @@ export default function RegistrierenWizard() {
       setS((prev) => ({
         ...prev,
         submitting: false,
-        step: 4,
+        step: 3,
         resultSlug: j.restaurant?.slug ?? null,
       }));
     } catch (err) {
@@ -256,12 +200,6 @@ export default function RegistrierenWizard() {
         .qrave-input:focus {
           border-color: ${ACCENT};
           box-shadow: 0 0 0 3px rgba(147,51,234,0.15);
-        }
-        .qrave-input[type="color"] {
-          padding: 0;
-          height: 44px;
-          width: 56px;
-          cursor: pointer;
         }
 
         .qrave-cta {
@@ -355,10 +293,10 @@ export default function RegistrierenWizard() {
           </span>
         </div>
 
-        {/* Progress */}
-        {s.step < 4 ? (
+        {/* Progress (zwei Steps; auf dem Success-Screen ausgeblendet) */}
+        {s.step < 3 ? (
           <div className="mb-10 flex items-center gap-2">
-            {[1, 2, 3].map((n) => (
+            {[1, 2].map((n) => (
               <div
                 key={n}
                 className="h-1.5 flex-1 rounded-full transition-all duration-300"
@@ -390,29 +328,15 @@ export default function RegistrierenWizard() {
               logoPreview={s.logoPreview}
               adresse={s.adresse}
               telefon={s.telefon}
+              submitting={s.submitting}
+              submitError={s.submitError}
               onChange={set}
               onPickLogo={onPickLogo}
               onBack={back}
-              onNext={step2Valid ? next : null}
+              onSubmit={step2Valid ? submitRegistration : null}
             />
           ) : null}
-          {s.step === 3 ? (
-            <Step3
-              pdfFile={s.pdfFile}
-              extractedItems={s.extractedItems}
-              extracting={s.extracting}
-              extractError={s.extractError}
-              suggestedColor={s.suggestedColor}
-              accentColor={s.accentColor}
-              submitting={s.submitting}
-              submitError={s.submitError}
-              onPickPdf={onPickPdf}
-              onChange={set}
-              onBack={back}
-              onSubmit={submitRegistration}
-            />
-          ) : null}
-          {s.step === 4 ? <Step4 slug={s.resultSlug} restaurantName={s.name} /> : null}
+          {s.step === 3 ? <SuccessStep slug={s.resultSlug} restaurantName={s.name} /> : null}
         </div>
       </div>
     </div>
@@ -510,20 +434,24 @@ function Step2({
   logoPreview,
   adresse,
   telefon,
+  submitting,
+  submitError,
   onChange,
   onPickLogo,
   onBack,
-  onNext,
+  onSubmit,
 }: {
   restaurantTyp: string;
   logoFile: File | null;
   logoPreview: string | null;
   adresse: string;
   telefon: string;
+  submitting: boolean;
+  submitError: string | null;
   onChange: <K extends keyof WizardState>(k: K, v: WizardState[K]) => void;
   onPickLogo: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onBack: () => void;
-  onNext: (() => void) | null;
+  onSubmit: (() => void) | null;
 }) {
   return (
     <>
@@ -595,97 +523,6 @@ function Step2({
         />
       </Field>
 
-      <div className="mt-8 flex gap-2">
-        <BackButton onClick={onBack} />
-        <NextButton onClick={onNext} label="Weiter" />
-      </div>
-    </>
-  );
-}
-
-function Step3({
-  pdfFile,
-  extractedItems,
-  extracting,
-  extractError,
-  suggestedColor,
-  accentColor,
-  submitting,
-  submitError,
-  onPickPdf,
-  onChange,
-  onBack,
-  onSubmit,
-}: {
-  pdfFile: File | null;
-  extractedItems: ExtractedItem[];
-  extracting: boolean;
-  extractError: string | null;
-  suggestedColor: string | null;
-  accentColor: string;
-  submitting: boolean;
-  submitError: string | null;
-  onPickPdf: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onChange: <K extends keyof WizardState>(k: K, v: WizardState[K]) => void;
-  onBack: () => void;
-  onSubmit: () => void;
-}) {
-  return (
-    <>
-      <H>Speisekarte & Farbe</H>
-      <Sub>PDF hochladen — wir extrahieren die Items per KI. Ohne PDF kannst du Items später im Dashboard anlegen.</Sub>
-
-      <Field label="Speisekarte (PDF, optional)">
-        <label
-          data-active={Boolean(pdfFile)}
-          className="qrave-dropzone flex h-24 cursor-pointer items-center justify-center"
-        >
-          {extracting ? (
-            <span className="text-sm" style={{ color: ACCENT }}>
-              KI analysiert die Karte…
-            </span>
-          ) : pdfFile ? (
-            <span className="text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>
-              ✓ {pdfFile.name} · {extractedItems.length} Items erkannt
-            </span>
-          ) : (
-            <span className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-              + PDF hochladen
-            </span>
-          )}
-          <input type="file" accept="application/pdf" className="hidden" onChange={onPickPdf} disabled={extracting} />
-        </label>
-        {extractError ? (
-          <p className="mt-2 text-xs" style={{ color: "#ff8a8a" }}>
-            {extractError}
-          </p>
-        ) : null}
-      </Field>
-
-      <Field label="Akzentfarbe">
-        {suggestedColor ? (
-          <p className="mb-2 text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
-            Vorschlag aus deinem Logo: <code style={{ color: suggestedColor }}>{suggestedColor}</code>
-          </p>
-        ) : null}
-        <div className="flex items-center gap-3">
-          <input
-            type="color"
-            value={accentColor}
-            onChange={(e) => onChange("accentColor", e.target.value)}
-            className="qrave-input"
-          />
-          <input
-            type="text"
-            value={accentColor}
-            onChange={(e) => onChange("accentColor", e.target.value)}
-            className="qrave-input"
-            style={{ fontFamily: "ui-monospace, monospace" }}
-            spellCheck={false}
-          />
-        </div>
-      </Field>
-
       {submitError ? (
         <p className="mb-3 text-sm" style={{ color: "#ff8a8a" }}>
           {submitError}
@@ -696,8 +533,8 @@ function Step3({
         <BackButton onClick={onBack} />
         <button
           type="button"
-          onClick={onSubmit}
-          disabled={submitting || extracting}
+          onClick={onSubmit ?? undefined}
+          disabled={!onSubmit || submitting}
           className="qrave-cta flex-[2]"
         >
           {submitting ? "Wird angelegt…" : "Registrierung abschließen"}
@@ -707,7 +544,7 @@ function Step3({
   );
 }
 
-function Step4({ slug, restaurantName }: { slug: string | null; restaurantName: string }) {
+function SuccessStep({ slug, restaurantName }: { slug: string | null; restaurantName: string }) {
   const url = slug ? `https://qrave.menu/${slug}` : null;
   return (
     <div className="pt-6 text-center">
@@ -731,6 +568,9 @@ function Step4({ slug, restaurantName }: { slug: string | null; restaurantName: 
       </h1>
       <p className="mt-3 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
         {restaurantName} ist registriert. Wir prüfen kurz und schalten dich frei — du bekommst eine Mail sobald die Karte live ist.
+      </p>
+      <p className="mt-3 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+        Deine Speisekarte kannst du direkt im Dashboard hochladen oder manuell anlegen.
       </p>
 
       {url ? (
