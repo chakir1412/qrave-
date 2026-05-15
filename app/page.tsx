@@ -114,12 +114,21 @@ export default function Home() {
                 priority
               />
             </Link>
-            <a
-              href="#kontakt"
-              className="shrink-0 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-black transition hover:bg-slate-100 sm:px-5"
-            >
-              Kostenlos starten
-            </a>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                className="shrink-0 rounded-full border bg-transparent px-4 py-2.5 text-sm font-bold transition hover:bg-[rgba(147,51,234,0.12)] sm:px-5"
+                style={{ borderColor: "#9333ea", color: "#9333ea" }}
+              >
+                Anmelden
+              </Link>
+              <a
+                href="#kontakt"
+                className="shrink-0 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-black transition hover:bg-slate-100 sm:px-5"
+              >
+                Kostenlos starten
+              </a>
+            </div>
           </nav>
         </header>
 
