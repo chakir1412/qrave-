@@ -1,16 +1,16 @@
 "use client";
 
-import { DM_Sans, Instrument_Serif } from "next/font/google";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractAccentColorFromImage } from "@/lib/logo-color";
 
-const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
-const serif = Instrument_Serif({ subsets: ["latin"], weight: ["400"], display: "swap" });
-
-const ACCENT = "#c9a84c";
-const BG = "#0e0c0a";
+const ACCENT = "#9333ea";
+const ACCENT_LIGHT = "#7c3aed";
+const BG = "#06040e";
 const CARD = "rgba(255,255,255,0.04)";
-const BORDER = "rgba(255,255,255,0.12)";
+const BORDER = "rgba(255,255,255,0.08)";
+
+const FONT_ROBOTO = "var(--font-roboto), system-ui, sans-serif";
+const FONT_DM = "var(--font-dm-sans), system-ui, sans-serif";
 
 const TYPES: Array<{ value: string; label: string }> = [
   { value: "restaurant", label: "Restaurant" },
@@ -73,7 +73,6 @@ const initialState: WizardState = {
 export default function RegistrierenWizard() {
   const [s, setS] = useState<WizardState>(initialState);
 
-  // Logo-Preview-URL aufräumen, damit kein Blob im Memory hängen bleibt.
   useEffect(() => {
     return () => {
       if (s.logoPreview?.startsWith("blob:")) URL.revokeObjectURL(s.logoPreview);
@@ -98,7 +97,6 @@ export default function RegistrierenWizard() {
     });
   }
 
-  // Step-1-Validation
   const step1Valid = useMemo(() => {
     return (
       s.name.trim().length >= 2 &&
@@ -107,12 +105,10 @@ export default function RegistrierenWizard() {
     );
   }, [s.name, s.email, s.password]);
 
-  // Step-2-Validation
   const step2Valid = useMemo(() => {
     return s.restaurantTyp !== "" && s.logoFile !== null;
   }, [s.restaurantTyp, s.logoFile]);
 
-  // Wenn Logo gesetzt → versuche dominante Farbe zu extrahieren
   const logoColorRequestRef = useRef<string | null>(null);
   useEffect(() => {
     if (!s.logoPreview) return;
@@ -141,14 +137,8 @@ export default function RegistrierenWizard() {
   async function onPickPdf(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Client-side Size-Check VOR dem API-Call: spart Anthropic-Roundtrip
-    // bei zu großen PDFs (Server würde mit 413 antworten, aber so ist die
-    // UX schneller und das Bandwidth-Limit von Vercel wird gar nicht erst
-    // strapaziert).
-    const MAX_PDF_BYTES_CLIENT = 3_000_000; // 3 MB
+    const MAX_PDF_BYTES_CLIENT = 3_000_000;
     if (file.size > MAX_PDF_BYTES_CLIENT) {
-      // Input zurücksetzen, damit der User dieselbe Datei nicht
-      // versehentlich erneut auswählt (Browser merkt sich sonst).
       e.target.value = "";
       setS((prev) => ({
         ...prev,
@@ -232,72 +222,229 @@ export default function RegistrierenWizard() {
   }
 
   return (
-    <div className={`${dmSans.className} min-h-dvh`} style={{ background: BG, color: "#fff" }}>
-      <div className="mx-auto w-full max-w-md px-6 pt-10 pb-12">
+    <div
+      className="relative isolate min-h-dvh overflow-hidden"
+      style={{ background: BG, color: "#fff", fontFamily: FONT_DM }}
+    >
+      <PurpleBeams />
+
+      <style>{`
+        @keyframes qraveFadeSlideIn {
+          from { opacity: 0; transform: translateX(20px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes qraveGlowPulse {
+          0%, 100% { box-shadow: 0 0 24px rgba(147,51,234,0.25); }
+          50%      { box-shadow: 0 0 48px rgba(147,51,234,0.55); }
+        }
+        .qrave-step-anim { animation: qraveFadeSlideIn 0.3s ease both; }
+        .qrave-pulse     { animation: qraveGlowPulse 2.5s ease-in-out infinite; }
+
+        .qrave-input {
+          width: 100%;
+          background: ${CARD};
+          border: 1px solid ${BORDER};
+          border-radius: 12px;
+          padding: 12px 16px;
+          color: #fff;
+          font-size: 14px;
+          font-family: ${FONT_DM};
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .qrave-input::placeholder { color: rgba(255,255,255,0.35); }
+        .qrave-input:focus {
+          border-color: ${ACCENT};
+          box-shadow: 0 0 0 3px rgba(147,51,234,0.15);
+        }
+        .qrave-input[type="color"] {
+          padding: 0;
+          height: 44px;
+          width: 56px;
+          cursor: pointer;
+        }
+
+        .qrave-cta {
+          background: linear-gradient(135deg, ${ACCENT}, ${ACCENT_LIGHT});
+          color: #fff;
+          border-radius: 12px;
+          padding: 14px 24px;
+          font-family: ${FONT_DM};
+          font-weight: 500;
+          font-size: 15px;
+          box-shadow: 0 0 24px rgba(147,51,234,0.4);
+          transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+          cursor: pointer;
+        }
+        .qrave-cta:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 0 40px rgba(147,51,234,0.6);
+        }
+        .qrave-cta:active:not(:disabled) { transform: translateY(0); }
+        .qrave-cta:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+        .qrave-back {
+          background: transparent;
+          border: 1px solid ${BORDER};
+          color: rgba(255,255,255,0.65);
+          border-radius: 12px;
+          padding: 14px 24px;
+          font-family: ${FONT_DM};
+          font-weight: 500;
+          font-size: 15px;
+          transition: color 0.2s, border-color 0.2s, background 0.2s;
+          cursor: pointer;
+        }
+        .qrave-back:hover {
+          color: #fff;
+          border-color: rgba(255,255,255,0.2);
+          background: rgba(255,255,255,0.03);
+        }
+
+        .qrave-type-card {
+          border: 1px solid ${BORDER};
+          background: ${CARD};
+          border-radius: 12px;
+          padding: 14px 12px;
+          font-size: 14px;
+          font-weight: 600;
+          color: rgba(255,255,255,0.85);
+          transition: border-color 0.2s, background 0.2s, color 0.2s;
+          cursor: pointer;
+        }
+        .qrave-type-card:hover {
+          border-color: rgba(147,51,234,0.5);
+          background: rgba(147,51,234,0.08);
+        }
+        .qrave-type-card[data-selected="true"] {
+          border-color: ${ACCENT};
+          background: rgba(147,51,234,0.12);
+          color: #fff;
+        }
+
+        .qrave-dropzone {
+          background: ${CARD};
+          border: 1px dashed ${BORDER};
+          border-radius: 12px;
+          transition: border-color 0.2s, background 0.2s;
+        }
+        .qrave-dropzone:hover { border-color: rgba(147,51,234,0.5); }
+        .qrave-dropzone[data-active="true"] {
+          border-color: ${ACCENT};
+          background: rgba(147,51,234,0.05);
+        }
+
+        .qrave-back-link {
+          color: rgba(255,255,255,0.4);
+          transition: color 0.2s;
+        }
+        .qrave-back-link:hover { color: rgba(255,255,255,0.8); }
+      `}</style>
+
+      <div className="relative z-10 mx-auto w-full max-w-md px-6 pt-10 pb-12">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
-          <a href="/" className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>
+          <a href="/" className="qrave-back-link text-sm font-medium">
             ← Zurück
           </a>
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
-            Qrave
+          <span
+            className="text-[11px] uppercase tracking-[0.18em]"
+            style={{ color: ACCENT, fontFamily: FONT_ROBOTO, fontWeight: 900 }}
+          >
+            QRAVE
           </span>
         </div>
 
         {/* Progress */}
         {s.step < 4 ? (
-          <div className="mb-8 flex items-center gap-2">
+          <div className="mb-10 flex items-center gap-2">
             {[1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="h-1 flex-1 rounded-full transition-colors"
-                style={{ background: n <= s.step ? ACCENT : "rgba(255,255,255,0.1)" }}
+                className="h-1.5 flex-1 rounded-full transition-all duration-300"
+                style={{
+                  background:
+                    n <= s.step
+                      ? `linear-gradient(135deg, ${ACCENT}, ${ACCENT_LIGHT})`
+                      : "rgba(255,255,255,0.06)",
+                }}
               />
             ))}
           </div>
         ) : null}
 
-        {s.step === 1 ? (
-          <Step1
-            name={s.name}
-            email={s.email}
-            password={s.password}
-            onChange={set}
-            onNext={step1Valid ? next : null}
-          />
-        ) : null}
-        {s.step === 2 ? (
-          <Step2
-            restaurantTyp={s.restaurantTyp}
-            logoFile={s.logoFile}
-            logoPreview={s.logoPreview}
-            adresse={s.adresse}
-            telefon={s.telefon}
-            onChange={set}
-            onPickLogo={onPickLogo}
-            onBack={back}
-            onNext={step2Valid ? next : null}
-          />
-        ) : null}
-        {s.step === 3 ? (
-          <Step3
-            pdfFile={s.pdfFile}
-            extractedItems={s.extractedItems}
-            extracting={s.extracting}
-            extractError={s.extractError}
-            suggestedColor={s.suggestedColor}
-            accentColor={s.accentColor}
-            submitting={s.submitting}
-            submitError={s.submitError}
-            onPickPdf={onPickPdf}
-            onChange={set}
-            onBack={back}
-            onSubmit={submitRegistration}
-          />
-        ) : null}
-        {s.step === 4 ? <Step4 slug={s.resultSlug} restaurantName={s.name} /> : null}
+        <div key={s.step} className="qrave-step-anim">
+          {s.step === 1 ? (
+            <Step1
+              name={s.name}
+              email={s.email}
+              password={s.password}
+              onChange={set}
+              onNext={step1Valid ? next : null}
+            />
+          ) : null}
+          {s.step === 2 ? (
+            <Step2
+              restaurantTyp={s.restaurantTyp}
+              logoFile={s.logoFile}
+              logoPreview={s.logoPreview}
+              adresse={s.adresse}
+              telefon={s.telefon}
+              onChange={set}
+              onPickLogo={onPickLogo}
+              onBack={back}
+              onNext={step2Valid ? next : null}
+            />
+          ) : null}
+          {s.step === 3 ? (
+            <Step3
+              pdfFile={s.pdfFile}
+              extractedItems={s.extractedItems}
+              extracting={s.extracting}
+              extractError={s.extractError}
+              suggestedColor={s.suggestedColor}
+              accentColor={s.accentColor}
+              submitting={s.submitting}
+              submitError={s.submitError}
+              onPickPdf={onPickPdf}
+              onChange={set}
+              onBack={back}
+              onSubmit={submitRegistration}
+            />
+          ) : null}
+          {s.step === 4 ? <Step4 slug={s.resultSlug} restaurantName={s.name} /> : null}
+        </div>
       </div>
     </div>
+  );
+}
+
+/* ---------- Beams (oben links, lila radialGradient) ---------- */
+
+function PurpleBeams() {
+  return (
+    <svg
+      aria-hidden
+      className="pointer-events-none fixed inset-0 z-0"
+      width="100%"
+      height="100%"
+      preserveAspectRatio="none"
+      viewBox="0 0 1200 800"
+    >
+      <defs>
+        <radialGradient id="qrave-beam-a" cx="0" cy="0" r="0.7">
+          <stop offset="0%" stopColor="rgba(147,51,234,0.45)" />
+          <stop offset="40%" stopColor="rgba(124,58,237,0.18)" />
+          <stop offset="100%" stopColor="rgba(6,4,14,0)" />
+        </radialGradient>
+        <radialGradient id="qrave-beam-b" cx="0.2" cy="0.1" r="0.5">
+          <stop offset="0%" stopColor="rgba(168,85,247,0.3)" />
+          <stop offset="100%" stopColor="rgba(6,4,14,0)" />
+        </radialGradient>
+      </defs>
+      <rect x="0" y="0" width="1200" height="800" fill="url(#qrave-beam-a)" />
+      <rect x="0" y="0" width="1200" height="800" fill="url(#qrave-beam-b)" />
+    </svg>
   );
 }
 
@@ -327,8 +474,7 @@ function Step1({
           value={name}
           onChange={(e) => onChange("name", e.target.value)}
           placeholder="z. B. Brömser's Bistro"
-          className={inputClass()}
-          style={inputStyle()}
+          className="qrave-input"
           autoComplete="organization"
         />
       </Field>
@@ -338,8 +484,7 @@ function Step1({
           value={email}
           onChange={(e) => onChange("email", e.target.value)}
           placeholder="hallo@dein-restaurant.de"
-          className={inputClass()}
-          style={inputStyle()}
+          className="qrave-input"
           autoComplete="email"
         />
       </Field>
@@ -349,13 +494,12 @@ function Step1({
           value={password}
           onChange={(e) => onChange("password", e.target.value)}
           placeholder="••••••••"
-          className={inputClass()}
-          style={inputStyle()}
+          className="qrave-input"
           autoComplete="new-password"
         />
       </Field>
 
-      <NextButton onClick={onNext} label="Weiter" />
+      <NextButton onClick={onNext} label="Weiter" full />
     </>
   );
 }
@@ -395,12 +539,8 @@ function Step2({
                 key={t.value}
                 type="button"
                 onClick={() => onChange("restaurantTyp", t.value)}
-                className="rounded-xl border px-3 py-3 text-sm font-semibold transition-colors"
-                style={{
-                  borderColor: selected ? ACCENT : BORDER,
-                  background: selected ? "rgba(201,168,76,0.12)" : CARD,
-                  color: selected ? ACCENT : "rgba(255,255,255,0.85)",
-                }}
+                data-selected={selected}
+                className="qrave-type-card"
               >
                 {t.label}
               </button>
@@ -411,14 +551,14 @@ function Step2({
 
       <Field label="Logo (PNG / JPG / SVG, max. 2 MB)" hint="Wird auf Splash + Karte angezeigt.">
         <label
-          className="flex h-32 cursor-pointer items-center justify-center rounded-xl border border-dashed"
-          style={{ borderColor: logoPreview ? ACCENT : BORDER, background: CARD }}
+          data-active={Boolean(logoPreview)}
+          className="qrave-dropzone flex h-32 cursor-pointer items-center justify-center"
         >
           {logoPreview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoPreview} alt="" className="max-h-full max-w-full object-contain p-3" />
           ) : (
-            <span className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+            <span className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
               + Logo hochladen
             </span>
           )}
@@ -442,8 +582,7 @@ function Step2({
           value={adresse}
           onChange={(e) => onChange("adresse", e.target.value)}
           placeholder="Straße & Hausnummer, PLZ Ort"
-          className={inputClass()}
-          style={inputStyle()}
+          className="qrave-input"
         />
       </Field>
       <Field label="Telefon (optional)">
@@ -452,12 +591,11 @@ function Step2({
           value={telefon}
           onChange={(e) => onChange("telefon", e.target.value)}
           placeholder="+49 …"
-          className={inputClass()}
-          style={inputStyle()}
+          className="qrave-input"
         />
       </Field>
 
-      <div className="mt-6 flex gap-2">
+      <div className="mt-8 flex gap-2">
         <BackButton onClick={onBack} />
         <NextButton onClick={onNext} label="Weiter" />
       </div>
@@ -499,8 +637,8 @@ function Step3({
 
       <Field label="Speisekarte (PDF, optional)">
         <label
-          className="flex h-24 cursor-pointer items-center justify-center rounded-xl border border-dashed"
-          style={{ borderColor: pdfFile ? ACCENT : BORDER, background: CARD }}
+          data-active={Boolean(pdfFile)}
+          className="qrave-dropzone flex h-24 cursor-pointer items-center justify-center"
         >
           {extracting ? (
             <span className="text-sm" style={{ color: ACCENT }}>
@@ -511,7 +649,7 @@ function Step3({
               ✓ {pdfFile.name} · {extractedItems.length} Items erkannt
             </span>
           ) : (
-            <span className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+            <span className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
               + PDF hochladen
             </span>
           )}
@@ -535,15 +673,14 @@ function Step3({
             type="color"
             value={accentColor}
             onChange={(e) => onChange("accentColor", e.target.value)}
-            className="h-10 w-14 cursor-pointer rounded-lg border"
-            style={{ borderColor: BORDER, background: CARD }}
+            className="qrave-input"
           />
           <input
             type="text"
             value={accentColor}
             onChange={(e) => onChange("accentColor", e.target.value)}
-            className={inputClass()}
-            style={{ ...inputStyle(), fontFamily: "ui-monospace, monospace" }}
+            className="qrave-input"
+            style={{ fontFamily: "ui-monospace, monospace" }}
             spellCheck={false}
           />
         </div>
@@ -555,14 +692,13 @@ function Step3({
         </p>
       ) : null}
 
-      <div className="mt-6 flex gap-2">
+      <div className="mt-8 flex gap-2">
         <BackButton onClick={onBack} />
         <button
           type="button"
           onClick={onSubmit}
           disabled={submitting || extracting}
-          className="flex-[2] rounded-xl px-6 py-3 text-base font-bold transition-transform active:scale-[0.98] disabled:opacity-60"
-          style={{ background: ACCENT, color: "#1a1208" }}
+          className="qrave-cta flex-[2]"
         >
           {submitting ? "Wird angelegt…" : "Registrierung abschließen"}
         </button>
@@ -577,7 +713,10 @@ function Step4({ slug, restaurantName }: { slug: string | null; restaurantName: 
     <div className="pt-6 text-center">
       <div
         className="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-full"
-        style={{ background: "rgba(201,168,76,0.15)", border: `1px solid ${ACCENT}55` }}
+        style={{
+          background: "rgba(147,51,234,0.15)",
+          border: "1px solid rgba(147,51,234,0.4)",
+        }}
       >
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth={2.2} aria-hidden>
           <path d="M5 12l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -585,8 +724,8 @@ function Step4({ slug, restaurantName }: { slug: string | null; restaurantName: 
       </div>
 
       <h1
-        className={`${serif.className} text-[2.4rem] font-light leading-tight tracking-tight`}
-        style={{ color: "#fff" }}
+        className="text-[2.4rem] leading-tight tracking-tight"
+        style={{ fontFamily: FONT_ROBOTO, fontWeight: 900, color: "#fff" }}
       >
         Geschafft.
       </h1>
@@ -595,8 +734,17 @@ function Step4({ slug, restaurantName }: { slug: string | null; restaurantName: 
       </p>
 
       {url ? (
-        <div className="mx-auto mt-8 max-w-[320px] rounded-2xl border px-5 py-4" style={{ borderColor: BORDER, background: CARD }}>
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "rgba(255,255,255,0.45)" }}>
+        <div
+          className="qrave-pulse mx-auto mt-8 max-w-[320px] rounded-2xl px-5 py-4"
+          style={{
+            border: `1px solid rgba(147,51,234,0.4)`,
+            background: "rgba(147,51,234,0.06)",
+          }}
+        >
+          <p
+            className="text-[10px] uppercase tracking-[0.14em]"
+            style={{ color: "rgba(255,255,255,0.5)", fontWeight: 600 }}
+          >
             Deine zukünftige URL
           </p>
           <p className="mt-1 break-all text-sm font-semibold" style={{ color: ACCENT }}>
@@ -605,11 +753,7 @@ function Step4({ slug, restaurantName }: { slug: string | null; restaurantName: 
         </div>
       ) : null}
 
-      <a
-        href="/dashboard"
-        className="mt-8 inline-block rounded-xl px-6 py-3 text-sm font-bold"
-        style={{ background: ACCENT, color: "#1a1208" }}
-      >
+      <a href="/dashboard" className="qrave-cta mt-8 inline-block">
         Zum Dashboard
       </a>
     </div>
@@ -621,8 +765,8 @@ function Step4({ slug, restaurantName }: { slug: string | null; restaurantName: 
 function H({ children }: { children: React.ReactNode }) {
   return (
     <h1
-      className={`${serif.className} text-[2.2rem] font-light leading-tight tracking-tight`}
-      style={{ color: "#fff" }}
+      className="text-[2.2rem] leading-tight tracking-tight"
+      style={{ fontFamily: FONT_ROBOTO, fontWeight: 900, color: "#fff" }}
     >
       {children}
     </h1>
@@ -630,45 +774,40 @@ function H({ children }: { children: React.ReactNode }) {
 }
 function Sub({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-2 mb-6 text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>
+    <p className="mt-3 mb-8 text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
       {children}
     </p>
   );
 }
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="mb-4">
-      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.55)" }}>
+    <div className="mb-5">
+      <label
+        className="mb-2 block text-[11px] uppercase"
+        style={{
+          color: "rgba(255,255,255,0.5)",
+          letterSpacing: "0.14em",
+          fontWeight: 500,
+        }}
+      >
         {label}
       </label>
       {children}
       {hint ? (
-        <p className="mt-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+        <p className="mt-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>
           {hint}
         </p>
       ) : null}
     </div>
   );
 }
-function inputClass(): string {
-  return "w-full rounded-xl border px-4 py-3 text-sm outline-none transition-colors focus:border-[color:var(--accent)]";
-}
-function inputStyle(): React.CSSProperties {
-  return {
-    borderColor: BORDER,
-    background: CARD,
-    color: "#fff",
-    ["--accent" as never]: ACCENT,
-  };
-}
-function NextButton({ onClick, label }: { onClick: (() => void) | null; label: string }) {
+function NextButton({ onClick, label, full = false }: { onClick: (() => void) | null; label: string; full?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick ?? undefined}
       disabled={!onClick}
-      className="mt-6 w-full rounded-xl px-6 py-3 text-base font-bold transition-transform active:scale-[0.98] disabled:opacity-40"
-      style={{ background: ACCENT, color: "#1a1208" }}
+      className={`qrave-cta ${full ? "mt-8 w-full" : "flex-[2]"}`}
     >
       {label}
     </button>
@@ -676,12 +815,7 @@ function NextButton({ onClick, label }: { onClick: (() => void) | null; label: s
 }
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex-1 rounded-xl border px-6 py-3 text-base font-semibold"
-      style={{ borderColor: BORDER, background: "transparent", color: "rgba(255,255,255,0.65)" }}
-    >
+    <button type="button" onClick={onClick} className="qrave-back flex-1">
       Zurück
     </button>
   );
