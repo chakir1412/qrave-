@@ -1,5 +1,5 @@
 export const TEMPLATE_CARDS = [
-  { id: "frankfurter-wirtshaus", label: "Frankfurter Wirtshaus", icon: "🍺" },
+  { id: "heritage", label: "Heritage", icon: "" },
 ] as const;
 
 /** Tailwind/CSS-Klasse für Glass-Cards (siehe globals.css) */

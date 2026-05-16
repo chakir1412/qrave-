@@ -28,7 +28,7 @@ const COL = {
   pillText: "#1A1209",
 } as const;
 
-export type WirtshausItemModalProps = {
+export type HeritageItemModalProps = {
   item: MenuItem;
   menuItems: MenuItem[];
   sponsoredItems?: SponsoredItem[];
@@ -132,7 +132,7 @@ function tagPillLabel(raw: string): string {
   return TAG_LABELS[k] ?? raw;
 }
 
-export default function WirtshausItemModal({
+export default function HeritageItemModal({
   item,
   menuItems,
   sponsoredItems = [],
@@ -142,7 +142,7 @@ export default function WirtshausItemModal({
   isInWishlist,
   onToggleWishlist,
   onAddToWishlist,
-}: WirtshausItemModalProps) {
+}: HeritageItemModalProps) {
   const [justAdded, setJustAdded] = useState(false);
   const [qty, setQty] = useState(1);
   const [allergensOpen, setAllergensOpen] = useState(false);

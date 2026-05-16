@@ -5,10 +5,10 @@ import { loadPublicSpeisekarteBySlug } from "@/lib/load-public-speisekarte";
 import { loadSponsoredItems } from "@/lib/speisekarte-logic";
 import { detectLocale, localizeMenuItems, RTL_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
 import type { SpeisekarteProps } from "@/components/speisekarte";
-import FrankfurterWirtshausTemplate from "@/components/templates/FrankfurterWirtshaus";
+import HeritageTemplate from "@/components/templates/Heritage";
 
 const templateMap: Record<string, React.ComponentType<SpeisekarteProps>> = {
-  "frankfurter-wirtshaus": FrankfurterWirtshausTemplate,
+  heritage: HeritageTemplate,
 };
 
 export default async function SpeisekartePage({
@@ -57,8 +57,8 @@ export default async function SpeisekartePage({
     lunchOffers: data.lunchOffers,
   };
 
-  const templateKey = (data.restaurant.template ?? "frankfurter-wirtshaus") as string;
-  const TemplateComponent = templateMap[templateKey] ?? templateMap["frankfurter-wirtshaus"];
+  const templateKey = (data.restaurant.template ?? "heritage") as string;
+  const TemplateComponent = templateMap[templateKey] ?? templateMap["heritage"];
 
   // `dir`-Attribut wirkt für CSS logical properties + Text-Richtung;
   // alle Templates erben es vom Wrapper, ohne dass jedes einzeln angepasst werden muss.

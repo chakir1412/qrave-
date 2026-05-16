@@ -4,12 +4,12 @@ import { supabase } from "@/lib/supabase";
 import { loadPublicSpeisekarteBySlug } from "@/lib/load-public-speisekarte";
 import { loadSponsoredItems } from "@/lib/speisekarte-logic";
 import type { SpeisekarteProps } from "@/components/speisekarte";
-import FrankfurterWirtshausTemplate from "@/components/templates/FrankfurterWirtshaus";
+import HeritageTemplate from "@/components/templates/Heritage";
 
 export const runtime = "nodejs";
 
 const templateMap: Record<string, ComponentType<SpeisekarteProps>> = {
-  "frankfurter-wirtshaus": FrankfurterWirtshausTemplate,
+  heritage: HeritageTemplate,
 };
 
 function parseTischNummer(segment: string): number | null {
@@ -105,8 +105,8 @@ export default async function TischSpeisekartePage({
     lunchOffers: data.lunchOffers,
   };
 
-  const templateKey = (data.restaurant.template ?? "frankfurter-wirtshaus") as string;
-  const TemplateComponent = templateMap[templateKey] ?? templateMap["frankfurter-wirtshaus"];
+  const templateKey = (data.restaurant.template ?? "heritage") as string;
+  const TemplateComponent = templateMap[templateKey] ?? templateMap["heritage"];
 
   return <TemplateComponent {...templateProps} />;
 }

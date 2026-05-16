@@ -28,7 +28,7 @@ import { DRINK_CATEGORIES } from "@/lib/category-types";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
-import WirtshausItemModal from "./WirtshausItemModal";
+import HeritageItemModal from "./HeritageItemModal";
 
 const COL = {
   bg: "#F5F0E8",
@@ -69,7 +69,7 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 // Drink-Categories werden zentral aus lib/category-types geliefert,
 // damit Wirts-Dashboard und Wirtshaus-Template synchron bleiben.
 
-export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
+export default function HeritageTemplate(props: SpeisekarteProps) {
   const {
     menuItems,
     restaurantName,
@@ -507,7 +507,7 @@ export default function FrankfurterWirtshausTemplate(props: SpeisekarteProps) {
 
       {/* Item Modal */}
       {modalItem && (
-        <WirtshausItemModal
+        <HeritageItemModal
           item={modalItem}
           menuItems={menuItems}
           sponsoredItems={sponsoredItems}
