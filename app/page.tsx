@@ -397,7 +397,7 @@ export default function Home() {
         /* features */
         .feat-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:stretch; }
         .feat-col { display:flex; flex-direction:column; gap:14px; }
-        .feat-card { background:var(--card); border:1px solid var(--card-border); border-radius:16px; padding:40px; position:relative; overflow:hidden; transition:border-color .3s, transform .3s; height:100%; box-sizing:border-box; }
+        .feat-card { background:var(--card); border:1px solid var(--card-border); border-radius:16px; padding:40px; position:relative; overflow:visible; transition:border-color .3s, transform .3s; height:100%; box-sizing:border-box; }
         .feat-card:hover { border-color:rgba(147,51,234,.35); transform:translateY(-3px); }
         .feat-num { font-family:var(--display); font-weight:900; font-size:72px; line-height:1; letter-spacing:-.04em; color:rgba(147,51,234,.12); position:absolute; top:24px; right:28px; pointer-events:none; transition:color .3s; }
         .feat-card:hover .feat-num { color:rgba(147,51,234,.2); }
