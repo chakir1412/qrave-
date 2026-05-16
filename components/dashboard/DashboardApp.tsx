@@ -372,6 +372,17 @@ export function DashboardApp({
               guestNotiz={guestNotiz}
               onGuestNotizChange={setGuestNotiz}
               onSaveGuestNote={() => void handleSaveGuestNote()}
+              template={restaurant.template ?? null}
+              onTemplateChange={async (key) => {
+                const { data, error } = await supabase
+                  .from("restaurants")
+                  .update({ template: key })
+                  .eq("id", restaurant.id)
+                  .select("id");
+                if (error) throw new Error(error.message ?? "Speichern fehlgeschlagen");
+                if (!data || data.length === 0) throw new Error("Keine Berechtigung zum Speichern");
+                setRestaurant((r) => ({ ...r, template: key }));
+              }}
             />
           )}
           {activeTab === "tische" && (

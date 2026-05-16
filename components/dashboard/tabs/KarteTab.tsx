@@ -96,6 +96,8 @@ type Props = {
   guestNotiz: string;
   onGuestNotizChange: (v: string) => void;
   onSaveGuestNote: () => void;
+  template: string | null;
+  onTemplateChange: (key: string) => Promise<void>;
 };
 
 type ImportPhase = "idle" | "reading" | "analyzing" | "review" | "error";
@@ -260,6 +262,8 @@ export function KarteTab({
   guestNotiz,
   onGuestNotizChange,
   onSaveGuestNote,
+  template,
+  onTemplateChange,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastFileRef = useRef<File | null>(null);
@@ -996,6 +1000,7 @@ export function KarteTab({
               { key: "heute", label: "Tages-Special" },
               { key: "lunch", label: "Mittagsangebot" },
               { key: "notiz", label: "Gäste-Notiz" },
+              { key: "design", label: "Design" },
             ] as const
           ).map((tab) => {
             const active = activeSub === tab.key;
@@ -2561,6 +2566,14 @@ export function KarteTab({
         </div>
       )}
 
+      {activeSub === "design" && (
+        <DesignPanel
+          template={template}
+          onTemplateChange={onTemplateChange}
+          onToast={onToast}
+        />
+      )}
+
       {reorderTarget ? (
         <ReorderItemModal
           target={reorderTarget}
@@ -2573,6 +2586,116 @@ export function KarteTab({
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+type TemplateOption = { id: string; label: string; description: string };
+
+const TEMPLATE_OPTIONS: ReadonlyArray<TemplateOption> = [
+  { id: "heritage", label: "Heritage", description: "Klassisch & warm — ideal für Wirtshäuser" },
+  { id: "noir", label: "Noir", description: "Elegant & dunkel — ideal für Bars & Lounges" },
+  { id: "clean", label: "Clean", description: "Hell & frisch — ideal für Cafés & Bistros" },
+  { id: "trattoria", label: "Trattoria", description: "Rustikal & warm — ideal für Italiener & Pizzerien" },
+  { id: "minimal", label: "Minimal", description: "Schlicht & klar — passt zu fast jedem Restaurant" },
+  { id: "playful", label: "Playful", description: "Verspielt & bold — ideal für Trendbars & Streetfood" },
+  { id: "asian-dark", label: "Asian Dark", description: "Modern & dunkel — ideal für asiatische Küche" },
+  { id: "street-food", label: "Street Food", description: "Kräftig & schnell — ideal für Burger & Fast Casual" },
+  { id: "mediterranean", label: "Mediterranean", description: "Warm & mediterran — ideal für türkische & arabische Küche" },
+];
+
+function DesignPanel({
+  template,
+  onTemplateChange,
+  onToast,
+}: {
+  template: string | null;
+  onTemplateChange: (key: string) => Promise<void>;
+  onToast: (msg: string) => void;
+}) {
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  async function handlePick(key: string) {
+    if (key === template || savingKey) return;
+    setSavingKey(key);
+    try {
+      await onTemplateChange(key);
+      onToast("Template gespeichert");
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  return (
+    <div
+      className="rounded-[14px] border p-5"
+      style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+    >
+      <div className="mb-1 text-base font-extrabold">Dein Template</div>
+      <div className="mb-5 text-[12.5px] leading-[1.5]" style={{ color: dash.mi }}>
+        Wähle das visuelle Design für deine öffentliche Speisekarte. Änderungen sind sofort live unter qrave.menu/{"<slug>"}.
+      </div>
+      <div className="grid grid-cols-2 gap-2.5">
+        {TEMPLATE_OPTIONS.map((opt) => {
+          const active = template === opt.id;
+          const saving = savingKey === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => void handlePick(opt.id)}
+              disabled={saving}
+              className="relative rounded-[12px] border p-3.5 text-left transition active:scale-[0.99] disabled:opacity-60"
+              style={{
+                backgroundColor: active ? "rgba(147,51,234,0.08)" : dash.s2,
+                borderColor: active ? dash.primaryBg : dash.bo,
+                borderWidth: active ? 1.5 : 1,
+              }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div
+                  className="text-[14px] font-bold leading-tight"
+                  style={{ color: active ? dash.primaryBg : dash.tx }}
+                >
+                  {opt.label}
+                </div>
+                {active ? (
+                  <span
+                    aria-hidden
+                    className="grid h-5 w-5 flex-shrink-0 place-items-center rounded-full"
+                    style={{ backgroundColor: dash.primaryBg, color: dash.primaryFg }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12l4 4L19 7" />
+                    </svg>
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-1 text-[11.5px] leading-[1.45]" style={{ color: dash.mi }}>
+                {opt.description}
+              </div>
+              {active ? (
+                <div
+                  className="mt-2 inline-block rounded-full px-2 py-[2px] text-[9.5px] font-bold uppercase tracking-[0.08em]"
+                  style={{
+                    backgroundColor: "rgba(147,51,234,0.15)",
+                    color: dash.primaryBg,
+                  }}
+                >
+                  Aktiv
+                </div>
+              ) : null}
+              {saving ? (
+                <div className="mt-2 text-[11px]" style={{ color: dash.mi }}>
+                  Speichert …
+                </div>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

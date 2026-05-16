@@ -30,7 +30,7 @@ export type DashboardRestaurant = Pick<
 
 export type DashboardTab = "home" | "karte" | "tische";
 
-export type KarteSub = "menu" | "heute" | "lunch" | "notiz";
+export type KarteSub = "menu" | "heute" | "lunch" | "notiz" | "design";
 
 export type TischHeat = "hot" | "warm" | "cold" | "dead";
 
