@@ -28,16 +28,28 @@ const SPECIALS = [
   { name: "Zwiebelrostbraten", price: "21,80 €" },
 ];
 const LANGS = [
-  { flag: "🇩🇪", label: "Deutsch", note: "erkannt", code: "de" as const },
+  { flag: "🇩🇪", label: "Deutsch", code: "de" as const },
   { flag: "🇬🇧", label: "English", code: "en" as const },
   { flag: "🇹🇷", label: "Türkçe", code: "tr" as const },
   { flag: "🇸🇦", label: "العربية", code: "ar" as const },
 ];
 const LANG_DEMO = {
-  de: { name: "Handkäs' mit Musik", desc: "mit Apfelweinessig & roten Zwiebeln", price: "9,90 €" },
-  en: { name: "Handkäse with Music", desc: "with cider vinegar & red onions", price: "9.90 €" },
-  tr: { name: "Elmalı Peynir Salatası", desc: "elma sirkesi & kırmızı soğan ile", price: "9,90 €" },
-  ar: { name: "جبنة هاندكيز بالموسيقى", desc: "مع خل التفاح والبصل الأحمر", price: "٩٫٩٠ €" },
+  de: [
+    { name: "Handkäs' mit Musik", desc: "mit Apfelweinessig & roten Zwiebeln", price: "9,90 €" },
+    { name: "Grüne Soße", desc: "mit 7 Kräutern & Drillingskartoffeln", price: "12,50 €" },
+  ],
+  en: [
+    { name: "Handkäse with Music", desc: "with cider vinegar & red onions", price: "9.90 €" },
+    { name: "Green Sauce", desc: "with 7 herbs & baby potatoes", price: "12.50 €" },
+  ],
+  tr: [
+    { name: "Elmalı Peynir Salatası", desc: "elma sirkesi & kırmızı soğan ile", price: "9,90 €" },
+    { name: "Yeşil Sos", desc: "7 ot & körpe patates ile", price: "12,50 €" },
+  ],
+  ar: [
+    { name: "جبنة هاندكيز بالموسيقى", desc: "مع خل التفاح والبصل الأحمر", price: "٩٫٩٠ €" },
+    { name: "الصلصة الخضراء", desc: "مع ٧ أعشاب وبطاطس صغيرة", price: "١٢٫٥٠ €" },
+  ],
 } as const;
 const FILTER_ITEMS = [
   { name: "Grüne Soße", price: "9,50 €", tags: ["vegan", "veg"] },
@@ -421,8 +433,9 @@ export default function Home() {
         .lang-pill { display:flex; align-items:center; gap:8px; padding:10px 16px; background:rgba(255,255,255,.04); border:1px solid var(--card-border); border-radius:10px; font-family:var(--body); font-size:13px; color:var(--m60); transition:opacity .35s, transform .35s, border-color .2s, color .2s, background .2s; }
         .lang-pill.active { border-color:rgba(147,51,234,.5); color:#e8d5ff; background:rgba(147,51,234,.1); }
         .lang-flag { font-size:18px; line-height:1; }
-        .lang-auto { font-size:10px; color:var(--purple-3); margin-left:auto; letter-spacing:.08em; }
-        .lang-demo { margin-top:14px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px; animation:qLangFadeIn .2s ease-out; }
+        .lang-demo { margin-top:14px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:0 16px; animation:qLangFadeIn .2s ease-out; }
+        .lang-demo-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 0; }
+        .lang-demo-row:not(:last-child) { border-bottom:1px solid rgba(255,255,255,0.06); }
         .lang-demo-text { min-width:0; }
         .lang-demo-name { font-family:var(--body); font-size:14px; font-weight:500; color:#fff; }
         .lang-demo-desc { font-family:var(--body); font-size:12px; color:var(--m50); margin-top:2px; }
@@ -775,13 +788,12 @@ export default function Home() {
                         <div key={l.label} className={`lang-pill${i === activeLang ? " active" : ""}`}>
                           <span className="lang-flag">{l.flag}</span>
                           <span>{l.label}</span>
-                          {i === activeLang && l.note ? <span className="lang-auto">{l.note}</span> : null}
                         </div>
                       ))}
                     </div>
                     {(() => {
                       const code = LANGS[activeLang].code;
-                      const demo = LANG_DEMO[code];
+                      const dishes = LANG_DEMO[code];
                       const isRtl = code === "ar";
                       return (
                         <div
@@ -789,11 +801,15 @@ export default function Home() {
                           className="lang-demo"
                           dir={isRtl ? "rtl" : "ltr"}
                         >
-                          <div className="lang-demo-text">
-                            <div className="lang-demo-name">{demo.name}</div>
-                            <div className="lang-demo-desc">{demo.desc}</div>
-                          </div>
-                          <div className="lang-demo-price">{demo.price}</div>
+                          {dishes.map((it, i) => (
+                            <div key={i} className="lang-demo-row">
+                              <div className="lang-demo-text">
+                                <div className="lang-demo-name">{it.name}</div>
+                                <div className="lang-demo-desc">{it.desc}</div>
+                              </div>
+                              <div className="lang-demo-price">{it.price}</div>
+                            </div>
+                          ))}
                         </div>
                       );
                     })()}
