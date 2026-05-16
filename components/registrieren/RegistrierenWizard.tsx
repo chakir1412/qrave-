@@ -30,6 +30,7 @@ type WizardState = {
   telefon: string;
   logoFile: File | null;
   logoPreview: string | null;
+  privacyAccepted: boolean;
   submitting: boolean;
   submitError: string | null;
 };
@@ -44,6 +45,7 @@ const initialState: WizardState = {
   telefon: "",
   logoFile: null,
   logoPreview: null,
+  privacyAccepted: false,
   submitting: false,
   submitError: null,
 };
@@ -78,9 +80,10 @@ export default function RegistrierenWizard() {
   }, [s.name, s.email, s.password]);
 
   // Logo ist optional — Wirt kann ohne Logo weitergehen.
+  // Datenschutz-Checkbox ist Pflicht.
   const step2Valid = useMemo(() => {
-    return s.restaurantTyp !== "";
-  }, [s.restaurantTyp]);
+    return s.restaurantTyp !== "" && s.privacyAccepted;
+  }, [s.restaurantTyp, s.privacyAccepted]);
 
   function onPickLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -265,6 +268,28 @@ export default function RegistrierenWizard() {
           text-underline-offset: 3px;
         }
         .qrave-skip-link:hover { color: ${ACCENT}; }
+
+        .qrave-checkbox {
+          width: 16px;
+          height: 16px;
+          accent-color: ${ACCENT};
+          flex-shrink: 0;
+          margin-top: 2px;
+          cursor: pointer;
+        }
+        .qrave-privacy-label {
+          font-family: ${FONT_DM};
+          font-size: 12px;
+          line-height: 1.5;
+          color: rgba(255,255,255,0.6);
+        }
+        .qrave-privacy-link {
+          color: rgba(255,255,255,0.85);
+          text-decoration: underline;
+          text-underline-offset: 3px;
+          transition: color 0.2s;
+        }
+        .qrave-privacy-link:hover { color: ${ACCENT}; }
       `}</style>
 
       <div className="relative z-10 mx-auto w-full max-w-md px-6 pt-10 pb-12">
@@ -313,6 +338,7 @@ export default function RegistrierenWizard() {
               logoPreview={s.logoPreview}
               adresse={s.adresse}
               telefon={s.telefon}
+              privacyAccepted={s.privacyAccepted}
               submitting={s.submitting}
               submitError={s.submitError}
               onChange={set}
@@ -419,6 +445,7 @@ function Step2({
   logoPreview,
   adresse,
   telefon,
+  privacyAccepted,
   submitting,
   submitError,
   onChange,
@@ -432,6 +459,7 @@ function Step2({
   logoPreview: string | null;
   adresse: string;
   telefon: string;
+  privacyAccepted: boolean;
   submitting: boolean;
   submitError: string | null;
   onChange: <K extends keyof WizardState>(k: K, v: WizardState[K]) => void;
@@ -523,7 +551,28 @@ function Step2({
         </p>
       ) : null}
 
-      <div className="mt-8 flex gap-2">
+      <label className="qrave-privacy mt-6 flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          checked={privacyAccepted}
+          onChange={(e) => onChange("privacyAccepted", e.target.checked)}
+          className="qrave-checkbox"
+        />
+        <span className="qrave-privacy-label">
+          Ich habe die{" "}
+          <a
+            href="/datenschutz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="qrave-privacy-link"
+          >
+            Datenschutzbestimmungen
+          </a>{" "}
+          gelesen und stimme der Verarbeitung meiner Daten zu.
+        </span>
+      </label>
+
+      <div className="mt-4 flex gap-2">
         <BackButton onClick={onBack} />
         <button
           type="button"
