@@ -354,8 +354,7 @@ export default function Home() {
         /* phone */
         .hero-mockup { display:flex; justify-content:center; align-items:center; position:relative; z-index:2; padding:40px 60px; overflow:visible; }
         .hero-mockup::before { content:""; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:700px; height:280px; background:radial-gradient(ellipse,rgba(147,51,234,.18) 0%,transparent 65%); pointer-events:none; }
-        .phone-wrap { position:relative; display:inline-block; overflow:visible; }
-        .phone-img { width:300px; min-width:300px; flex-shrink:0; background:#0d0918; border-radius:44px; border:2px solid rgba(255,255,255,0.12); overflow:hidden; box-shadow:0 40px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,0.06),inset 0 0 0 2px rgba(0,0,0,0.8); filter:drop-shadow(0 40px 80px rgba(0,0,0,.5)) drop-shadow(0 0 60px rgba(147,51,234,.15)); }
+        .phone-wrap { position:relative; display:inline-block; overflow:visible; filter:drop-shadow(0 40px 80px rgba(0,0,0,.5)) drop-shadow(0 0 60px rgba(147,51,234,.15)); }
 
         /* Floating Cards */
         .fc { position:absolute; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); background:rgba(10,6,20,.92); border:1px solid rgba(147,51,234,.25); border-radius:16px; padding:14px 18px; box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.06); white-space:nowrap; animation:qFloat 4s ease-in-out infinite; min-width:150px; z-index:10; }
@@ -635,68 +634,8 @@ export default function Home() {
               {/* Phone Mockup */}
               <div className="hero-mockup">
                 <div className="phone-wrap">
-                  <div className="phone-img">
-                    {/* Status Bar */}
-                    <div style={{ background: "#06040e", padding: "12px 20px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: "#fff", fontFamily: "var(--display)" }}>9:41</span>
-                      <div style={{ width: 80, height: 20, background: "#000", borderRadius: 12, margin: "0 auto" }} />
-                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                        <svg width="14" height="10" viewBox="0 0 14 10">
-                          <rect x="0" y="3" width="3" height="7" rx="1" fill="rgba(255,255,255,0.9)" />
-                          <rect x="4" y="2" width="3" height="8" rx="1" fill="rgba(255,255,255,0.9)" />
-                          <rect x="8" y="0" width="3" height="10" rx="1" fill="rgba(255,255,255,0.9)" />
-                          <rect x="12" y="0" width="2" height="10" rx="1" fill="rgba(255,255,255,0.3)" />
-                        </svg>
-                      </div>
-                    </div>
-                    {/* Header Restaurant */}
-                    <div style={{ background: "linear-gradient(180deg,#0d0820 0%,#06040e 100%)", padding: "16px 20px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div style={{ fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", color: "#a855f7", fontFamily: "var(--body)", fontWeight: 600, marginBottom: 3 }}>
-                        Frankfurter Wirtshaus
-                      </div>
-                      <div style={{ fontFamily: "var(--display)", fontWeight: 900, fontSize: 18, letterSpacing: "-.02em", color: "#fff" }}>
-                        Speisekarte
-                      </div>
-                      <div style={{ display: "flex", gap: 6, marginTop: 10, overflow: "hidden" }}>
-                        <span style={{ fontSize: 9, padding: "4px 10px", borderRadius: 999, background: "linear-gradient(135deg,#9333ea,#7c3aed)", color: "#fff", fontFamily: "var(--body)", whiteSpace: "nowrap" }}>Vorspeisen</span>
-                        <span style={{ fontSize: 9, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", fontFamily: "var(--body)", whiteSpace: "nowrap" }}>Hauptgerichte</span>
-                        <span style={{ fontSize: 9, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", fontFamily: "var(--body)", whiteSpace: "nowrap" }}>Getränke</span>
-                      </div>
-                    </div>
-                    {/* Tages Special Banner */}
-                    <div style={{ background: "rgba(147,51,234,0.12)", borderBottom: "1px solid rgba(147,51,234,0.2)", padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <div style={{ fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: "#a855f7", fontFamily: "var(--body)" }}>✦ Tages-Special</div>
-                        <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 13, color: "#fff", marginTop: 1 }}>Rinderroulade</div>
-                      </div>
-                      <div style={{ fontFamily: "var(--display)", fontWeight: 900, fontSize: 15, color: "#a855f7" }}>18,90 €</div>
-                    </div>
-                    {/* Menu Items */}
-                    <div style={{ background: "#06040e", padding: "0 20px" }}>
-                      <PhoneItem name="Handkäs' mit Musik" desc="Hessischer Klassiker mit Zwiebeln" price="9,90 €" tag={{ label: "Vegetarisch", color: "#c084fc", bg: "rgba(147,51,234,0.15)", border: "rgba(147,51,234,0.3)" }} />
-                      <PhoneItem name="Grüne Soße" desc="7 Kräuter, Ei, Kartoffeln" price="12,50 €" tag={{ label: "Vegan", color: "#4ade80", bg: "rgba(74,222,128,0.1)", border: "rgba(74,222,128,0.25)" }} />
-                      <PhoneItem name="Schnitzel Wiener Art" desc="Paniertes Kalbsschnitzel, Preiselb." price="19,80 €" />
-                      <PhoneItem name="Tafelspitz" desc="Gekochtes Rindfleisch, Meerrettich" price="22,50 €" />
-                      <PhoneItem name="Zwiebelrostbraten" desc="Röstzwiebeln, Bratkartoffeln" price="21,80 €" tag={{ label: "🌶 Scharf", color: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.25)" }} last />
-                    </div>
-                    {/* Bottom Nav */}
-                    <div style={{ background: "#0d0820", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 20px", display: "flex", justifyContent: "space-around", alignItems: "center" }}>
-                      {[
-                        { active: true, label: "Karte", svg: <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /> },
-                        { active: false, label: "Merkliste", svg: <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /> },
-                        { active: false, label: "Suche", svg: <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /> },
-                      ].map((it) => (
-                        <div key={it.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={it.active ? "#9333ea" : "rgba(255,255,255,0.3)"} strokeWidth={2}>{it.svg}</svg>
-                          <span style={{ fontSize: 8, color: it.active ? "#9333ea" : "rgba(255,255,255,0.3)", fontFamily: "var(--body)" }}>{it.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Home Indicator */}
-                    <div style={{ background: "#06040e", padding: "6px 0", display: "flex", justifyContent: "center" }}>
-                      <div style={{ width: 100, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 2 }} />
-                    </div>
-                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/hero-mockup.png" alt="Qrave Speisekarte" style={{ width: "320px", display: "block" }} />
 
                   {/* Floating Cards */}
                   <div className="fc fc-1">
@@ -1114,55 +1053,3 @@ export default function Home() {
   );
 }
 
-/* ---------- Phone Item Helper ---------- */
-function PhoneItem({
-  name,
-  desc,
-  price,
-  tag,
-  last = false,
-}: {
-  name: string;
-  desc: string;
-  price: string;
-  tag?: { label: string; color: string; bg: string; border: string };
-  last?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        padding: "12px 0",
-        borderBottom: last ? "none" : "1px solid rgba(255,255,255,0.05)",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        gap: 10,
-      }}
-    >
-      <div>
-        <div style={{ fontFamily: "var(--body)", fontWeight: 500, fontSize: 12, color: "#fff" }}>{name}</div>
-        <div style={{ fontFamily: "var(--body)", fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>{desc}</div>
-        {tag ? (
-          <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-            <span
-              style={{
-                fontSize: 8,
-                padding: "2px 6px",
-                borderRadius: 4,
-                background: tag.bg,
-                border: `1px solid ${tag.border}`,
-                color: tag.color,
-                fontFamily: "var(--body)",
-              }}
-            >
-              {tag.label}
-            </span>
-          </div>
-        ) : null}
-      </div>
-      <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 12, color: "#a855f7", whiteSpace: "nowrap", marginTop: 1 }}>
-        {price}
-      </div>
-    </div>
-  );
-}
