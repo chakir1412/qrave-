@@ -1,423 +1,1089 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import {
-  BarChart2,
-  Check,
-  Globe,
-  Sparkles,
-  Star,
-  TrendingUp,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const CYAN = "#00C2FF";
-const ORANGE = "#FF5C1A";
-const MINT = "#34E89E";
-const BG = "#050508";
+const WHATSAPP =
+  "https://wa.me/491738996449?text=Hallo%2C%20ich%20m%C3%B6chte%20Qrave%20f%C3%BCr%20mein%20Restaurant%20testen.";
+const WHATSAPP_SUPPORT =
+  "https://wa.me/491738996449?text=Hallo%2C%20ich%20habe%20eine%20Frage%20zu%20Qrave.";
 
-const BENEFITS: { Icon: LucideIcon; title: string; text: string }[] = [
+const WEEK_DATA = [98, 112, 87, 134, 158, 184, 73];
+const WEEK_DAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const TOP_GERICHTE = [
+  { name: "Handkäs' mit Musik", val: 184 },
+  { name: "Schnitzel", val: 147 },
+  { name: "Grüne Sosse", val: 132 },
+  { name: "Tafelspitz", val: 98 },
+];
+const PEAK_ZEITEN = [
+  { name: "Mittag 11–15h", val: 312 },
+  { name: "Abend 15–22h", val: 287 },
+  { name: "Morgen 6–11h", val: 143 },
+  { name: "Nacht 22–6h", val: 54 },
+];
+const SPECIALS = [
+  { name: "Rinderroulade", price: "18,90 €" },
+  { name: "Tafelspitz", price: "22,50 €" },
+  { name: "Zwiebelrostbraten", price: "21,80 €" },
+];
+const LANGS = [
+  { flag: "🇩🇪", label: "Deutsch", note: "erkannt" },
+  { flag: "🇬🇧", label: "English" },
+  { flag: "🇹🇷", label: "Türkçe" },
+  { flag: "🇸🇦", label: "العربية" },
+];
+const FILTER_ITEMS = [
+  { name: "Grüne Soße", price: "9,50 €", tags: ["vegan", "veg"] },
+  { name: "Käsespätzle", price: "14,90 €", tags: ["veg"] },
+  { name: "Gemüsepfanne", price: "13,50 €", tags: ["vegan", "veg", "gluten"] },
+  { name: "Schnitzel", price: "16,80 €", tags: ["meat"] },
+];
+const FAQS = [
   {
-    Icon: TrendingUp,
-    title: "Mehr Umsatz",
-    text: "Gäste, die Bilder sehen, bestellen mehr. Bis zu 30 % höherer Bon.",
+    q: "Wirklich kostenlos — was ist der Haken?",
+    a: "Keiner. Qrave finanziert sich anders — nicht über dich. Restaurants zahlen nie, weder heute noch in Zukunft.",
   },
   {
-    Icon: Zap,
-    title: "Immer aktuell",
-    text: "Tagesangebot in Sekunden ändern. Kein Drucken, kein Warten.",
+    q: "Muss ich etwas installieren oder selbst bauen?",
+    a: "Nein. Du schickst uns deine Speisekarte — wir bauen sie auf. Du bekommst einen fertigen QR-Code.",
   },
   {
-    Icon: Sparkles,
-    title: "KI-Import",
-    text: "Menü per Foto oder PDF hochladen. KI erkennt alle Gerichte automatisch.",
+    q: "Was wenn ich meine Karte ändern will?",
+    a: "Änderungen machst du direkt im Dashboard selbst — sofort live, kein Neudruck nötig.",
   },
   {
-    Icon: Globe,
-    title: "Mehrsprachig",
-    text: "Deine Karte automatisch auf Deutsch, Englisch, Türkisch, Arabisch.",
+    q: "Können meine Gäste die Papierkarte trotzdem benutzen?",
+    a: "Natürlich. Qrave ergänzt deine Karte — sie ersetzt sie nicht. Beide können gleichzeitig existieren.",
   },
   {
-    Icon: Star,
-    title: "Zufriedenere Gäste",
-    text: "Allergene, Zutaten, Bilder — alles auf einen Blick.",
-  },
-  {
-    Icon: BarChart2,
-    title: "Einblicke",
-    text: "Sieh, welche Gerichte deine Gäste am meisten interessieren.",
+    q: "Wie lange dauert die Einrichtung?",
+    a: "In der Regel unter 24 Stunden. Du schickst die Karte — wir liefern den QR-Code.",
   },
 ];
 
-const STATS = [
-  { value: "30%", label: "+Umsatz durch digitale Karte" },
-  { value: "0€", label: "Kosten für dich — immer" },
-  { value: "360€", label: "sparen vs. andere Anbieter pro Jahr" },
-  { value: "3min", label: "Bis deine Karte online ist" },
-] as const;
+function buildSmoothPath(pts: { x: number; y: number }[]): string {
+  if (pts.length < 2) return "";
+  let d = `M${pts[0].x},${pts[0].y}`;
+  for (let i = 1; i < pts.length; i++) {
+    const p0 = pts[Math.max(0, i - 2)];
+    const p1 = pts[i - 1];
+    const p2 = pts[i];
+    const p3 = pts[Math.min(pts.length - 1, i + 1)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
 
 export default function Home() {
-  const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [formError, setFormError] = useState("");
+  /* ────── Feature 01: KI-Import (Progressbar + Rows) ────── */
+  const [kiPct, setKiPct] = useState(0);
+  const [kiCheck, setKiCheck] = useState(false);
+  const [kiRows, setKiRows] = useState<boolean[]>([false, false, false]);
 
-  async function onSubmitContact(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setFormError("");
-    setFormStatus("loading");
-    const fd = new FormData(e.currentTarget);
-    const payload = {
-      name: String(fd.get("name") ?? ""),
-      restaurant_name: String(fd.get("restaurant_name") ?? ""),
-      telefon: String(fd.get("telefon") ?? ""),
-      nachricht: String(fd.get("nachricht") ?? ""),
-    };
-    try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok) {
-        setFormError(data.error ?? "Senden fehlgeschlagen.");
-        setFormStatus("error");
-        return;
-      }
-      setFormStatus("success");
-      e.currentTarget.reset();
-    } catch {
-      setFormError("Netzwerkfehler. Bitte später erneut versuchen.");
-      setFormStatus("error");
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    let pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
+    let cancelled = false;
+
+    function cycle() {
+      if (cancelled) return;
+      setKiPct(0);
+      setKiCheck(false);
+      setKiRows([false, false, false]);
+      let pct = 0;
+      interval = setInterval(() => {
+        if (cancelled) return;
+        pct = Math.min(pct + 2, 100);
+        setKiPct(pct);
+        if (pct >= 100) {
+          if (interval) clearInterval(interval);
+          setKiCheck(true);
+          pendingTimeouts.push(setTimeout(() => setKiRows([true, false, false]), 60));
+          pendingTimeouts.push(setTimeout(() => setKiRows([true, true, false]), 180));
+          pendingTimeouts.push(setTimeout(() => setKiRows([true, true, true]), 300));
+          pendingTimeouts.push(setTimeout(cycle, 4000));
+        }
+      }, 30);
     }
+
+    cycle();
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+      pendingTimeouts.forEach((t) => clearTimeout(t));
+    };
+  }, []);
+
+  /* ────── Feature 02: Sprach-Pills (Rotation) ────── */
+  const [activeLang, setActiveLang] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setActiveLang((i) => (i + 1) % LANGS.length);
+    }, 1800);
+    return () => clearInterval(id);
+  }, []);
+
+  /* ────── Feature 03: Live Diff (Preisänderung) ────── */
+  const [diffChanged, setDiffChanged] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    let pending: ReturnType<typeof setTimeout>[] = [];
+    function cycle() {
+      if (cancelled) return;
+      pending.push(
+        setTimeout(() => {
+          setDiffChanged(true);
+          pending.push(
+            setTimeout(() => {
+              setDiffChanged(false);
+              pending.push(setTimeout(cycle, 3000));
+            }, 1500),
+          );
+        }, 2000),
+      );
+    }
+    cycle();
+    return () => {
+      cancelled = true;
+      pending.forEach((t) => clearTimeout(t));
+    };
+  }, []);
+
+  /* ────── Feature 04: Allergene-Filter ────── */
+  const [filters, setFilters] = useState<Set<string>>(new Set(["vegan", "veg"]));
+  function toggleFilter(tag: string) {
+    setFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
   }
 
+  /* ────── Feature 05: Tages-Special (Typewriter) ────── */
+  const [specialIdx, setSpecialIdx] = useState(0);
+  const [specialName, setSpecialName] = useState("");
+  const [specialPriceShown, setSpecialPriceShown] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | undefined;
+    let pending: ReturnType<typeof setTimeout>[] = [];
+    const s = SPECIALS[specialIdx % SPECIALS.length];
+    setSpecialName("");
+    setSpecialPriceShown(false);
+    let i = 0;
+    interval = setInterval(() => {
+      if (cancelled) return;
+      if (i < s.name.length) {
+        i += 1;
+        setSpecialName(s.name.slice(0, i));
+      } else {
+        if (interval) clearInterval(interval);
+        setSpecialPriceShown(true);
+        pending.push(
+          setTimeout(() => {
+            setSpecialIdx((idx) => idx + 1);
+          }, 3500),
+        );
+      }
+    }, 55);
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+      pending.forEach((t) => clearTimeout(t));
+    };
+  }, [specialIdx]);
+
+  /* ────── Dashboard: Scan-Counter Ticker + Datum ────── */
+  const [scanTicker, setScanTicker] = useState(0);
+  useEffect(() => {
+    const target = 73;
+    const duration = 1400;
+    const start = performance.now();
+    let raf = 0;
+    function tick(now: number) {
+      const progress = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setScanTicker(Math.round(target * ease));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const [todayString, setTodayString] = useState("");
+  useEffect(() => {
+    setTodayString(
+      new Date().toLocaleDateString("de-DE", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }),
+    );
+  }, []);
+
+  /* ────── Dashboard Chart Path ────── */
+  const chart = useMemo(() => {
+    const W = 340;
+    const H = 80;
+    const pad = 6;
+    const max = Math.max(...WEEK_DATA, 1);
+    const pts = WEEK_DATA.map((v, i) => ({
+      x: pad + (i * (W - 2 * pad)) / (WEEK_DATA.length - 1),
+      y: H - pad - (v / max) * (H - 2 * pad),
+    }));
+    const avg = WEEK_DATA.reduce((a, b) => a + b, 0) / WEEK_DATA.length;
+    const avgY = H - pad - (avg / max) * (H - 2 * pad);
+    return { path: buildSmoothPath(pts), pts, avgY, W, H };
+  }, []);
+
+  /* ────── Dashboard Range Pills + FAQ ────── */
+  const [rangePill, setRangePill] = useState<"7" | "30" | "monat">("7");
+  const [faqOpen, setFaqOpen] = useState<number | null>(null);
+
   return (
-    <div className="relative isolate min-h-screen overflow-x-hidden text-white" style={{ backgroundColor: BG }}>
-      <div className="qrave-hero-blobs" aria-hidden>
-        <div className="qrave-hero-blob qrave-hero-blob--1" />
-        <div className="qrave-hero-blob qrave-hero-blob--2" />
-        <div className="qrave-hero-blob qrave-hero-blob--3" />
-      </div>
-      <div className="relative z-10">
-        <header className="sticky top-0 z-50 bg-transparent">
-          <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <Link href="/" className="flex items-center gap-0.5 text-xl font-extrabold tracking-tight">
-              <Image
-                src="/logo.png"
-                alt="Qrave"
-                width={320}
-                height={64}
-                className="h-16 w-auto"
-                priority
-              />
+    <main>
+      <style>{`
+        :root {
+          --bg:#06040e;
+          --bg-2:#0d0918;
+          --purple:#9333ea;
+          --purple-2:#7c3aed;
+          --purple-3:#a855f7;
+          --card:rgba(255,255,255,0.04);
+          --card-border:rgba(255,255,255,0.08);
+          --line:rgba(255,255,255,0.06);
+          --text:#fff;
+          --m60:rgba(255,255,255,0.6);
+          --m50:rgba(255,255,255,0.5);
+          --m40:rgba(255,255,255,0.4);
+          --m15:rgba(255,255,255,0.15);
+          --display: var(--font-roboto), "Roboto", system-ui, sans-serif;
+          --body: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+        }
+        html { scroll-behavior:smooth; }
+        body { background:var(--bg); color:#fff; font-family:var(--body); overflow-x:hidden; }
+        .qrl a { color:inherit; text-decoration:none; }
+
+        /* beams */
+        .beams { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+        .beams svg { width:100%; height:100%; }
+
+        .wrap { max-width:1200px; margin:0 auto; padding:0 24px; position:relative; z-index:1; }
+
+        /* logo */
+        .logo { display:inline-flex; align-items:center; gap:6px; font-family:var(--display); font-weight:900; font-size:20px; color:#fff; letter-spacing:-.03em; }
+        .logo .dot { width:7px; height:7px; border-radius:50%; background:linear-gradient(135deg,var(--purple),var(--purple-2)); box-shadow:0 0 12px rgba(147,51,234,.7); }
+
+        /* navbar */
+        .nav { position:sticky; top:0; z-index:50; background:rgba(6,4,14,.85); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-bottom:1px solid var(--line); }
+        .nav-inner { max-width:1200px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+        .nav-right { display:flex; align-items:center; gap:18px; }
+        .nav-link { font-family:var(--body); font-size:14px; color:var(--m60); transition:color .2s; cursor:pointer; }
+        .nav-link:hover { color:#fff; }
+
+        /* buttons */
+        .btn { display:inline-flex; align-items:center; gap:8px; padding:14px 22px; border-radius:12px; font-family:var(--body); font-weight:500; font-size:15px; cursor:pointer; border:none; transition:transform .2s, box-shadow .2s, background .2s; }
+        .btn-primary { background:linear-gradient(135deg,var(--purple),var(--purple-2)); color:#fff; box-shadow:0 0 24px rgba(147,51,234,.4); }
+        .btn-primary:hover { transform:translateY(-2px); box-shadow:0 0 36px rgba(147,51,234,.65); }
+        .btn-primary .arr { transition:transform .25s; }
+        .btn-primary:hover .arr { transform:translateX(3px); }
+        .btn-ghost { background:transparent; color:rgba(255,255,255,.6); border:1px solid var(--card-border); }
+        .btn-ghost:hover { color:#fff; border-color:rgba(255,255,255,.18); }
+        .btn-sm { padding:10px 16px; font-size:14px; border-radius:10px; }
+
+        /* HERO */
+        .hero { padding:80px 0 0; position:relative; overflow:hidden; }
+        .hero-split { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; padding:20px 0 60px; }
+        .hero-copy { display:flex; flex-direction:column; align-items:flex-start; text-align:left; }
+        .badge { display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; border:1px solid rgba(147,51,234,.4); background:rgba(147,51,234,.08); font-family:var(--body); font-size:13px; color:rgba(255,255,255,.85); margin-bottom:24px; }
+        .badge .glyph { color:var(--purple-3); }
+        .h1 { font-family:var(--display); font-weight:900; font-size:clamp(32px,4vw,56px); line-height:1.04; letter-spacing:-.03em; max-width:600px; margin:0; text-wrap:balance; }
+        .h1 .grad { background:linear-gradient(135deg,var(--purple-3),var(--purple),var(--purple-2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .sub { font-family:var(--body); font-size:17px; color:var(--m60); max-width:420px; margin:20px 0 0; line-height:1.55; }
+        .hero-ctas { margin-top:28px; display:flex; gap:12px; flex-wrap:wrap; }
+        .trust-pills { margin-top:18px; display:flex; flex-wrap:wrap; align-items:center; font-family:var(--body); font-size:13px; color:var(--m50); }
+        .trust-pills span { padding:0 14px; position:relative; }
+        .trust-pills span + span::before { content:"·"; position:absolute; left:-2px; top:0; color:var(--m40); }
+        .trust-pills .ok { color:var(--purple-3); margin-right:5px; }
+
+        /* phone */
+        .hero-mockup { display:flex; justify-content:center; align-items:center; position:relative; z-index:2; padding:40px 60px; overflow:visible; }
+        .hero-mockup::before { content:""; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:700px; height:280px; background:radial-gradient(ellipse,rgba(147,51,234,.18) 0%,transparent 65%); pointer-events:none; }
+        .phone-wrap { position:relative; display:inline-block; overflow:visible; }
+        .phone-img { width:300px; min-width:300px; flex-shrink:0; background:#0d0918; border-radius:44px; border:2px solid rgba(255,255,255,0.12); overflow:hidden; box-shadow:0 40px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,0.06),inset 0 0 0 2px rgba(0,0,0,0.8); filter:drop-shadow(0 40px 80px rgba(0,0,0,.5)) drop-shadow(0 0 60px rgba(147,51,234,.15)); }
+
+        /* Floating Cards */
+        .fc { position:absolute; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); background:rgba(10,6,20,.92); border:1px solid rgba(147,51,234,.25); border-radius:16px; padding:14px 18px; box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.06); white-space:nowrap; animation:qFloat 4s ease-in-out infinite; min-width:150px; z-index:10; }
+        .fc-1 { top:50px; right:-130px; animation-delay:0s; }
+        .fc-2 { bottom:100px; right:-120px; animation-delay:.8s; }
+        .fc-3 { bottom:160px; left:-110px; animation-delay:1.4s; }
+        .fc-4 { top:80px; left:-120px; animation-delay:.4s; }
+        @keyframes qFloat { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+        .fc-label { font-family:var(--body); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:rgba(168,85,247,.7); margin-bottom:6px; font-weight:600; }
+        .fc-value { font-family:var(--display); font-weight:900; font-size:26px; letter-spacing:-.03em; color:#fff; line-height:1; }
+        .fc-sub { font-family:var(--body); font-size:11px; color:var(--m50); margin-top:2px; }
+        .fc-green { color:#4ade80; font-size:11px; font-weight:600; margin-top:5px; display:flex; align-items:center; gap:4px; }
+        .fc-dish { font-family:var(--body); font-size:13px; font-weight:600; color:#fff; }
+        .fc-dish-sub { font-family:var(--body); font-size:11px; color:var(--m50); margin-top:1px; }
+        .fc-dish-price { font-family:var(--display); font-weight:700; font-size:13px; color:var(--purple-3); margin-top:4px; }
+        .fc-lang { display:flex; gap:6px; margin-top:6px; }
+        .fc-flag { font-size:16px; }
+
+        /* sections */
+        section { padding:120px 0; position:relative; z-index:1; }
+        .sec-label { font-family:var(--display); font-weight:700; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--purple-3); display:block; text-align:center; margin-bottom:14px; }
+        .sec-head { text-align:center; margin-bottom:56px; }
+        .sec-head h2 { font-family:var(--display); font-weight:900; font-size:clamp(30px,4vw,46px); letter-spacing:-.03em; line-height:1.1; max-width:22ch; margin:0 auto; text-wrap:balance; }
+
+        /* steps */
+        .steps { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+        .step { background:var(--card); border:1px solid var(--card-border); border-radius:14px; padding:32px 28px; position:relative; overflow:hidden; transition:border-color .25s, transform .25s; }
+        .step:hover { border-color:rgba(147,51,234,.4); transform:translateY(-3px); }
+        .step .num { font-family:var(--display); font-weight:900; font-size:52px; color:var(--m15); position:absolute; top:16px; left:22px; line-height:1; letter-spacing:-.04em; }
+        .step h3 { font-family:var(--display); font-weight:900; font-size:21px; letter-spacing:-.02em; margin-top:68px; }
+        .step p { font-family:var(--body); font-size:15px; color:var(--m60); margin-top:10px; line-height:1.55; }
+
+        /* features */
+        .feat-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:stretch; }
+        .feat-col { display:flex; flex-direction:column; gap:14px; }
+        .feat-card { background:var(--card); border:1px solid var(--card-border); border-radius:16px; padding:40px; position:relative; overflow:hidden; transition:border-color .3s, transform .3s; height:100%; box-sizing:border-box; }
+        .feat-card:hover { border-color:rgba(147,51,234,.35); transform:translateY(-3px); }
+        .feat-num { font-family:var(--display); font-weight:900; font-size:72px; line-height:1; letter-spacing:-.04em; color:rgba(147,51,234,.12); position:absolute; top:24px; right:28px; pointer-events:none; transition:color .3s; }
+        .feat-card:hover .feat-num { color:rgba(147,51,234,.2); }
+        .feat-tag { font-family:var(--body); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--purple-3); margin-bottom:14px; display:block; font-weight:600; }
+        .feat-title { font-family:var(--display); font-weight:900; font-size:24px; letter-spacing:-.025em; line-height:1.15; margin-bottom:14px; }
+        .feat-body { font-family:var(--body); font-size:15px; color:var(--m60); line-height:1.65; max-width:44ch; }
+        .feat-vis { margin-top:28px; }
+
+        /* KI */
+        .ki-input { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:12px 16px; font-family:var(--body); font-size:13px; color:var(--m60); display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+        .ki-file { font-size:12px; color:var(--purple-3); font-weight:600; }
+        .ki-progress { height:2px; background:rgba(255,255,255,.06); border-radius:2px; overflow:hidden; margin-bottom:16px; }
+        .ki-bar { height:100%; background:linear-gradient(90deg,var(--purple),var(--purple-3)); border-radius:2px; transition:width .05s linear; }
+        .ki-result { display:flex; flex-direction:column; gap:6px; }
+        .ki-row { display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:8px; font-family:var(--body); font-size:13px; opacity:0; transform:translateY(4px); transition:opacity .3s, transform .3s; }
+        .ki-row.show { opacity:1; transform:translateY(0); }
+        .ki-row .kp { font-family:var(--display); font-weight:700; font-size:12px; color:var(--purple-3); }
+
+        /* Lang pills */
+        .lang-pills { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
+        .lang-pill { display:flex; align-items:center; gap:8px; padding:10px 16px; background:rgba(255,255,255,.04); border:1px solid var(--card-border); border-radius:10px; font-family:var(--body); font-size:13px; color:var(--m60); transition:opacity .35s, transform .35s, border-color .2s, color .2s, background .2s; }
+        .lang-pill.active { border-color:rgba(147,51,234,.5); color:#e8d5ff; background:rgba(147,51,234,.1); }
+        .lang-flag { font-size:18px; line-height:1; }
+        .lang-auto { font-size:10px; color:var(--purple-3); margin-left:auto; letter-spacing:.08em; }
+
+        /* Diff */
+        .diff-card { background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+        .diff-header { padding:10px 14px; border-bottom:1px solid var(--line); font-family:var(--body); font-size:11px; color:var(--m40); display:flex; justify-content:space-between; }
+        .diff-rows { padding:8px 0; }
+        .diff-row { display:flex; justify-content:space-between; padding:7px 14px; font-family:var(--body); font-size:13px; transition:background .3s; }
+        .diff-row.changed { background:rgba(147,51,234,.1); }
+        .diff-row .price { font-family:var(--display); font-weight:700; font-size:12px; color:var(--purple-3); }
+        .diff-badge { display:inline-flex; align-items:center; gap:5px; font-size:10px; padding:3px 8px; border-radius:999px; background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.3); color:#4ade80; font-family:var(--body); }
+        .diff-dot { width:5px; height:5px; border-radius:50%; background:#4ade80; animation:livepulse 1.6s infinite; }
+        @keyframes livepulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.8); } }
+
+        /* Filter */
+        .filter-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
+        .fchip { padding:9px 16px; border-radius:999px; border:1px solid var(--card-border); font-family:var(--body); font-size:13px; color:var(--m50); cursor:pointer; transition:all .2s; user-select:none; }
+        .fchip.on { background:rgba(147,51,234,.15); border-color:rgba(147,51,234,.5); color:#e8d5ff; }
+        .filter-result { margin-top:16px; display:flex; flex-direction:column; gap:6px; min-height:80px; }
+        .fitem { display:flex; justify-content:space-between; padding:8px 14px; background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:8px; font-family:var(--body); font-size:13px; transition:opacity .25s, transform .25s, max-height .25s, padding .25s, margin .25s; max-height:60px; }
+        .fitem.hidden { opacity:0; transform:scale(.97); max-height:0; padding-top:0; padding-bottom:0; margin:0; border-width:0; pointer-events:none; }
+        .fitem .fprice { font-family:var(--display); font-weight:700; font-size:12px; color:var(--purple-3); }
+
+        /* Special */
+        .special-card { background:rgba(147,51,234,.08); border:1px solid rgba(147,51,234,.25); border-radius:12px; padding:16px 20px; margin-top:20px; min-height:180px; overflow:hidden; }
+        .special-eyebrow { font-family:var(--body); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--purple-3); margin-bottom:6px; }
+        .special-name { font-family:var(--display); font-weight:900; font-size:18px; letter-spacing:-.02em; margin-bottom:4px; min-height:26px; }
+        .special-desc { font-family:var(--body); font-size:13px; color:var(--m60); }
+        .special-price { font-family:var(--display); font-weight:900; font-size:22px; color:var(--purple-3); margin-top:10px; min-height:30px; }
+        .special-badge { display:inline-flex; align-items:center; gap:5px; font-size:10px; padding:3px 10px; border-radius:999px; background:rgba(147,51,234,.2); border:1px solid rgba(147,51,234,.4); color:#c084fc; font-family:var(--body); margin-top:8px; }
+        .special-cursor { display:inline-block; width:2px; height:14px; background:var(--purple-3); margin-left:2px; animation:blink .8s infinite; vertical-align:middle; }
+        @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+
+        /* Dashboard */
+        .dash-section { padding:120px 0; position:relative; z-index:1; overflow:hidden; }
+        .dash-section::before { content:""; position:absolute; right:-200px; top:-100px; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(147,51,234,.12) 0%,transparent 65%); pointer-events:none; }
+        .dash-layout { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+        .dash-copy .sec-label { text-align:left; margin-bottom:12px; }
+        .dash-copy h2 { font-family:var(--display); font-weight:900; font-size:clamp(28px,3.5vw,42px); letter-spacing:-.03em; line-height:1.1; margin-bottom:20px; text-wrap:balance; }
+        .dash-copy p { font-family:var(--body); font-size:16px; color:var(--m60); line-height:1.65; margin-bottom:28px; }
+        .dash-features { display:flex; flex-direction:column; gap:14px; }
+        .dash-feat { display:flex; align-items:flex-start; gap:14px; }
+        .dash-feat-icon { width:36px; height:36px; border-radius:8px; background:rgba(147,51,234,.12); border:1px solid rgba(147,51,234,.25); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; margin-top:1px; }
+        .dash-feat-text strong { font-family:var(--display); font-weight:700; font-size:14px; display:block; margin-bottom:2px; }
+        .dash-feat-text span { font-family:var(--body); font-size:13px; color:var(--m60); }
+
+        .dash-ui { position:relative; }
+        .dash-card { background:rgba(13,9,24,.95); border:1px solid rgba(147,51,234,.2); border-radius:18px; padding:24px; box-shadow:0 0 80px rgba(147,51,234,.15),0 24px 60px rgba(0,0,0,.5); }
+        .dui-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+        .dui-greeting { font-family:var(--display); font-weight:900; font-size:16px; letter-spacing:-.02em; }
+        .dui-greeting span { color:var(--purple-3); }
+        .dui-date { font-family:var(--body); font-size:11px; color:var(--m40); }
+        .dui-live { display:flex; align-items:center; gap:6px; font-family:var(--body); font-size:11px; color:#4ade80; background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3); border-radius:999px; padding:4px 10px; }
+        .dui-live-dot { width:5px; height:5px; border-radius:50%; background:#4ade80; animation:livepulse 1.6s infinite; }
+
+        .dui-kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+        .dui-kpi { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:12px; }
+        .dui-kpi-label { font-family:var(--body); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--m40); margin-bottom:5px; }
+        .dui-kpi-val { font-family:var(--display); font-weight:900; font-size:34px; letter-spacing:-.025em; }
+        .dui-kpi-delta { font-family:var(--body); font-size:10px; color:#4ade80; margin-top:3px; }
+
+        .dui-chart-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:16px; margin-bottom:14px; }
+        .dui-chart-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:14px; }
+        .dui-chart-title { font-family:var(--body); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--m40); }
+        .dui-chart-total { font-family:var(--display); font-weight:900; font-size:22px; letter-spacing:-.025em; }
+        .dui-chart-sub { font-family:var(--body); font-size:10px; color:var(--m40); margin-top:1px; }
+        .dui-svg { width:100%; height:80px; display:block; overflow:visible; }
+        .dui-range { display:flex; gap:6px; margin-top:10px; }
+        .dui-pill { font-family:var(--body); font-size:9px; padding:4px 10px; border-radius:999px; border:1px solid var(--card-border); color:var(--m50); cursor:pointer; transition:all .2s; }
+        .dui-pill.active { background:rgba(147,51,234,.2); border-color:rgba(147,51,234,.5); color:#e8d5ff; }
+        .dui-items-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .dui-items-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); border-radius:10px; padding:12px; }
+        .dui-items-title { font-family:var(--body); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--m40); margin-bottom:10px; }
+        .dui-item { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+        .dui-item:last-child { border-bottom:none; }
+        .dui-item-name { font-family:var(--body); font-size:11px; color:rgba(255,255,255,.75); }
+        .dui-item-val { font-family:var(--display); font-weight:700; font-size:11px; color:var(--purple-3); }
+
+        /* pricing */
+        .pricing { padding:120px 0; position:relative; z-index:1; }
+        .pricing-card { max-width:760px; margin:0 auto; text-align:center; background:linear-gradient(135deg,rgba(147,51,234,.18),rgba(124,58,237,.12)); border:1px solid rgba(147,51,234,.35); border-radius:24px; padding:64px 32px; box-shadow:0 0 80px rgba(147,51,234,.2),inset 0 1px 0 rgba(255,255,255,.05); position:relative; overflow:hidden; }
+        .pricing-card::before { content:""; position:absolute; top:-100px; left:50%; transform:translateX(-50%); width:400px; height:400px; border-radius:50%; background:radial-gradient(circle,rgba(147,51,234,.35),transparent 60%); pointer-events:none; }
+        .pricing-card > * { position:relative; z-index:1; }
+        .pricing-badge { display:inline-flex; padding:6px 14px; border-radius:999px; background:rgba(0,0,0,.4); border:1px solid rgba(147,51,234,.5); font-family:var(--display); font-weight:700; font-size:11px; letter-spacing:.2em; color:var(--purple-3); margin-bottom:24px; }
+        .pricing-card h2 { font-family:var(--display); font-weight:900; font-size:clamp(26px,3.5vw,40px); letter-spacing:-.025em; line-height:1.1; max-width:18ch; margin:0 auto; text-wrap:balance; }
+        .pricing-card .body { font-family:var(--body); font-size:17px; color:var(--m60); max-width:48ch; margin:18px auto 0; line-height:1.5; }
+        .pricing-checks { margin:32px 0; display:flex; justify-content:center; gap:28px; flex-wrap:wrap; font-family:var(--body); font-size:15px; color:rgba(255,255,255,.85); }
+        .pricing-checks span { display:inline-flex; align-items:center; gap:8px; }
+        .pricing-checks .ok { color:var(--purple-3); font-weight:700; }
+
+        /* FAQ */
+        .faq-list { max-width:760px; margin:0 auto; border-top:1px solid var(--card-border); }
+        .faq-item { border-bottom:1px solid var(--card-border); }
+        .faq-q { width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:22px 4px; background:transparent; border:none; cursor:pointer; font-family:var(--display); font-weight:700; font-size:17px; color:#fff; text-align:left; transition:color .2s; }
+        .faq-q:hover { color:var(--purple-3); }
+        .faq-q .plus { width:28px; height:28px; border-radius:50%; border:1px solid var(--card-border); display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--m60); flex-shrink:0; transition:transform .25s, background .25s, color .25s; }
+        .faq-item.open .faq-q { color:var(--purple-3); }
+        .faq-item.open .faq-q .plus { transform:rotate(45deg); background:rgba(147,51,234,.15); color:var(--purple-3); border-color:rgba(147,51,234,.4); }
+        .faq-a { max-height:0; overflow:hidden; transition:max-height .35s ease; }
+        .faq-a-inner { padding:0 4px 22px; font-family:var(--body); font-size:15px; color:var(--m60); line-height:1.6; max-width:60ch; }
+        .faq-item.open .faq-a { max-height:240px; }
+
+        /* footer */
+        footer { padding:32px 0; border-top:1px solid var(--card-border); position:relative; z-index:1; }
+        .foot-inner { max-width:1200px; margin:0 auto; padding:0 24px; display:flex; justify-content:space-between; align-items:center; gap:20px; flex-wrap:wrap; font-family:var(--body); font-size:13px; color:var(--m50); }
+        .foot-inner .left { display:inline-flex; align-items:center; gap:14px; }
+        .foot-inner .right { display:inline-flex; gap:18px; }
+        .foot-inner a:hover { color:#fff; }
+
+        @media (max-width:900px) {
+          .nav-right .nav-link { display:none; }
+          .hero-split { grid-template-columns:1fr; gap:48px; }
+          .hero-copy { align-items:center; text-align:center; }
+          .h1 { text-align:center; margin:0 auto; }
+          .sub { margin:20px auto 0; }
+          .hero-ctas { justify-content:center; }
+          .trust-pills { justify-content:center; }
+          .steps { grid-template-columns:1fr; }
+          .feat-grid { grid-template-columns:1fr; }
+          .feat-num { font-size:52px; }
+          .dash-layout { grid-template-columns:1fr; gap:40px; }
+          .dash-copy .sec-label, .dash-copy h2, .dash-copy p { text-align:center; }
+          .hero-mockup { padding:0 20px 40px; }
+          section, .pricing, .dash-section { padding:80px 0; }
+        }
+        @media (max-width:540px) {
+          .fc { display:none; }
+          .trust-pills { flex-direction:column; gap:8px; }
+          .trust-pills span + span::before { display:none; }
+          .trust-pills span { padding:0; }
+          .dui-kpis { grid-template-columns:1fr 1fr; }
+          .dui-items-row { grid-template-columns:1fr; }
+        }
+      `}</style>
+
+      <div className="qrl">
+        {/* BEAMS */}
+        <div className="beams" aria-hidden>
+          <svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <radialGradient id="b1" cx="18%" cy="0%" r="50%">
+                <stop offset="0%" stopColor="#9333ea" stopOpacity="0.32" />
+                <stop offset="55%" stopColor="#9333ea" stopOpacity="0.08" />
+                <stop offset="100%" stopColor="#9333ea" stopOpacity="0" />
+              </radialGradient>
+              <radialGradient id="b2" cx="0%" cy="22%" r="40%">
+                <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.2" />
+                <stop offset="60%" stopColor="#7c3aed" stopOpacity="0.04" />
+                <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+              </radialGradient>
+              <filter id="bf" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="40" />
+              </filter>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#b1)" filter="url(#bf)" />
+            <rect width="100%" height="100%" fill="url(#b2)" filter="url(#bf)" />
+          </svg>
+        </div>
+
+        {/* NAVBAR */}
+        <nav className="nav">
+          <div className="nav-inner">
+            <Link href="/" className="logo">
+              <span className="dot" />
+              qrave
             </Link>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/login"
-                className="shrink-0 rounded-full border bg-transparent px-4 py-2.5 text-sm font-bold transition hover:bg-[rgba(147,51,234,0.12)] sm:px-5"
-                style={{ borderColor: "#9333ea", color: "#9333ea" }}
-              >
-                Anmelden
-              </Link>
-              <a
-                href="#kontakt"
-                className="shrink-0 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-black transition hover:bg-slate-100 sm:px-5"
-              >
-                Kostenlos starten
+            <div className="nav-right">
+              <a href="#how" className="nav-link">So funktioniert&apos;s</a>
+              <a href="#features" className="nav-link">Funktionen</a>
+              <Link href="/login" className="nav-link">Anmelden</Link>
+              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm">
+                Kostenlos starten <span className="arr">→</span>
               </a>
             </div>
-          </nav>
-        </header>
+          </div>
+        </nav>
 
-        <main className="text-left">
-          {/* HERO */}
-          <section className="relative z-10 overflow-hidden px-4 pb-24 pt-12 sm:px-6 sm:pb-28 sm:pt-16 md:pb-32 md:pt-20">
-            <div className="relative z-10 mx-auto max-w-6xl">
-              <div className="relative z-10 max-w-2xl">
-                <p
-                  className="mb-6 inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-teal-300/90 sm:text-xs"
-                  style={{
-                    borderColor: "rgba(0,194,255,0.35)",
-                    background: "rgba(0,194,255,0.08)",
-                  }}
-                >
-                  Für Restaurants · 100% kostenlos
-                </p>
-                <h1 className="text-[2.35rem] font-bold leading-[1.08] tracking-tight sm:text-5xl md:text-6xl lg:text-[3.35rem] xl:text-[3.75rem]">
-                  <span className="block">Die schönste Speisekarte</span>
-                  <span className="block">deines Lebens.</span>
-                  <span
-                    className="mt-2 block bg-clip-text text-transparent sm:mt-3"
-                    style={{
-                      backgroundImage: `linear-gradient(100deg, ${CYAN} 0%, #7dd3fc 35%, ${ORANGE} 100%)`,
-                    }}
-                  >
-                    Kostenlos.
-                  </span>
+        {/* HERO */}
+        <section className="hero">
+          <div className="wrap">
+            <div className="hero-split">
+              <div className="hero-copy">
+                <span className="badge">
+                  <span className="glyph">✦</span> Digitale Speisekarte
+                </span>
+                <h1 className="h1">
+                  Deine digitale Speisekarte.
+                  <br />
+                  <span className="grad">Kostenlos. Für immer.</span>
                 </h1>
-                <p className="mt-6 max-w-md text-sm leading-relaxed text-slate-400 sm:text-base">
-                  QR-Code scannen — fertig. Kein App-Download, kein Login. Deine Gäste sehen dein Menü sofort.
+                <p className="sub">
+                  Wir bauen deine digitale Speisekarte auf — kostenlos, in 24 Stunden. Deine Gäste scannen, du siehst was sie interessiert.
                 </p>
-                <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                  <a
-                    href="#kontakt"
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-bold text-black transition hover:bg-slate-100 sm:text-base"
-                  >
-                    Jetzt kostenlos starten
-                    <span aria-hidden>→</span>
+                <div className="hero-ctas">
+                  <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                    Jetzt kostenlos starten <span className="arr">→</span>
                   </a>
-                  <a
-                    href="https://qrave.menu/qrave-demo"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center rounded-full border px-7 py-3.5 text-sm font-bold transition hover:bg-white/5 sm:text-base"
-                    style={{ borderColor: CYAN, color: CYAN }}
-                  >
-                    Beispiel ansehen
-                  </a>
+                  <Link href="/frankfurter-wirtshaus" className="btn btn-ghost">
+                    Demo ansehen →
+                  </Link>
+                </div>
+                <div className="trust-pills">
+                  <span><span className="ok">✓</span> Keine Kreditkarte</span>
+                  <span><span className="ok">✓</span> Kein Abo</span>
+                  <span><span className="ok">✓</span> Immer kostenlos</span>
+                </div>
+              </div>
+
+              {/* Phone Mockup */}
+              <div className="hero-mockup">
+                <div className="phone-wrap">
+                  <div className="phone-img">
+                    {/* Status Bar */}
+                    <div style={{ background: "#06040e", padding: "12px 20px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#fff", fontFamily: "var(--display)" }}>9:41</span>
+                      <div style={{ width: 80, height: 20, background: "#000", borderRadius: 12, margin: "0 auto" }} />
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <svg width="14" height="10" viewBox="0 0 14 10">
+                          <rect x="0" y="3" width="3" height="7" rx="1" fill="rgba(255,255,255,0.9)" />
+                          <rect x="4" y="2" width="3" height="8" rx="1" fill="rgba(255,255,255,0.9)" />
+                          <rect x="8" y="0" width="3" height="10" rx="1" fill="rgba(255,255,255,0.9)" />
+                          <rect x="12" y="0" width="2" height="10" rx="1" fill="rgba(255,255,255,0.3)" />
+                        </svg>
+                      </div>
+                    </div>
+                    {/* Header Restaurant */}
+                    <div style={{ background: "linear-gradient(180deg,#0d0820 0%,#06040e 100%)", padding: "16px 20px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div style={{ fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", color: "#a855f7", fontFamily: "var(--body)", fontWeight: 600, marginBottom: 3 }}>
+                        Frankfurter Wirtshaus
+                      </div>
+                      <div style={{ fontFamily: "var(--display)", fontWeight: 900, fontSize: 18, letterSpacing: "-.02em", color: "#fff" }}>
+                        Speisekarte
+                      </div>
+                      <div style={{ display: "flex", gap: 6, marginTop: 10, overflow: "hidden" }}>
+                        <span style={{ fontSize: 9, padding: "4px 10px", borderRadius: 999, background: "linear-gradient(135deg,#9333ea,#7c3aed)", color: "#fff", fontFamily: "var(--body)", whiteSpace: "nowrap" }}>Vorspeisen</span>
+                        <span style={{ fontSize: 9, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", fontFamily: "var(--body)", whiteSpace: "nowrap" }}>Hauptgerichte</span>
+                        <span style={{ fontSize: 9, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", fontFamily: "var(--body)", whiteSpace: "nowrap" }}>Getränke</span>
+                      </div>
+                    </div>
+                    {/* Tages Special Banner */}
+                    <div style={{ background: "rgba(147,51,234,0.12)", borderBottom: "1px solid rgba(147,51,234,0.2)", padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 8, letterSpacing: ".14em", textTransform: "uppercase", color: "#a855f7", fontFamily: "var(--body)" }}>✦ Tages-Special</div>
+                        <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 13, color: "#fff", marginTop: 1 }}>Rinderroulade</div>
+                      </div>
+                      <div style={{ fontFamily: "var(--display)", fontWeight: 900, fontSize: 15, color: "#a855f7" }}>18,90 €</div>
+                    </div>
+                    {/* Menu Items */}
+                    <div style={{ background: "#06040e", padding: "0 20px" }}>
+                      <PhoneItem name="Handkäs' mit Musik" desc="Hessischer Klassiker mit Zwiebeln" price="9,90 €" tag={{ label: "Vegetarisch", color: "#c084fc", bg: "rgba(147,51,234,0.15)", border: "rgba(147,51,234,0.3)" }} />
+                      <PhoneItem name="Grüne Soße" desc="7 Kräuter, Ei, Kartoffeln" price="12,50 €" tag={{ label: "Vegan", color: "#4ade80", bg: "rgba(74,222,128,0.1)", border: "rgba(74,222,128,0.25)" }} />
+                      <PhoneItem name="Schnitzel Wiener Art" desc="Paniertes Kalbsschnitzel, Preiselb." price="19,80 €" />
+                      <PhoneItem name="Tafelspitz" desc="Gekochtes Rindfleisch, Meerrettich" price="22,50 €" />
+                      <PhoneItem name="Zwiebelrostbraten" desc="Röstzwiebeln, Bratkartoffeln" price="21,80 €" tag={{ label: "🌶 Scharf", color: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.25)" }} last />
+                    </div>
+                    {/* Bottom Nav */}
+                    <div style={{ background: "#0d0820", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "10px 20px", display: "flex", justifyContent: "space-around", alignItems: "center" }}>
+                      {[
+                        { active: true, label: "Karte", svg: <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /> },
+                        { active: false, label: "Merkliste", svg: <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /> },
+                        { active: false, label: "Suche", svg: <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /> },
+                      ].map((it) => (
+                        <div key={it.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={it.active ? "#9333ea" : "rgba(255,255,255,0.3)"} strokeWidth={2}>{it.svg}</svg>
+                          <span style={{ fontSize: 8, color: it.active ? "#9333ea" : "rgba(255,255,255,0.3)", fontFamily: "var(--body)" }}>{it.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Home Indicator */}
+                    <div style={{ background: "#06040e", padding: "6px 0", display: "flex", justifyContent: "center" }}>
+                      <div style={{ width: 100, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 2 }} />
+                    </div>
+                  </div>
+
+                  {/* Floating Cards */}
+                  <div className="fc fc-1">
+                    <div className="fc-label">Scans heute</div>
+                    <div className="fc-value">73</div>
+                    <div className="fc-green">↑ +18% vs. gestern</div>
+                  </div>
+                  <div className="fc fc-2">
+                    <div className="fc-label">Top Gericht</div>
+                    <div className="fc-dish">Handkäs&apos; mit Musik</div>
+                    <div className="fc-dish-sub">184 Klicks diese Woche</div>
+                    <div className="fc-dish-price">9,90 €</div>
+                  </div>
+                  <div className="fc fc-3">
+                    <div className="fc-label">Verfügbar in</div>
+                    <div className="fc-lang">
+                      <span className="fc-flag">🇩🇪</span>
+                      <span className="fc-flag">🇬🇧</span>
+                      <span className="fc-flag">🇹🇷</span>
+                      <span className="fc-flag">🇸🇦</span>
+                    </div>
+                    <div className="fc-sub" style={{ marginTop: 6 }}>Automatisch erkannt</div>
+                  </div>
+                  <div className="fc fc-4">
+                    <div className="fc-label">Kein App-Download</div>
+                    <div className="fc-dish">QR scannen — fertig</div>
+                    <div className="fc-sub">iOS · Android · alle Browser</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* STATS */}
-          <section className="border-y border-white/10 px-4 py-24 sm:px-6">
-            <div className="mx-auto grid max-w-6xl grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-5">
-              {STATS.map((s) => (
-                <div
-                  key={s.value}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 sm:px-5 sm:py-6"
-                >
-                  <p className="text-3xl font-extrabold tracking-tight sm:text-4xl" style={{ color: CYAN }}>
-                    {s.value}
-                  </p>
-                  <p className="mt-3 text-xs leading-snug text-slate-400 sm:text-sm">{s.label}</p>
+        {/* HOW */}
+        <section id="how">
+          <div className="wrap">
+            <span className="sec-label">So einfach geht&apos;s</span>
+            <div className="sec-head"><h2>In 3 Schritten live</h2></div>
+            <div className="steps">
+              {[
+                { n: "01", h: "Speisekarte einreichen", p: "Schick uns deine Karte als PDF oder Foto. Wir bauen sie auf — du schaust zu." },
+                { n: "02", h: "QR-Code erhalten", p: "Du bekommst deinen persönlichen QR-Code. Einfach ausdrucken oder aufstellen." },
+                { n: "03", h: "Gäste scannen", p: "Gäste scannen, Speisekarte öffnet sich. Fertig. Kein App-Download, kein Login." },
+              ].map((s) => (
+                <div key={s.n} className="step">
+                  <div className="num">{s.n}</div>
+                  <h3>{s.h}</h3>
+                  <p>{s.p}</p>
                 </div>
               ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* BENEFITS */}
-          <section id="vorteile" className="px-4 py-24 sm:px-6">
-            <div className="mx-auto max-w-6xl">
-              <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">Alles was dein Restaurant braucht</h2>
-              <p className="mt-3 max-w-2xl text-slate-400">Mehr Umsatz, weniger Aufwand — für dich und deine Gäste.</p>
-              <ul className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
-                {BENEFITS.map(({ Icon, title, text }) => (
-                  <li
-                    key={title}
-                    className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-left backdrop-blur-sm transition hover:border-white/15 sm:p-7"
-                  >
-                    <Icon
-                      className="shrink-0"
-                      size={36}
-                      strokeWidth={1.75}
-                      aria-hidden
-                      style={{ color: CYAN }}
-                    />
-                    <h3 className="mt-4 text-lg font-bold text-white">{title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-400">{text}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
+        {/* FEATURES */}
+        <section id="features">
+          <div className="wrap">
+            <span className="sec-label">Funktionen</span>
+            <div className="sec-head"><h2>Alles was deine Gäste erwarten — und mehr</h2></div>
 
-          {/* VERGLEICH */}
-          <section className="px-4 py-24 sm:px-6">
-            <div className="mx-auto max-w-6xl">
-              <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">Andere kosten. Qrave nicht.</h2>
-              <p className="mt-3 text-slate-400">Transparent — ohne Kleingedrucktes.</p>
-              <div className="mt-12 grid gap-4 md:grid-cols-2 md:gap-6">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 sm:p-10">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Andere Anbieter</p>
-                  <ul className="mt-6 space-y-4 text-sm text-slate-400">
-                    <li>Ab ca. 360€ pro Jahr</li>
-                    <li>Monatliche Gebühren</li>
-                    <li>Oft Vertragsbindung</li>
-                  </ul>
+            <div className="feat-grid">
+              {/* Spalte links: 01 + 03 */}
+              <div className="feat-col">
+                {/* 01 KI */}
+                <div className="feat-card">
+                  <div className="feat-num">01</div>
+                  <span className="feat-tag">KI-Import</span>
+                  <div className="feat-title">Speisekarte importieren<br />in 60 Sekunden</div>
+                  <p className="feat-body">Foto oder PDF hochladen — die KI erkennt automatisch Kategorien, Gerichte und Preise. Kein Abtippen.</p>
+                  <div className="feat-vis">
+                    <div className="ki-input">
+                      <span className="ki-file">speisekarte.pdf</span>
+                      <span style={{ fontSize: 11, color: "var(--m40)" }}>wird analysiert</span>
+                      <span style={{ marginLeft: "auto", color: "#4ade80", fontSize: 13, opacity: kiCheck ? 1 : 0, transition: "opacity .3s" }}>✓ fertig</span>
+                    </div>
+                    <div className="ki-progress">
+                      <div className="ki-bar" style={{ width: `${kiPct}%` }} />
+                    </div>
+                    <div className="ki-result">
+                      <div className={`ki-row${kiRows[0] ? " show" : ""}`}><span>Handkäs&apos; mit Musik</span><span className="kp">6,90 €</span></div>
+                      <div className={`ki-row${kiRows[1] ? " show" : ""}`}><span>Grüne Soße</span><span className="kp">9,50 €</span></div>
+                      <div className={`ki-row${kiRows[2] ? " show" : ""}`}><span>Schnitzel</span><span className="kp">16,80 €</span></div>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-8 sm:p-10">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: MINT }}>
-                    Qrave
-                  </p>
-                  <ul className="mt-6 space-y-4 text-sm text-slate-200">
-                    <li className="flex items-center gap-3">
-                      <Check className="h-5 w-5 shrink-0" strokeWidth={2.5} style={{ color: MINT }} aria-hidden />
-                      0€ — immer
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <Check className="h-5 w-5 shrink-0" strokeWidth={2.5} style={{ color: MINT }} aria-hidden />
-                      Keine versteckten Gebühren
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <Check className="h-5 w-5 shrink-0" strokeWidth={2.5} style={{ color: MINT }} aria-hidden />
-                      Kein Vertrag
-                    </li>
-                  </ul>
+
+                {/* 03 Live */}
+                <div className="feat-card">
+                  <div className="feat-num">03</div>
+                  <span className="feat-tag">Echtzeit</span>
+                  <div className="feat-title">Änderungen sofort live —<br />kein Neudruck</div>
+                  <p className="feat-body">Preis anpassen, Gericht deaktivieren, neues Item hinzufügen — alles geht sofort live. Kein Warten, keine Druckkosten.</p>
+                  <div className="feat-vis">
+                    <div className="diff-card">
+                      <div className="diff-header">
+                        <span>Speisekarte</span>
+                        <div className="diff-badge"><span className="diff-dot" />live</div>
+                      </div>
+                      <div className="diff-rows">
+                        <div className="diff-row"><span>Handkäs&apos; mit Musik</span><span className="price">6,90 €</span></div>
+                        <div className={`diff-row${diffChanged ? " changed" : ""}`}>
+                          <span>Schnitzel</span>
+                          <span className="price">{diffChanged ? "17,50 €" : "16,80 €"}</span>
+                        </div>
+                        <div className="diff-row"><span>Grüne Soße</span><span className="price">9,50 €</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Spalte rechts: 02 + 04 */}
+              <div className="feat-col">
+                {/* 02 Lang */}
+                <div className="feat-card">
+                  <div className="feat-num">02</div>
+                  <span className="feat-tag">Mehrsprachig</span>
+                  <div className="feat-title">Deine Karte spricht<br />die Sprache deiner Gäste</div>
+                  <p className="feat-body">Automatisch auf Deutsch, Englisch, Türkisch und Arabisch — der Gast sieht seine Sprache, ohne etwas tun zu müssen.</p>
+                  <div className="feat-vis">
+                    <div className="lang-pills">
+                      {LANGS.map((l, i) => (
+                        <div key={l.label} className={`lang-pill${i === activeLang ? " active" : ""}`}>
+                          <span className="lang-flag">{l.flag}</span>
+                          <span>{l.label}</span>
+                          {i === activeLang && l.note ? <span className="lang-auto">{l.note}</span> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 04 Filter */}
+                <div className="feat-card">
+                  <div className="feat-num">04</div>
+                  <span className="feat-tag">Filter</span>
+                  <div className="feat-title">Allergene &amp; Diät-Filter<br />direkt in der Karte</div>
+                  <p className="feat-body">Gäste filtern selbst nach Vegan, Vegetarisch und Glutenfrei — keine Rückfragen, keine Missverständnisse.</p>
+                  <div className="feat-vis">
+                    <div className="filter-row">
+                      {[
+                        { tag: "vegan", label: "Vegan" },
+                        { tag: "veg", label: "Vegetarisch" },
+                        { tag: "gluten", label: "Glutenfrei" },
+                      ].map((c) => (
+                        <div
+                          key={c.tag}
+                          className={`fchip${filters.has(c.tag) ? " on" : ""}`}
+                          onClick={() => toggleFilter(c.tag)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleFilter(c.tag); }}
+                        >
+                          {c.label}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="filter-result">
+                      {FILTER_ITEMS.map((it) => {
+                        const show = filters.size === 0 || it.tags.some((t) => filters.has(t));
+                        return (
+                          <div key={it.name} className={`fitem${show ? "" : " hidden"}`}>
+                            <span>{it.name}</span>
+                            <span className="fprice">{it.price}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </section>
 
-          {/* SCHRITTE */}
-          <section className="border-t border-white/10 bg-white/[0.02] px-4 py-24 sm:px-6">
-            <div className="mx-auto max-w-6xl">
-              <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">In 3 Schritten live</h2>
-              <ol className="mt-14 grid gap-6 md:grid-cols-3 md:gap-8">
-                {[
-                  {
-                    n: "1",
-                    title: "Wir kommen zu dir",
-                    text: "Wir richten deine digitale Karte kostenlos ein.",
-                  },
-                  {
-                    n: "2",
-                    title: "QR-Code an den Tisch",
-                    text: "Gäste scannen und sehen sofort dein Menü.",
-                  },
-                  {
-                    n: "3",
-                    title: "Fertig",
-                    text: "Änderungen jederzeit selbst vornehmen.",
-                  },
-                ].map((step) => (
-                  <li
-                    key={step.n}
-                    className="flex flex-col gap-5 rounded-3xl border border-white/10 bg-[#050508] p-8 sm:p-10 md:p-12"
-                  >
-                    <div
-                      className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 text-2xl font-black tracking-tight sm:h-24 sm:w-24 sm:text-3xl"
-                      style={{
-                        borderColor: "rgba(0,194,255,0.45)",
-                        background: `linear-gradient(145deg, rgba(0,194,255,0.18) 0%, rgba(255,92,26,0.12) 100%)`,
-                        color: CYAN,
-                        boxShadow: "0 0 48px rgba(0,194,255,0.12)",
-                      }}
-                    >
-                      {step.n}
+            {/* 05 Special — full width */}
+            <div className="feat-card" style={{ marginTop: 14 }}>
+              <div className="feat-num">05</div>
+              <span className="feat-tag">Tages-Special</span>
+              <div className="feat-title">Tagesangebot in Sekunden live schalten</div>
+              <p className="feat-body">Tipp direkt im Dashboard was heute besonders ist — erscheint sofort als Banner oben in der Karte deiner Gäste.</p>
+              <div className="feat-vis" style={{ maxWidth: 480 }}>
+                <div className="special-card">
+                  <div className="special-eyebrow">✦ Tages-Special · heute</div>
+                  <div className="special-name">
+                    {specialName}
+                    {!specialPriceShown ? <span className="special-cursor" /> : null}
+                  </div>
+                  <div className="special-desc">Frisch zubereitet · nur heute</div>
+                  <div className="special-price">{specialPriceShown ? SPECIALS[specialIdx % SPECIALS.length].price : ""}</div>
+                  <div className="special-badge"><span className="diff-dot" />live in deiner Karte</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* DASHBOARD SECTION */}
+        <section className="dash-section">
+          <div className="wrap">
+            <div className="dash-layout">
+              <div className="dash-copy">
+                <span className="sec-label" style={{ textAlign: "left" }}>Dashboard</span>
+                <h2>Dein Restaurant in Zahlen — in Echtzeit</h2>
+                <p>Mit dem Qrave Dashboard siehst du auf einen Blick wie deine Gäste mit deiner Karte interagieren. Welche Gerichte am beliebtesten sind, wann der Peak kommt — kostenlos inklusive.</p>
+                <div className="dash-features">
+                  {[
+                    { icon: "📈", title: "Scans in Echtzeit", text: "Sieh wann und wie oft deine Karte geöffnet wird — nach Tag und Tageszeit." },
+                    { icon: "🍽️", title: "Meistgeklickte Gerichte", text: "Welche Gerichte deine Gäste am meisten interessieren — täglich aktuell." },
+                    { icon: "⏰", title: "Peak-Zeiten", text: "Morgen, Mittag, Abend oder Nacht — du weißt wann es voll wird." },
+                    { icon: "🥗", title: "Tages-Special & Mittagsangebot", text: "Verwalte Tagesangebote direkt im Dashboard — sofort live." },
+                  ].map((f) => (
+                    <div key={f.title} className="dash-feat">
+                      <div className="dash-feat-icon">{f.icon}</div>
+                      <div className="dash-feat-text">
+                        <strong>{f.title}</strong>
+                        <span>{f.text}</span>
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="dash-ui">
+                <div className="dash-card">
+                  <div className="dui-top">
                     <div>
-                      <h3 className="text-xl font-bold">{step.title}</h3>
-                      <p className="mt-3 text-sm leading-relaxed text-slate-400 sm:text-base">{step.text}</p>
+                      <div className="dui-greeting">Guten Abend, <span>Frankfurter Wirtshaus</span></div>
+                      <div className="dui-date">{todayString}</div>
                     </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </section>
+                    <div className="dui-live"><span className="dui-live-dot" />Live</div>
+                  </div>
 
-          {/* KONTAKT */}
-          <section id="kontakt" className="scroll-mt-20 px-4 py-24 sm:px-6">
-            <div className="mx-auto max-w-6xl">
-              <div className="max-w-xl">
-              <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">Bereit? Wir melden uns innerhalb von 24 Stunden.</h2>
-              <p className="mt-3 text-slate-400">Fülle das Formular aus — unverbindlich und kostenlos.</p>
+                  <div className="dui-kpis">
+                    <div className="dui-kpi">
+                      <div className="dui-kpi-label">Scans heute</div>
+                      <div className="dui-kpi-val">{scanTicker}</div>
+                      <div className="dui-kpi-delta">↑ +18% vs. gestern</div>
+                    </div>
+                    <div className="dui-kpi">
+                      <div className="dui-kpi-label">Diese Woche</div>
+                      <div className="dui-kpi-val">846</div>
+                      <div className="dui-kpi-delta">Mo–So</div>
+                    </div>
+                    <div className="dui-kpi">
+                      <div className="dui-kpi-label">Stärkster Tag</div>
+                      <div className="dui-kpi-val" style={{ fontSize: 18, marginTop: 4 }}>Sa</div>
+                      <div className="dui-kpi-delta" style={{ color: "var(--m40)" }}>184 Scans</div>
+                    </div>
+                  </div>
 
-              <form className="mt-10 space-y-4" onSubmit={onSubmitContact}>
-                <div>
-                  <label htmlFor="contact-name" className="mb-1.5 block text-sm font-semibold text-slate-300">
-                    Name <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    id="contact-name"
-                    name="name"
-                    type="text"
-                    required
-                    autoComplete="name"
-                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white outline-none ring-cyan-400/40 placeholder:text-slate-500 focus:border-cyan-400/50 focus:ring-2"
-                    placeholder="Dein Name"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="contact-restaurant"
-                    className="mb-1.5 block text-sm font-semibold text-slate-300"
-                  >
-                    Restaurant-Name <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    id="contact-restaurant"
-                    name="restaurant_name"
-                    type="text"
-                    required
-                    autoComplete="organization"
-                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white outline-none ring-cyan-400/40 placeholder:text-slate-500 focus:border-cyan-400/50 focus:ring-2"
-                    placeholder="Name deines Lokals"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="contact-phone" className="mb-1.5 block text-sm font-semibold text-slate-300">
-                    Telefon <span className="text-slate-500">(optional)</span>
-                  </label>
-                  <input
-                    id="contact-phone"
-                    name="telefon"
-                    type="tel"
-                    autoComplete="tel"
-                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white outline-none ring-cyan-400/40 placeholder:text-slate-500 focus:border-cyan-400/50 focus:ring-2"
-                    placeholder="+49 …"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="contact-msg" className="mb-1.5 block text-sm font-semibold text-slate-300">
-                    Nachricht <span className="text-slate-500">(optional)</span>
-                  </label>
-                  <textarea
-                    id="contact-msg"
-                    name="nachricht"
-                    rows={4}
-                    className="w-full resize-y rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white outline-none ring-cyan-400/40 placeholder:text-slate-500 focus:border-cyan-400/50 focus:ring-2"
-                    placeholder="Wie können wir helfen?"
-                  />
-                </div>
+                  <div className="dui-chart-card">
+                    <div className="dui-chart-header">
+                      <div>
+                        <div className="dui-chart-title">Scans · letzte 7 Tage</div>
+                        <div className="dui-chart-total">846</div>
+                        <div className="dui-chart-sub">Unique Sessions</div>
+                      </div>
+                      <div className="dui-range">
+                        {(["7", "30", "monat"] as const).map((k) => (
+                          <span
+                            key={k}
+                            className={`dui-pill${rangePill === k ? " active" : ""}`}
+                            onClick={() => setRangePill(k)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setRangePill(k); }}
+                          >
+                            {k === "7" ? "7 Tage" : k === "30" ? "30 Tage" : "Monat"}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <svg className="dui-svg" viewBox={`0 0 ${chart.W} ${chart.H}`} preserveAspectRatio="none">
+                      <defs>
+                        <filter id="lg">
+                          <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#9333ea" floodOpacity="0.8" />
+                          <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#9333ea" floodOpacity="0.4" />
+                        </filter>
+                      </defs>
+                      <line x1="0" y1={chart.avgY} x2={chart.W} y2={chart.avgY} stroke="#fff" strokeOpacity="0.12" strokeWidth="1" strokeDasharray="4,4" />
+                      <path d={chart.path} fill="none" stroke="#9333ea" strokeWidth="2" filter="url(#lg)" />
+                      {chart.pts.map((p, i) => (
+                        <circle key={i} cx={p.x} cy={p.y} r="3" fill="#9333ea" filter="url(#lg)" />
+                      ))}
+                    </svg>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                      {[0, 3, 6].map((i) => (
+                        <span key={i} style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontFamily: "var(--body)" }}>
+                          {WEEK_DAYS[i]}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
 
-                {formStatus === "error" && formError ? (
-                  <p className="text-sm font-medium text-red-400" role="alert">
-                    {formError}
-                  </p>
-                ) : null}
-                {formStatus === "success" ? (
-                  <p className="text-sm font-medium" style={{ color: MINT }}>
-                    Danke! Wir melden uns bald bei dir.
-                  </p>
-                ) : null}
-
-                <button
-                  type="submit"
-                  disabled={formStatus === "loading"}
-                  className="w-full rounded-full bg-white py-3.5 text-sm font-bold text-black transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
-                >
-                  {formStatus === "loading" ? "Wird gesendet…" : "Kostenlos anfragen →"}
-                </button>
-              </form>
+                  <div className="dui-items-row">
+                    <div className="dui-items-card">
+                      <div className="dui-items-title">Top Gerichte</div>
+                      {TOP_GERICHTE.map((g) => (
+                        <div key={g.name} className="dui-item">
+                          <span className="dui-item-name">{g.name}</span>
+                          <span className="dui-item-val">{g.val}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="dui-items-card">
+                      <div className="dui-items-title">Peak-Zeiten</div>
+                      {PEAK_ZEITEN.map((p) => (
+                        <div key={p.name} className="dui-item">
+                          <span className="dui-item-name">{p.name}</span>
+                          <span className="dui-item-val">{p.val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </section>
-        </main>
+          </div>
+        </section>
 
-        <footer className="border-t border-white/10 px-4 py-10 sm:px-6">
-          <div className="mx-auto flex max-w-6xl flex-col gap-3 text-left text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-            <p>© {new Date().getFullYear()} Qrave · Digitale Speisekarte</p>
-            <nav className="flex gap-5">
-              <Link
-                href="/impressum"
-                className="underline-offset-4 transition-colors hover:text-white hover:underline"
-              >
-                Impressum
+        {/* PRICING */}
+        <section className="pricing">
+          <div className="wrap">
+            <div className="pricing-card">
+              <span className="pricing-badge">100% Kostenlos</span>
+              <h2>Kein Haken. Kein Abo. Keine versteckten Kosten.</h2>
+              <p className="body">Qrave ist und bleibt kostenlos für Restaurants. Punkt.</p>
+              <div className="pricing-checks">
+                <span><span className="ok">✓</span> Kostenlose Einrichtung</span>
+                <span><span className="ok">✓</span> Kostenlose Updates</span>
+                <span><span className="ok">✓</span> Kostenlos für immer</span>
+              </div>
+              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                Jetzt starten <span className="arr">→</span>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section id="faq">
+          <div className="wrap">
+            <span className="sec-label">Häufige Fragen</span>
+            <div className="sec-head"><h2>Alles, was du wissen musst</h2></div>
+            <div className="faq-list">
+              {FAQS.map((f, i) => (
+                <div key={i} className={`faq-item${faqOpen === i ? " open" : ""}`}>
+                  <button
+                    className="faq-q"
+                    onClick={() => setFaqOpen((o) => (o === i ? null : i))}
+                  >
+                    {f.q}
+                    <span className="plus">+</span>
+                  </button>
+                  <div className="faq-a">
+                    <div className="faq-a-inner">{f.a}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* FOOTER */}
+        <footer>
+          <div className="foot-inner">
+            <div className="left">
+              <Link href="/" className="logo" style={{ fontSize: 16 }}>
+                <span className="dot" />
+                qrave
               </Link>
-              <Link
-                href="/datenschutz"
-                className="underline-offset-4 transition-colors hover:text-white hover:underline"
-              >
-                Datenschutz
-              </Link>
-            </nav>
+              <span>© {new Date().getFullYear()} Qrave</span>
+            </div>
+            <div className="right">
+              <a href={WHATSAPP_SUPPORT} target="_blank" rel="noopener noreferrer" style={{ color: "#c084fc" }}>
+                💬 WhatsApp Support
+              </a>
+              <Link href="/impressum">Impressum</Link>
+              <Link href="/datenschutz">Datenschutz</Link>
+            </div>
           </div>
         </footer>
+      </div>
+    </main>
+  );
+}
+
+/* ---------- Phone Item Helper ---------- */
+function PhoneItem({
+  name,
+  desc,
+  price,
+  tag,
+  last = false,
+}: {
+  name: string;
+  desc: string;
+  price: string;
+  tag?: { label: string; color: string; bg: string; border: string };
+  last?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        padding: "12px 0",
+        borderBottom: last ? "none" : "1px solid rgba(255,255,255,0.05)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: 10,
+      }}
+    >
+      <div>
+        <div style={{ fontFamily: "var(--body)", fontWeight: 500, fontSize: 12, color: "#fff" }}>{name}</div>
+        <div style={{ fontFamily: "var(--body)", fontSize: 10, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>{desc}</div>
+        {tag ? (
+          <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+            <span
+              style={{
+                fontSize: 8,
+                padding: "2px 6px",
+                borderRadius: 4,
+                background: tag.bg,
+                border: `1px solid ${tag.border}`,
+                color: tag.color,
+                fontFamily: "var(--body)",
+              }}
+            >
+              {tag.label}
+            </span>
+          </div>
+        ) : null}
+      </div>
+      <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 12, color: "#a855f7", whiteSpace: "nowrap", marginTop: 1 }}>
+        {price}
       </div>
     </div>
   );
