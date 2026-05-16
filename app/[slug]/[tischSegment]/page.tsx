@@ -4,23 +4,11 @@ import { supabase } from "@/lib/supabase";
 import { loadPublicSpeisekarteBySlug } from "@/lib/load-public-speisekarte";
 import { loadSponsoredItems } from "@/lib/speisekarte-logic";
 import type { SpeisekarteProps } from "@/components/speisekarte";
-import BarSoleilTemplate from "@/components/templates/BarSoleil";
-import KioskNo7Template from "@/components/templates/KioskNo7";
-import CompoundCafeTemplate from "@/components/templates/CompoundCafe";
-import NamiSushiTemplate from "@/components/templates/NamiSushi";
-import DaMarioTemplate from "@/components/templates/DaMario";
-import RootsTemplate from "@/components/templates/RootsPlantKitchen";
 import FrankfurterWirtshausTemplate from "@/components/templates/FrankfurterWirtshaus";
 
 export const runtime = "nodejs";
 
 const templateMap: Record<string, ComponentType<SpeisekarteProps>> = {
-  "bar-soleil": BarSoleilTemplate,
-  "kiosk-no7": KioskNo7Template,
-  "compound-cafe": CompoundCafeTemplate,
-  "nami-sushi": NamiSushiTemplate,
-  "da-mario": DaMarioTemplate,
-  roots: RootsTemplate,
   "frankfurter-wirtshaus": FrankfurterWirtshausTemplate,
 };
 
@@ -117,8 +105,8 @@ export default async function TischSpeisekartePage({
     lunchOffers: data.lunchOffers,
   };
 
-  const templateKey = (data.restaurant.template ?? "bar-soleil") as string;
-  const TemplateComponent = templateMap[templateKey] ?? templateMap["bar-soleil"];
+  const templateKey = (data.restaurant.template ?? "frankfurter-wirtshaus") as string;
+  const TemplateComponent = templateMap[templateKey] ?? templateMap["frankfurter-wirtshaus"];
 
   return <TemplateComponent {...templateProps} />;
 }

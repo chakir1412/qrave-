@@ -1,10 +1,5 @@
 export const TEMPLATE_CARDS = [
-  { id: "bar-soleil", label: "Bar Soleil", icon: "🖤" },
-  { id: "kiosk-no7", label: "KIOSK No.7", icon: "🟡" },
-  { id: "compound-cafe", label: "COMPOUND Café", icon: "🟤" },
-  { id: "nami-sushi", label: "NAMI Sushi", icon: "🪵" },
-  { id: "da-mario", label: "DA MARIO", icon: "🍕" },
-  { id: "roots", label: "ROOTS", icon: "🌿" },
+  { id: "frankfurter-wirtshaus", label: "Frankfurter Wirtshaus", icon: "🍺" },
 ] as const;
 
 /** Tailwind/CSS-Klasse für Glass-Cards (siehe globals.css) */
