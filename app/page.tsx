@@ -217,11 +217,15 @@ export default function Home() {
     };
   }, [specialIdx]);
 
-  /* ────── Dashboard: Scan-Counter Ticker + Datum ────── */
-  /* ────── Dashboard IntersectionObserver — Trigger für alle Dash-Animations ────── */
+  /* ────── Dashboard IntersectionObserver ──────
+   *  dashEverVisible: einmaliger true→bleibt (für one-time-Animations:
+   *    initial Ticker, Chart-Linien-Zeichnung, Row-Reveal)
+   *  dashVisible: toggle (für Live-Increment-Intervalle: pausieren
+   *    wenn Section out of viewport, resumen bei Re-Entry) */
   const dashRef = useRef<HTMLDivElement | null>(null);
   const chartPathRef = useRef<SVGPathElement | null>(null);
   const [dashVisible, setDashVisible] = useState(false);
+  const [dashEverVisible, setDashEverVisible] = useState(false);
 
   useEffect(() => {
     const el = dashRef.current;
@@ -231,7 +235,9 @@ export default function Home() {
         for (const e of entries) {
           if (e.isIntersecting) {
             setDashVisible(true);
-            obs.unobserve(e.target);
+            setDashEverVisible(true);
+          } else {
+            setDashVisible(false);
           }
         }
       },
@@ -241,9 +247,12 @@ export default function Home() {
     return () => obs.disconnect();
   }, []);
 
+  /* Initial Scan-Counter Ticker (0 → 73, ease-out cubic). Läuft genau
+   * einmal, danach übernimmt der Live-Interval. */
   const [scanTicker, setScanTicker] = useState(0);
+  const [tickerDone, setTickerDone] = useState(false);
   useEffect(() => {
-    if (!dashVisible) return;
+    if (!dashEverVisible || tickerDone) return;
     const target = 73;
     const duration = 1500;
     const start = performance.now();
@@ -252,25 +261,81 @@ export default function Home() {
       const progress = Math.min((now - start) / duration, 1);
       const ease = 1 - Math.pow(1 - progress, 3);
       setScanTicker(Math.round(target * ease));
-      if (progress < 1) raf = requestAnimationFrame(tick);
+      if (progress < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        setTickerDone(true);
+      }
     }
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [dashVisible]);
+  }, [dashEverVisible, tickerDone]);
 
-  /* Chart: Pfad zeichnet sich von links nach rechts via stroke-dashoffset. */
+  /* Live-Increment "Scans heute": alle 3-8s +1, max 200. Pausiert
+   * automatisch wenn Section out of viewport (dashVisible=false). */
+  const scanLiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!dashVisible) return;
+    if (!dashVisible || !tickerDone) return;
+    let cancelled = false;
+    function schedule() {
+      if (cancelled) return;
+      const delay = 3000 + Math.random() * 5000;
+      scanLiveTimerRef.current = setTimeout(() => {
+        setScanTicker((v) => Math.min(v + 1, 200));
+        schedule();
+      }, delay);
+    }
+    schedule();
+    return () => {
+      cancelled = true;
+      if (scanLiveTimerRef.current) clearTimeout(scanLiveTimerRef.current);
+    };
+  }, [dashVisible, tickerDone]);
+
+  /* Live-Increment Top-Gerichte + Peak-Zeiten: alle 5-12s wird je ein
+   * zufälliges Gericht und ein zufälliges Peak-Zeit-Bucket um 1
+   * hochgezählt. Bar-Width recomputed automatisch via render. */
+  const [topGerichteLive, setTopGerichteLive] = useState<number[]>(() =>
+    TOP_GERICHTE.map((g) => g.val),
+  );
+  const [peakZeitenLive, setPeakZeitenLive] = useState<number[]>(() =>
+    PEAK_ZEITEN.map((p) => p.val),
+  );
+  const dishLiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!dashVisible || !tickerDone) return;
+    let cancelled = false;
+    function schedule() {
+      if (cancelled) return;
+      const delay = 5000 + Math.random() * 7000;
+      dishLiveTimerRef.current = setTimeout(() => {
+        const dishIdx = Math.floor(Math.random() * TOP_GERICHTE.length);
+        const peakIdx = Math.floor(Math.random() * PEAK_ZEITEN.length);
+        setTopGerichteLive((arr) => arr.map((v, i) => (i === dishIdx ? v + 1 : v)));
+        setPeakZeitenLive((arr) => arr.map((v, i) => (i === peakIdx ? v + 1 : v)));
+        schedule();
+      }, delay);
+    }
+    schedule();
+    return () => {
+      cancelled = true;
+      if (dishLiveTimerRef.current) clearTimeout(dishLiveTimerRef.current);
+    };
+  }, [dashVisible, tickerDone]);
+
+  /* Chart: Pfad zeichnet sich von links nach rechts via stroke-dashoffset.
+   * Einmalig nach dem ersten Sichtbarwerden. */
+  useEffect(() => {
+    if (!dashEverVisible) return;
     const p = chartPathRef.current;
     if (!p) return;
     const len = p.getTotalLength();
     p.style.strokeDasharray = `${len}`;
     p.style.strokeDashoffset = `${len}`;
-    // Reflow erzwingen, sonst greift die Transition nicht.
     void p.getBoundingClientRect();
     p.style.transition = "stroke-dashoffset 1.2s ease-in-out";
     p.style.strokeDashoffset = "0";
-  }, [dashVisible]);
+  }, [dashEverVisible]);
 
   const [todayString, setTodayString] = useState("");
   useEffect(() => {
@@ -923,7 +988,7 @@ export default function Home() {
                     </div>
                     <div className="dui-kpi">
                       <div className="dui-kpi-label">Diese Woche</div>
-                      <div className="dui-kpi-val">846</div>
+                      <div className="dui-kpi-val">{Math.min(Math.round(scanTicker * 11.5), 1200)}</div>
                       <div className="dui-kpi-delta">Mo–So</div>
                     </div>
                     <div className="dui-kpi">
@@ -937,7 +1002,7 @@ export default function Home() {
                     <div className="dui-chart-header">
                       <div>
                         <div className="dui-chart-title">Scans · letzte 7 Tage</div>
-                        <div className="dui-chart-total">846</div>
+                        <div className="dui-chart-total">{Math.min(Math.round(scanTicker * 11.5), 1200)}</div>
                         <div className="dui-chart-sub">Unique Sessions</div>
                       </div>
                       <div className="dui-range">
@@ -990,34 +1055,34 @@ export default function Home() {
                       {TOP_GERICHTE.map((g, i) => (
                         <div
                           key={g.name}
-                          className={`dui-item dui-row-anim${dashVisible ? " show" : ""}`}
+                          className={`dui-item dui-row-anim${dashEverVisible ? " show" : ""}`}
                           style={{ transitionDelay: `${i * 120}ms` }}
                         >
                           <span className="dui-item-name">{g.name}</span>
-                          <span className="dui-item-val">{g.val}</span>
+                          <span className="dui-item-val">{topGerichteLive[i]}</span>
                         </div>
                       ))}
                     </div>
                     <div className="dui-items-card">
                       <div className="dui-items-title">Peak-Zeiten</div>
                       {PEAK_ZEITEN.map((p, i) => {
-                        const max = Math.max(...PEAK_ZEITEN.map((x) => x.val));
-                        const pct = Math.round((p.val / max) * 100);
+                        const max = Math.max(...peakZeitenLive);
+                        const pct = Math.round((peakZeitenLive[i] / max) * 100);
                         return (
                           <div
                             key={p.name}
-                            className={`dui-item dui-item-stack dui-row-anim${dashVisible ? " show" : ""}`}
+                            className={`dui-item dui-item-stack dui-row-anim${dashEverVisible ? " show" : ""}`}
                             style={{ transitionDelay: `${i * 120}ms` }}
                           >
                             <div className="dui-item-top">
                               <span className="dui-item-name">{p.name}</span>
-                              <span className="dui-item-val">{p.val}</span>
+                              <span className="dui-item-val">{peakZeitenLive[i]}</span>
                             </div>
                             <div className="dui-bar">
                               <div
                                 className="dui-bar-fill"
                                 style={{
-                                  width: dashVisible ? `${pct}%` : "0%",
+                                  width: dashEverVisible ? `${pct}%` : "0%",
                                   transitionDelay: `${i * 120 + 200}ms`,
                                 }}
                               />
