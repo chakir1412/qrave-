@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { dash, dashPrimaryButtonStyle } from "../constants";
 import { TemplatePreview, type PreviewTemplateId } from "../templatePreviews";
 
@@ -33,6 +33,17 @@ type Props = {
 export function DesignTab({ slideClass, template, onTemplateChange, onToast }: Props) {
   const [preview, setPreview] = useState<TemplateOption | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /** Modal-Open: scroll smooth to top + body lock. Cleanup setzt overflow
+   *  zurück, auch wenn Component unmountet während Modal offen ist. */
+  useEffect(() => {
+    if (!preview) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [preview]);
 
   async function applyTemplate() {
     if (!preview || saving) return;
