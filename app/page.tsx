@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const WHATSAPP =
-  "https://wa.me/491738996449?text=Hallo%2C%20ich%20m%C3%B6chte%20Qrave%20f%C3%BCr%20mein%20Restaurant%20testen.";
 const WHATSAPP_SUPPORT =
   "https://wa.me/491738996449?text=Hallo%2C%20ich%20habe%20eine%20Frage%20zu%20Qrave.";
 
@@ -684,9 +682,9 @@ export default function Home() {
               <a href="#how" className="nav-link">So funktioniert&apos;s</a>
               <a href="#features" className="nav-link">Funktionen</a>
               <Link href="/login" className="nav-link">Anmelden</Link>
-              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm">
+              <Link href="/registrieren" className="btn btn-primary btn-sm">
                 Kostenlos starten <span className="arr">→</span>
-              </a>
+              </Link>
             </div>
           </div>
         </nav>
@@ -708,9 +706,9 @@ export default function Home() {
                   Wir bauen deine digitale Speisekarte auf — kostenlos, in 24 Stunden. Deine Gäste scannen, du siehst was sie interessiert.
                 </p>
                 <div className="hero-ctas">
-                  <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                  <Link href="/registrieren" className="btn btn-primary">
                     Jetzt kostenlos starten <span className="arr">→</span>
-                  </a>
+                  </Link>
                   <Link href="/frankfurter-wirtshaus" className="btn btn-ghost">
                     Demo ansehen →
                   </Link>
@@ -1110,9 +1108,9 @@ export default function Home() {
                 <span><span className="ok">✓</span> Kostenlose Updates</span>
                 <span><span className="ok">✓</span> Kostenlos für immer</span>
               </div>
-              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+              <Link href="/registrieren" className="btn btn-primary">
                 Jetzt starten <span className="arr">→</span>
-              </a>
+              </Link>
             </div>
           </div>
         </section>
