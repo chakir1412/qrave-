@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const WHATSAPP =
   "https://wa.me/491738996449?text=Hallo%2C%20ich%20m%C3%B6chte%20Qrave%20f%C3%BCr%20mein%20Restaurant%20testen.";
@@ -200,10 +200,34 @@ export default function Home() {
   }, [specialIdx]);
 
   /* ────── Dashboard: Scan-Counter Ticker + Datum ────── */
+  /* ────── Dashboard IntersectionObserver — Trigger für alle Dash-Animations ────── */
+  const dashRef = useRef<HTMLDivElement | null>(null);
+  const chartPathRef = useRef<SVGPathElement | null>(null);
+  const [dashVisible, setDashVisible] = useState(false);
+
+  useEffect(() => {
+    const el = dashRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            setDashVisible(true);
+            obs.unobserve(e.target);
+          }
+        }
+      },
+      { threshold: 0.3 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   const [scanTicker, setScanTicker] = useState(0);
   useEffect(() => {
+    if (!dashVisible) return;
     const target = 73;
-    const duration = 1400;
+    const duration = 1500;
     const start = performance.now();
     let raf = 0;
     function tick(now: number) {
@@ -214,7 +238,21 @@ export default function Home() {
     }
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [dashVisible]);
+
+  /* Chart: Pfad zeichnet sich von links nach rechts via stroke-dashoffset. */
+  useEffect(() => {
+    if (!dashVisible) return;
+    const p = chartPathRef.current;
+    if (!p) return;
+    const len = p.getTotalLength();
+    p.style.strokeDasharray = `${len}`;
+    p.style.strokeDashoffset = `${len}`;
+    // Reflow erzwingen, sonst greift die Transition nicht.
+    void p.getBoundingClientRect();
+    p.style.transition = "stroke-dashoffset 1.2s ease-in-out";
+    p.style.strokeDashoffset = "0";
+  }, [dashVisible]);
 
   const [todayString, setTodayString] = useState("");
   useEffect(() => {
@@ -429,7 +467,17 @@ export default function Home() {
         .dui-greeting span { color:var(--purple-3); }
         .dui-date { font-family:var(--body); font-size:11px; color:var(--m40); }
         .dui-live { display:flex; align-items:center; gap:6px; font-family:var(--body); font-size:11px; color:#4ade80; background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3); border-radius:999px; padding:4px 10px; }
-        .dui-live-dot { width:5px; height:5px; border-radius:50%; background:#4ade80; animation:livepulse 1.6s infinite; }
+        .dui-live-dot { width:5px; height:5px; border-radius:50%; background:#4ade80; animation:qDotPulse 1.5s infinite; }
+        @keyframes qDotPulse {
+          0% { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); }
+          100% { box-shadow: 0 0 0 6px rgba(74,222,128,0); }
+        }
+        .dui-row-anim { opacity:0; transform:translateY(8px); transition:opacity .5s ease, transform .5s ease; }
+        .dui-row-anim.show { opacity:1; transform:translateY(0); }
+        .dui-item-stack { flex-direction:column; align-items:stretch; gap:4px; }
+        .dui-item-top { display:flex; justify-content:space-between; align-items:center; width:100%; }
+        .dui-bar { height:2px; background:rgba(255,255,255,0.06); border-radius:999px; overflow:hidden; }
+        .dui-bar-fill { height:100%; background:linear-gradient(90deg,var(--purple),var(--purple-3)); border-radius:999px; transition:width .8s ease-out; }
 
         .dui-kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
         .dui-kpi { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:12px; }
@@ -872,7 +920,7 @@ export default function Home() {
               </div>
 
               <div className="dash-ui">
-                <div className="dash-card">
+                <div className="dash-card" ref={dashRef}>
                   <div className="dui-top">
                     <div>
                       <div className="dui-greeting">Guten Abend, <span>Frankfurter Wirtshaus</span></div>
@@ -929,7 +977,14 @@ export default function Home() {
                         </filter>
                       </defs>
                       <line x1="0" y1={chart.avgY} x2={chart.W} y2={chart.avgY} stroke="#fff" strokeOpacity="0.12" strokeWidth="1" strokeDasharray="4,4" />
-                      <path d={chart.path} fill="none" stroke="#9333ea" strokeWidth="2" filter="url(#lg)" />
+                      <path
+                        ref={chartPathRef}
+                        d={chart.path}
+                        fill="none"
+                        stroke="#9333ea"
+                        strokeWidth="2"
+                        filter="url(#lg)"
+                      />
                       {chart.pts.map((p, i) => (
                         <circle key={i} cx={p.x} cy={p.y} r="3" fill="#9333ea" filter="url(#lg)" />
                       ))}
@@ -946,8 +1001,12 @@ export default function Home() {
                   <div className="dui-items-row">
                     <div className="dui-items-card">
                       <div className="dui-items-title">Top Gerichte</div>
-                      {TOP_GERICHTE.map((g) => (
-                        <div key={g.name} className="dui-item">
+                      {TOP_GERICHTE.map((g, i) => (
+                        <div
+                          key={g.name}
+                          className={`dui-item dui-row-anim${dashVisible ? " show" : ""}`}
+                          style={{ transitionDelay: `${i * 120}ms` }}
+                        >
                           <span className="dui-item-name">{g.name}</span>
                           <span className="dui-item-val">{g.val}</span>
                         </div>
@@ -955,12 +1014,31 @@ export default function Home() {
                     </div>
                     <div className="dui-items-card">
                       <div className="dui-items-title">Peak-Zeiten</div>
-                      {PEAK_ZEITEN.map((p) => (
-                        <div key={p.name} className="dui-item">
-                          <span className="dui-item-name">{p.name}</span>
-                          <span className="dui-item-val">{p.val}</span>
-                        </div>
-                      ))}
+                      {PEAK_ZEITEN.map((p, i) => {
+                        const max = Math.max(...PEAK_ZEITEN.map((x) => x.val));
+                        const pct = Math.round((p.val / max) * 100);
+                        return (
+                          <div
+                            key={p.name}
+                            className={`dui-item dui-item-stack dui-row-anim${dashVisible ? " show" : ""}`}
+                            style={{ transitionDelay: `${i * 120}ms` }}
+                          >
+                            <div className="dui-item-top">
+                              <span className="dui-item-name">{p.name}</span>
+                              <span className="dui-item-val">{p.val}</span>
+                            </div>
+                            <div className="dui-bar">
+                              <div
+                                className="dui-bar-fill"
+                                style={{
+                                  width: dashVisible ? `${pct}%` : "0%",
+                                  transitionDelay: `${i * 120 + 200}ms`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
