@@ -337,8 +337,9 @@ export default function Home() {
         .btn-sm { padding:10px 16px; font-size:14px; border-radius:10px; }
 
         /* HERO */
-        .hero { padding:80px 0 0; position:relative; overflow:hidden; }
-        .hero-split { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; padding:20px 0 60px; }
+        .hero { padding:24px 0 0; position:relative; overflow:hidden; }
+        .hero-split { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; padding:0 0 24px; }
+        .hero + section { padding-top:48px; }
         .hero-copy { display:flex; flex-direction:column; align-items:flex-start; text-align:left; }
         .badge { display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; border:1px solid rgba(147,51,234,.4); background:rgba(147,51,234,.08); font-family:var(--body); font-size:13px; color:rgba(255,255,255,.85); margin-bottom:24px; }
         .badge .glyph { color:var(--purple-3); }
