@@ -5,11 +5,15 @@ import { loadPublicSpeisekarteBySlug } from "@/lib/load-public-speisekarte";
 import { loadSponsoredItems } from "@/lib/speisekarte-logic";
 import type { SpeisekarteProps } from "@/components/speisekarte";
 import HeritageTemplate from "@/components/templates/Heritage";
+import NoirTemplate from "@/components/templates/Noir";
+import CleanTemplate from "@/components/templates/Clean";
 
 export const runtime = "nodejs";
 
 const templateMap: Record<string, ComponentType<SpeisekarteProps>> = {
   heritage: HeritageTemplate,
+  noir: NoirTemplate,
+  clean: CleanTemplate,
 };
 
 function parseTischNummer(segment: string): number | null {

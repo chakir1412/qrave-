@@ -1,5 +1,7 @@
 export const TEMPLATE_CARDS = [
   { id: "heritage", label: "Heritage", icon: "" },
+  { id: "noir", label: "Noir", icon: "" },
+  { id: "clean", label: "Clean", icon: "" },
 ] as const;
 
 /** Tailwind/CSS-Klasse für Glass-Cards (siehe globals.css) */

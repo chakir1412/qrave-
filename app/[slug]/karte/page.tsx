@@ -6,9 +6,13 @@ import { loadSponsoredItems } from "@/lib/speisekarte-logic";
 import { detectLocale, localizeMenuItems, RTL_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
 import type { SpeisekarteProps } from "@/components/speisekarte";
 import HeritageTemplate from "@/components/templates/Heritage";
+import NoirTemplate from "@/components/templates/Noir";
+import CleanTemplate from "@/components/templates/Clean";
 
 const templateMap: Record<string, React.ComponentType<SpeisekarteProps>> = {
   heritage: HeritageTemplate,
+  noir: NoirTemplate,
+  clean: CleanTemplate,
 };
 
 export default async function SpeisekartePage({
