@@ -16,6 +16,7 @@ type NavItem =
 const DEFAULT_WIRT_NAV: NavItem[] = [
   { kind: "tab", key: "home", label: "Dashboard", icon: "fa-solid fa-house" },
   { kind: "tab", key: "karte", label: "Speisekarte", icon: "fa-solid fa-utensils" },
+  { kind: "tab", key: "design", label: "Design", icon: "fa-solid fa-palette" },
   { kind: "tab", key: "tische", label: "Tische", icon: "fa-solid fa-table-cells" },
 ];
 

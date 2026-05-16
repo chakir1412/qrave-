@@ -12,6 +12,7 @@ import { DashboardToast } from "./DashboardToast";
 import { HomeTab } from "./tabs/HomeTab";
 import { KarteTab } from "./tabs/KarteTab";
 import { TischeTab } from "./tabs/TischeTab";
+import { DesignTab } from "./tabs/DesignTab";
 import { EditItemOverlay } from "./overlays/EditItemOverlay";
 import { AddCategoryOverlay } from "./overlays/AddCategoryOverlay";
 import { PreviewPage } from "./pages/PreviewPage";
@@ -27,7 +28,8 @@ import { todayIsoDate } from "./utils";
 const TAB_ORDER: Record<DashboardTab, number> = {
   karte: 0,
   home: 1,
-  tische: 2,
+  design: 2,
+  tische: 3,
 };
 
 type DailyForm = {
@@ -245,7 +247,7 @@ export function DashboardApp({
     if (typeof window === "undefined") return;
     try {
       const tab = sessionStorage.getItem("qrave-dashboard-tab");
-      if (tab === "home" || tab === "karte" || tab === "tische") setActiveTab(tab);
+      if (tab === "home" || tab === "karte" || tab === "design" || tab === "tische") setActiveTab(tab);
       sessionStorage.removeItem("qrave-dashboard-tab");
 
       const sub = sessionStorage.getItem("qrave-karte-sub");
@@ -288,7 +290,7 @@ export function DashboardApp({
   }
 
   const topbarTitle =
-    activeTab === "karte" ? "Speisekarte" : activeTab === "tische" ? "Tische" : "Dashboard";
+    activeTab === "karte" ? "Speisekarte" : activeTab === "design" ? "Design" : activeTab === "tische" ? "Tische" : "Dashboard";
   const avatarLabel = (userFirstName.trim().charAt(0) || restaurant.name.charAt(0) || "Q").toUpperCase();
 
   return (
@@ -372,6 +374,12 @@ export function DashboardApp({
               guestNotiz={guestNotiz}
               onGuestNotizChange={setGuestNotiz}
               onSaveGuestNote={() => void handleSaveGuestNote()}
+            />
+          )}
+          {activeTab === "design" && (
+            <DesignTab
+              key="design-tab"
+              slideClass={slideClass}
               template={restaurant.template ?? null}
               onTemplateChange={async (key) => {
                 const { data, error } = await supabase
@@ -383,6 +391,7 @@ export function DashboardApp({
                 if (!data || data.length === 0) throw new Error("Keine Berechtigung zum Speichern");
                 setRestaurant((r) => ({ ...r, template: key }));
               }}
+              onToast={showToast}
             />
           )}
           {activeTab === "tische" && (

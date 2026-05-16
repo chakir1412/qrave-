@@ -28,9 +28,9 @@ export type DashboardRestaurant = Pick<
   auth_user_id?: string | null;
 };
 
-export type DashboardTab = "home" | "karte" | "tische";
+export type DashboardTab = "home" | "karte" | "design" | "tische";
 
-export type KarteSub = "menu" | "heute" | "lunch" | "notiz" | "design";
+export type KarteSub = "menu" | "heute" | "lunch" | "notiz";
 
 export type TischHeat = "hot" | "warm" | "cold" | "dead";
 
