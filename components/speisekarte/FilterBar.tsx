@@ -170,6 +170,80 @@ export default function FilterBar({
   );
 }
 
+export type AllergenSheetTheme = "light" | "dark" | "playful";
+
+type AllergenSheetThemeTokens = {
+  sheetBg: string;
+  sheetBorder: string;
+  text: string;
+  textMuted: string;
+  pillBg: string;
+  pillBorder: string;
+  pillText: string;
+  activeBg: string;
+  activeBorder: string;
+  activeText: string;
+  ctaBg: string;
+  ctaText: string;
+  hintBg: string;
+  hintText: string;
+  overlay: string;
+};
+
+const ALLERGEN_SHEET_THEMES: Record<AllergenSheetTheme, AllergenSheetThemeTokens> = {
+  light: {
+    sheetBg: "#ffffff",
+    sheetBorder: "#e8e4dc",
+    text: "#1a1916",
+    textMuted: "#9a948a",
+    pillBg: "#f5f4f0",
+    pillBorder: "#e8e4dc",
+    pillText: "#1a1916",
+    activeBg: "rgba(185,58,58,0.08)",
+    activeBorder: "#c84030",
+    activeText: "#c84030",
+    ctaBg: "#b8966a",
+    ctaText: "#ffffff",
+    hintBg: "#fff7ed",
+    hintText: "#9a4d18",
+    overlay: "rgba(0,0,0,0.5)",
+  },
+  dark: {
+    sheetBg: "#0d0d0f",
+    sheetBorder: "rgba(255,255,255,0.08)",
+    text: "#f0eee8",
+    textMuted: "rgba(240,238,232,0.5)",
+    pillBg: "rgba(255,255,255,0.04)",
+    pillBorder: "rgba(255,255,255,0.1)",
+    pillText: "rgba(240,238,232,0.85)",
+    activeBg: "rgba(232,40,46,0.12)",
+    activeBorder: "#e8282e",
+    activeText: "#ff6b70",
+    ctaBg: "#c9a84c",
+    ctaText: "#0d0d0f",
+    hintBg: "rgba(255,180,80,0.1)",
+    hintText: "#e8c97a",
+    overlay: "rgba(0,0,0,0.7)",
+  },
+  playful: {
+    sheetBg: "#ffffff",
+    sheetBorder: "rgba(26,10,18,0.12)",
+    text: "#1a0a12",
+    textMuted: "rgba(26,10,18,0.5)",
+    pillBg: "#ffe5f0",
+    pillBorder: "rgba(255,61,127,0.2)",
+    pillText: "#1a0a12",
+    activeBg: "rgba(255,61,127,0.12)",
+    activeBorder: "#ff3d7f",
+    activeText: "#ff3d7f",
+    ctaBg: "#ff3d7f",
+    ctaText: "#ffffff",
+    hintBg: "rgba(255,184,0,0.15)",
+    hintText: "#8a5a00",
+    overlay: "rgba(26,10,18,0.5)",
+  },
+};
+
 type AllergenSheetProps = {
   open: boolean;
   onClose: () => void;
@@ -177,6 +251,7 @@ type AllergenSheetProps = {
   onToggleAllergen: (id: string) => void;
   onApply: () => void;
   onClearAll: () => void;
+  theme?: AllergenSheetTheme;
 };
 
 export function AllergenSheet({
@@ -186,33 +261,46 @@ export function AllergenSheet({
   onToggleAllergen,
   onApply,
   onClearAll,
+  theme = "light",
 }: AllergenSheetProps) {
   if (!open) return null;
+  const t = ALLERGEN_SHEET_THEMES[theme];
   return (
-    <div className="fixed inset-0 z-[600] flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-[480px] bg-white rounded-t-3xl p-5 pb-10 border border-[#e8e4dc] border-b-0 animate-[slideUp_0.28s_ease]" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-serif text-[1.45rem] font-normal mb-0.5">Allergene filtern</h3>
-        <p className="text-[0.76rem] text-[#9a948a] mb-3 leading-snug">Gerichte mit diesen Zutaten werden ausgeblendet.</p>
-        <div className="mb-4 flex items-start gap-2 rounded-xl bg-[#fff7ed] p-3 text-[0.74rem] leading-snug text-[#9a4d18]" role="note">
+    <div className="fixed inset-0 z-[600] flex items-end justify-center backdrop-blur-sm" style={{ background: t.overlay }} onClick={onClose}>
+      <div
+        className="w-full max-w-[480px] rounded-t-3xl p-5 pb-10 animate-[slideUp_0.28s_ease]"
+        style={{ background: t.sheetBg, border: `1px solid ${t.sheetBorder}`, borderBottom: "none" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="font-serif text-[1.45rem] font-normal mb-0.5" style={{ color: t.text }}>Allergene filtern</h3>
+        <p className="text-[0.76rem] mb-3 leading-snug" style={{ color: t.textMuted }}>Gerichte mit diesen Zutaten werden ausgeblendet.</p>
+        <div className="mb-4 flex items-start gap-2 rounded-xl p-3 text-[0.74rem] leading-snug" style={{ background: t.hintBg, color: t.hintText }} role="note">
           <span aria-hidden>⚠️</span>
           <span>Bitte informieren Sie zusätzlich unser Service-Team über Ihre Allergien.</span>
         </div>
         <div className="flex flex-wrap gap-2 mb-5">
-          {ALLERGEN_IDS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onToggleAllergen(id)}
-              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.76rem] font-medium transition-all ${
-                activeAllergens.has(id) ? "bg-[rgba(185,58,58,0.08)] border-[#c84030] text-[#c84030] font-semibold" : "bg-[#f5f4f0] border-[#e8e4dc] text-[#1a1916]"
-              }`}
-            >
-              {ALLERGEN_LABELS[id]}
-            </button>
-          ))}
+          {ALLERGEN_IDS.map((id) => {
+            const active = activeAllergens.has(id);
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onToggleAllergen(id)}
+                className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.76rem] font-medium transition-all"
+                style={{
+                  background: active ? t.activeBg : t.pillBg,
+                  borderColor: active ? t.activeBorder : t.pillBorder,
+                  color: active ? t.activeText : t.pillText,
+                  fontWeight: active ? 600 : 500,
+                }}
+              >
+                {ALLERGEN_LABELS[id]}
+              </button>
+            );
+          })}
         </div>
-        <button type="button" onClick={onApply} className="w-full py-3 rounded-xl bg-[#b8966a] text-white font-bold text-[0.86rem] mb-2">Anwenden</button>
-        <button type="button" onClick={onClearAll} className="w-full py-2 rounded-xl border border-[#e8e4dc] text-[0.76rem] text-[#9a948a]">Alle entfernen</button>
+        <button type="button" onClick={onApply} className="w-full py-3 rounded-xl font-bold text-[0.86rem] mb-2" style={{ background: t.ctaBg, color: t.ctaText, border: "none" }}>Anwenden</button>
+        <button type="button" onClick={onClearAll} className="w-full py-2 rounded-xl text-[0.76rem]" style={{ border: `1px solid ${t.sheetBorder}`, background: "transparent", color: t.textMuted }}>Alle entfernen</button>
       </div>
     </div>
   );

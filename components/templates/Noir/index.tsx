@@ -589,6 +589,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
           onAddToWishlist={handleAddToWishlist}
           isInWishlist={isInWishlist}
           onToggleWishlist={handleToggleWishlist}
+          theme="dark"
         />
       )}
 
@@ -611,6 +612,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
         onToggleAllergen={toggleAllergen}
         onApply={() => setAllergenOpen(false)}
         onClearAll={() => setActiveAllergens(new Set())}
+        theme="dark"
       />
     </div>
   );

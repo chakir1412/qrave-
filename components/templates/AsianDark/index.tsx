@@ -207,9 +207,9 @@ export default function AsianDarkTemplate(props: SpeisekarteProps) {
         </button>
       </nav>
 
-      {modalItem && (<HeritageItemModal item={modalItem} menuItems={menuItems} sponsoredItems={sponsoredItems} restaurantId={restaurantId} onClose={popModal} onSelectItem={pushModal} onAddToWishlist={handleAddToWishlist} isInWishlist={isInWishlist} onToggleWishlist={handleToggleWishlist} />)}
+      {modalItem && (<HeritageItemModal item={modalItem} menuItems={menuItems} sponsoredItems={sponsoredItems} restaurantId={restaurantId} onClose={popModal} onSelectItem={pushModal} onAddToWishlist={handleAddToWishlist} isInWishlist={isInWishlist} onToggleWishlist={handleToggleWishlist} theme="dark" />)}
       <Wishlist open={wishlistOpen} onClose={closeWishlist} overlayZIndex={999} cart={entries} onUpdateQty={updateQty} onRemove={handleRemoveFromWishlist} cartTotal={cartTotal} onClear={clearWishlist} restaurantName={restaurantName} />
-      <AllergenSheet open={allergenOpen} onClose={() => setAllergenOpen(false)} activeAllergens={activeAllergens} onToggleAllergen={toggleAllergen} onApply={() => setAllergenOpen(false)} onClearAll={() => setActiveAllergens(new Set())} />
+      <AllergenSheet open={allergenOpen} onClose={() => setAllergenOpen(false)} activeAllergens={activeAllergens} onToggleAllergen={toggleAllergen} onApply={() => setAllergenOpen(false)} onClearAll={() => setActiveAllergens(new Set())} theme="dark" />
     </div>
   );
 }

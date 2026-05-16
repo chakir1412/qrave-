@@ -13,7 +13,24 @@ import { getItemEmoji, getDisplayPrice } from "@/components/speisekarte/utils";
 
 const JUST_ADDED_DURATION_MS = 300;
 
-const COL = {
+type ColorTokens = {
+  bg: string;
+  text: string;
+  textMuted: string;
+  textSubtle: string;
+  accent: string;
+  accentSoft: string;
+  accentBorder: string;
+  divider: string;
+  cream: string;
+  pillBg: string;
+  pillBorder: string;
+  pillText: string;
+  overlay: string;
+};
+
+/** Light Theme (Heritage Default) — cream/gold. */
+const LIGHT_THEME: ColorTokens = {
   bg: "#FFFFFF",
   text: "#1A1209",
   textMuted: "#6E665C",
@@ -26,7 +43,45 @@ const COL = {
   pillBg: "#F5F0E8",
   pillBorder: "rgba(200,137,78,0.18)",
   pillText: "#1A1209",
-} as const;
+  overlay: "rgba(26,18,9,0.4)",
+};
+
+/** Dark Theme — für Noir / Asian Dark / Street Food. */
+const DARK_THEME: ColorTokens = {
+  bg: "#0d0d0f",
+  text: "#f0eee8",
+  textMuted: "rgba(240,238,232,0.6)",
+  textSubtle: "rgba(240,238,232,0.4)",
+  accent: "#c9a84c",
+  accentSoft: "rgba(201,168,76,0.08)",
+  accentBorder: "rgba(201,168,76,0.35)",
+  divider: "rgba(255,255,255,0.08)",
+  cream: "rgba(255,255,255,0.04)",
+  pillBg: "rgba(255,255,255,0.04)",
+  pillBorder: "rgba(255,255,255,0.08)",
+  pillText: "rgba(240,238,232,0.85)",
+  overlay: "rgba(0,0,0,0.6)",
+};
+
+/** Playful Theme — Pink-Akzent auf weißem Modal-Hintergrund. */
+const PLAYFUL_THEME: ColorTokens = {
+  bg: "#ffffff",
+  text: "#1a0a12",
+  textMuted: "rgba(26,10,18,0.6)",
+  textSubtle: "rgba(26,10,18,0.4)",
+  accent: "#ff3d7f",
+  accentSoft: "rgba(255,61,127,0.08)",
+  accentBorder: "rgba(255,61,127,0.4)",
+  divider: "rgba(26,10,18,0.1)",
+  cream: "#ffe5f0",
+  pillBg: "#ffe5f0",
+  pillBorder: "rgba(255,61,127,0.25)",
+  pillText: "#1a0a12",
+  overlay: "rgba(26,10,18,0.5)",
+};
+
+const THEMES = { light: LIGHT_THEME, dark: DARK_THEME, playful: PLAYFUL_THEME } as const;
+export type ModalTheme = keyof typeof THEMES;
 
 export type HeritageItemModalProps = {
   item: MenuItem;
@@ -38,6 +93,10 @@ export type HeritageItemModalProps = {
   isInWishlist: (id: string) => boolean;
   onToggleWishlist: (item: MenuItem) => void;
   onAddToWishlist?: (item: MenuItem, qty: number) => void;
+  /** Visuelle Variante. Default "light" (Heritage/Clean/Trattoria/Minimal/
+   *  Mediterranean). "dark" für Noir/AsianDark/StreetFood. "playful" für
+   *  Pink-Akzent (Playful-Template). */
+  theme?: ModalTheme;
 };
 
 function isSponsoredCard(s: MenuItem | SponsoredSuggestion): s is SponsoredSuggestion {
@@ -118,14 +177,16 @@ const TAG_LABELS: Record<string, string> = {
   sig: "★ Signature",
 };
 
-const tagPillStyle: CSSProperties = {
-  background: COL.cream,
-  border: `1px solid ${COL.pillBorder}`,
-  borderRadius: 999,
-  padding: "3px 10px",
-  fontSize: 11,
-  color: COL.text,
-};
+function makeTagPillStyle(col: ColorTokens): CSSProperties {
+  return {
+    background: col.pillBg,
+    border: `1px solid ${col.pillBorder}`,
+    borderRadius: 999,
+    padding: "3px 10px",
+    fontSize: 11,
+    color: col.pillText,
+  };
+}
 
 function tagPillLabel(raw: string): string {
   const k = raw.trim().toLowerCase();
@@ -142,7 +203,10 @@ export default function HeritageItemModal({
   isInWishlist,
   onToggleWishlist,
   onAddToWishlist,
+  theme = "light",
 }: HeritageItemModalProps) {
+  const COL = THEMES[theme];
+  const tagPillStyle = makeTagPillStyle(COL);
   const [justAdded, setJustAdded] = useState(false);
   const [qty, setQty] = useState(1);
   const [allergensOpen, setAllergensOpen] = useState(false);
@@ -223,7 +287,7 @@ export default function HeritageItemModal({
   return (
     <div
       className="fixed inset-0 z-[500] flex items-end justify-center animate-[fadeIn_0.2s_ease]"
-      style={{ background: "rgba(26,18,9,0.4)", backdropFilter: "blur(4px)" }}
+      style={{ background: COL.overlay, backdropFilter: "blur(4px)" }}
       onClick={onClose}
     >
       <div
