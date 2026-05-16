@@ -7,6 +7,12 @@ import type { SpeisekarteProps } from "@/components/speisekarte";
 import HeritageTemplate from "@/components/templates/Heritage";
 import NoirTemplate from "@/components/templates/Noir";
 import CleanTemplate from "@/components/templates/Clean";
+import TrattoriaTemplate from "@/components/templates/Trattoria";
+import MinimalTemplate from "@/components/templates/Minimal";
+import PlayfulTemplate from "@/components/templates/Playful";
+import AsianDarkTemplate from "@/components/templates/AsianDark";
+import StreetFoodTemplate from "@/components/templates/StreetFood";
+import MediterraneanTemplate from "@/components/templates/Mediterranean";
 
 export const runtime = "nodejs";
 
@@ -14,6 +20,12 @@ const templateMap: Record<string, ComponentType<SpeisekarteProps>> = {
   heritage: HeritageTemplate,
   noir: NoirTemplate,
   clean: CleanTemplate,
+  trattoria: TrattoriaTemplate,
+  minimal: MinimalTemplate,
+  playful: PlayfulTemplate,
+  "asian-dark": AsianDarkTemplate,
+  "street-food": StreetFoodTemplate,
+  mediterranean: MediterraneanTemplate,
 };
 
 function parseTischNummer(segment: string): number | null {
@@ -109,8 +121,8 @@ export default async function TischSpeisekartePage({
     lunchOffers: data.lunchOffers,
   };
 
-  const templateKey = (data.restaurant.template ?? "heritage") as string;
-  const TemplateComponent = templateMap[templateKey] ?? templateMap["heritage"];
+  const templateKey = (data.restaurant.template ?? "minimal") as string;
+  const TemplateComponent = templateMap[templateKey] ?? templateMap["minimal"];
 
   return <TemplateComponent {...templateProps} />;
 }

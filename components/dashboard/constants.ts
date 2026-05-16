@@ -2,6 +2,12 @@ export const TEMPLATE_CARDS = [
   { id: "heritage", label: "Heritage", icon: "" },
   { id: "noir", label: "Noir", icon: "" },
   { id: "clean", label: "Clean", icon: "" },
+  { id: "trattoria", label: "Trattoria", icon: "" },
+  { id: "minimal", label: "Minimal", icon: "" },
+  { id: "playful", label: "Playful", icon: "" },
+  { id: "asian-dark", label: "Asian Dark", icon: "" },
+  { id: "street-food", label: "Street Food", icon: "" },
+  { id: "mediterranean", label: "Mediterranean", icon: "" },
 ] as const;
 
 /** Tailwind/CSS-Klasse für Glass-Cards (siehe globals.css) */

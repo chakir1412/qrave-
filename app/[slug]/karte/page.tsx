@@ -8,11 +8,23 @@ import type { SpeisekarteProps } from "@/components/speisekarte";
 import HeritageTemplate from "@/components/templates/Heritage";
 import NoirTemplate from "@/components/templates/Noir";
 import CleanTemplate from "@/components/templates/Clean";
+import TrattoriaTemplate from "@/components/templates/Trattoria";
+import MinimalTemplate from "@/components/templates/Minimal";
+import PlayfulTemplate from "@/components/templates/Playful";
+import AsianDarkTemplate from "@/components/templates/AsianDark";
+import StreetFoodTemplate from "@/components/templates/StreetFood";
+import MediterraneanTemplate from "@/components/templates/Mediterranean";
 
 const templateMap: Record<string, React.ComponentType<SpeisekarteProps>> = {
   heritage: HeritageTemplate,
   noir: NoirTemplate,
   clean: CleanTemplate,
+  trattoria: TrattoriaTemplate,
+  minimal: MinimalTemplate,
+  playful: PlayfulTemplate,
+  "asian-dark": AsianDarkTemplate,
+  "street-food": StreetFoodTemplate,
+  mediterranean: MediterraneanTemplate,
 };
 
 export default async function SpeisekartePage({
@@ -61,8 +73,8 @@ export default async function SpeisekartePage({
     lunchOffers: data.lunchOffers,
   };
 
-  const templateKey = (data.restaurant.template ?? "heritage") as string;
-  const TemplateComponent = templateMap[templateKey] ?? templateMap["heritage"];
+  const templateKey = (data.restaurant.template ?? "minimal") as string;
+  const TemplateComponent = templateMap[templateKey] ?? templateMap["minimal"];
 
   // `dir`-Attribut wirkt für CSS logical properties + Text-Richtung;
   // alle Templates erben es vom Wrapper, ohne dass jedes einzeln angepasst werden muss.
