@@ -366,6 +366,25 @@ export default function Home() {
   const [rangePill, setRangePill] = useState<"7" | "30" | "monat">("7");
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
 
+  /* ────── Cookie-Consent-Banner ──────
+   *  state: 'unknown' = beim ersten Render (localStorage nicht gecheckt),
+   *  'visible' = Banner sichtbar, 'hiding' = Fade-Out läuft, 'hidden' =
+   *  display none. localStorage-Key qrave_landing_consent. */
+  const [cookieState, setCookieState] = useState<"unknown" | "visible" | "hiding" | "hidden">("unknown");
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem("qrave_landing_consent") : null;
+    setCookieState(saved === "accepted" || saved === "declined" ? "hidden" : "visible");
+  }, []);
+  function setConsent(value: "accepted" | "declined") {
+    try {
+      window.localStorage.setItem("qrave_landing_consent", value);
+    } catch {
+      /* localStorage blockiert (Private Mode etc.) — Banner trotzdem schließen */
+    }
+    setCookieState("hiding");
+    window.setTimeout(() => setCookieState("hidden"), 300);
+  }
+
   return (
     <main>
       <style>{`
@@ -504,6 +523,19 @@ export default function Home() {
         .lang-demo-desc { font-family:var(--body); font-size:12px; color:var(--m50); margin-top:2px; }
         .lang-demo-price { font-family:var(--display); font-weight:700; font-size:14px; color:var(--purple-3); white-space:nowrap; }
         @keyframes qLangFadeIn { from { opacity:0; } to { opacity:1; } }
+
+        /* Cookie-Banner */
+        .qrave-cookie { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); width:calc(100% - 32px); max-width:560px; z-index:1000; background:rgba(10,6,20,0.95); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(147,51,234,0.25); border-radius:16px; padding:20px 24px; box-shadow:0 16px 48px rgba(0,0,0,0.5); display:flex; flex-direction:column; gap:14px; transition:opacity .3s ease, transform .3s ease; }
+        .qrave-cookie[data-state="visible"] { opacity:1; transform:translateX(-50%) translateY(0); }
+        .qrave-cookie[data-state="hiding"] { opacity:0; transform:translateX(-50%) translateY(12px); pointer-events:none; }
+        .qrave-cookie[data-state="hidden"] { display:none; }
+        .qrave-cookie p { font-family:var(--body); font-size:13px; color:rgba(255,255,255,0.7); line-height:1.55; margin:0; }
+        .qrave-cookie-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+        .qrave-cookie-btn { font-family:var(--body); font-weight:500; font-size:13px; padding:10px 18px; border-radius:10px; cursor:pointer; transition:transform .2s, box-shadow .2s, background .2s, border-color .2s, color .2s; border:none; }
+        .qrave-cookie-decline { background:transparent; color:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.15); }
+        .qrave-cookie-decline:hover { color:#fff; border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.03); }
+        .qrave-cookie-accept { background:linear-gradient(135deg,var(--purple),var(--purple-2)); color:#fff; box-shadow:0 0 20px rgba(147,51,234,0.4); }
+        .qrave-cookie-accept:hover { transform:translateY(-1px); box-shadow:0 0 28px rgba(147,51,234,0.6); }
 
         /* Diff */
         .diff-card { background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
@@ -1158,6 +1190,22 @@ export default function Home() {
             </div>
           </div>
         </footer>
+
+        {cookieState !== "unknown" && cookieState !== "hidden" ? (
+          <div className="qrave-cookie" data-state={cookieState} role="dialog" aria-label="Cookie-Einstellungen">
+            <p>
+              Wir verwenden Cookies um die Nutzung zu analysieren und die Speisekarte zu verbessern. Deine Daten bleiben anonym.
+            </p>
+            <div className="qrave-cookie-actions">
+              <button type="button" className="qrave-cookie-btn qrave-cookie-decline" onClick={() => setConsent("declined")}>
+                Ablehnen
+              </button>
+              <button type="button" className="qrave-cookie-btn qrave-cookie-accept" onClick={() => setConsent("accepted")}>
+                Akzeptieren
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </main>
   );

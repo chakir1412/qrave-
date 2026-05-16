@@ -534,6 +534,31 @@ function Step2({
           {submitting ? "Wird angelegt…" : "Registrierung abschließen"}
         </button>
       </div>
+
+      <p
+        className="mt-4 text-center"
+        style={{
+          color: "rgba(255,255,255,0.4)",
+          fontFamily: FONT_DM,
+          fontSize: 12,
+          lineHeight: 1.5,
+        }}
+      >
+        Mit der Registrierung stimmst du unseren{" "}
+        <a
+          href="/datenschutz"
+          style={{ color: "rgba(255,255,255,0.65)", textDecoration: "underline", textUnderlineOffset: 3 }}
+        >
+          Datenschutzbestimmungen
+        </a>{" "}
+        zu. ·{" "}
+        <a
+          href="/impressum"
+          style={{ color: "rgba(255,255,255,0.65)", textDecoration: "underline", textUnderlineOffset: 3 }}
+        >
+          Impressum
+        </a>
+      </p>
     </>
   );
 }

@@ -27,8 +27,13 @@ export default function DatenschutzPage() {
           +49 173 8996449
         </a>
         <br />
-        {/* TODO: E-Mail-Adresse eintragen sobald vorhanden */}
-        E-Mail: —
+        E-Mail:{" "}
+        <a
+          href="mailto:info@qrave.menu"
+          className="text-white/80 underline-offset-4 hover:text-white hover:underline"
+        >
+          info@qrave.menu
+        </a>
       </p>
 
       <h2 className="mt-10 text-lg font-medium text-white">
@@ -80,9 +85,14 @@ export default function DatenschutzPage() {
         der Verarbeitung Ihrer Daten sowie das Recht auf Datenübertragbarkeit. Da
         wir keine personenbezogenen Daten speichern, können wir keine
         personenbezogenen Auskünfte erteilen.
-        {/* TODO: E-Mail-Adresse eintragen sobald vorhanden */}
         <br />
-        Bei Fragen wenden Sie sich an: —
+        Bei Fragen wenden Sie sich an:{" "}
+        <a
+          href="mailto:info@qrave.menu"
+          className="text-white/80 underline-offset-4 hover:text-white hover:underline"
+        >
+          info@qrave.menu
+        </a>
       </p>
 
       <h2 className="mt-10 text-lg font-medium text-white">6. Beschwerderecht</h2>
