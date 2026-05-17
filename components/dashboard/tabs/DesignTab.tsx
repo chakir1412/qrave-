@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MenuItem } from "@/lib/supabase";
 import { dash, dashPrimaryButtonStyle } from "../constants";
 import { TemplatePreview, type PreviewTemplateId } from "../templatePreviews";
@@ -105,6 +105,7 @@ export function DesignTab({
   const [selectedAccent, setSelectedAccent] = useState<string>("");
   const [selectedMode, setSelectedMode] = useState<BackgroundMode>("light");
   const [saving, setSaving] = useState(false);
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   // Anzahl distinct-Kategorien aus der aktuellen Speisekarte.
   const categoryCount = useMemo(() => {
@@ -118,8 +119,8 @@ export function DesignTab({
 
   useEffect(() => {
     if (!preview) return;
-    window.scrollTo({ top: 0, behavior: "smooth" });
     document.body.style.overflow = "hidden";
+    modalRef.current?.scrollTo(0, 0);
     return () => {
       document.body.style.overflow = "";
     };
@@ -258,19 +259,24 @@ export function DesignTab({
 
       {preview ? (
         <div
-          className="fixed inset-0 z-[700] flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}
+          ref={modalRef}
+          className="fixed inset-0 z-[1000] overflow-y-auto md:flex md:items-center md:justify-center md:p-4"
+          style={{
+            background: "rgba(0,0,0,0.7)",
+            backdropFilter: "blur(6px)",
+            WebkitOverflowScrolling: "touch",
+          }}
           onClick={() => !saving && setPreview(null)}
         >
           <div
-            className="w-full max-w-[760px] overflow-hidden rounded-[18px] border"
-            style={{ background: dash.bg, borderColor: dash.bo, maxHeight: "92vh" }}
+            className="flex min-h-full w-full flex-col md:min-h-0 md:max-h-[92vh] md:max-w-[760px] md:overflow-hidden md:rounded-[18px] md:border"
+            style={{ background: dash.bg, borderColor: dash.bo }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-stretch sm:p-7" style={{ maxHeight: "calc(92vh - 80px)", overflow: "auto" }}>
+            <div className="flex flex-1 flex-col gap-6 p-6 md:flex-row md:items-stretch md:overflow-y-auto md:p-7">
               <div
-                className="flex w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-[14px] sm:w-auto sm:min-w-[280px]"
-                style={{ background: "rgba(0,0,0,0.5)", padding: 16, alignSelf: "center" }}
+                className="flex w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-[14px] md:w-auto md:min-w-[280px] md:self-center"
+                style={{ background: "rgba(0,0,0,0.5)", padding: 16 }}
               >
                 <TemplatePreview
                   id={preview.id}
@@ -402,7 +408,14 @@ export function DesignTab({
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 border-t p-4 sm:p-5" style={{ borderColor: dash.bo, background: dash.s1 }}>
+            <div
+              className="sticky bottom-0 z-10 flex gap-2 border-t p-4 md:static md:p-5"
+              style={{
+                borderColor: dash.bo,
+                background: dash.s1,
+                paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setPreview(null)}
