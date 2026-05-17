@@ -259,24 +259,29 @@ export function DesignTab({
 
       {preview ? (
         <div
-          className="fixed inset-0 z-[1000] flex md:items-center md:justify-center md:p-4"
-          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}
+          ref={modalRef}
+          className="fixed inset-0 z-[1000]"
+          style={{
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            background: "rgba(0,0,0,0.8)",
+            backdropFilter: "blur(6px)",
+          }}
           onClick={() => !saving && setPreview(null)}
         >
           <div
-            className="flex h-full w-full flex-col md:h-auto md:max-h-[92vh] md:max-w-[760px] md:overflow-hidden md:rounded-[18px] md:border"
-            style={{ background: dash.bg, borderColor: dash.bo }}
+            className="mx-auto w-full md:max-w-[760px] md:my-4 md:overflow-hidden md:rounded-[18px] md:border"
+            style={{
+              minHeight: "100%",
+              display: "flex",
+              flexDirection: "column",
+              padding: 0,
+              background: dash.bg,
+              borderColor: dash.bo,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              ref={modalRef}
-              className="flex flex-1 flex-col gap-6 p-6 md:flex-row md:items-stretch md:p-7"
-              style={{
-                overflowY: "auto",
-                WebkitOverflowScrolling: "touch",
-                paddingBottom: 120,
-              }}
-            >
+            <div className="flex flex-col gap-6 p-6 md:flex-row md:items-stretch md:p-7">
               <div
                 className="flex w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-[14px] md:w-auto md:min-w-[280px] md:self-center"
                 style={{ background: "rgba(0,0,0,0.5)", padding: 16 }}
@@ -412,15 +417,13 @@ export function DesignTab({
               </div>
             </div>
             <div
-              className="flex flex-shrink-0 gap-2 border-t"
+              className="flex gap-2 border-t"
               style={{
-                position: "sticky",
-                bottom: 0,
-                zIndex: 10,
+                position: "static",
                 borderColor: dash.bo,
                 background: dash.s1,
-                padding: "16px 20px",
-                paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+                padding: 20,
+                paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)",
               }}
             >
               <button
