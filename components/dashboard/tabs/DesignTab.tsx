@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MenuItem } from "@/lib/supabase";
 import { dash, dashPrimaryButtonStyle } from "../constants";
 import { TemplatePreview, type PreviewTemplateId } from "../templatePreviews";
@@ -105,7 +105,6 @@ export function DesignTab({
   const [selectedAccent, setSelectedAccent] = useState<string>("");
   const [selectedMode, setSelectedMode] = useState<BackgroundMode>("light");
   const [saving, setSaving] = useState(false);
-  const modalRef = useRef<HTMLDivElement | null>(null);
 
   // Anzahl distinct-Kategorien aus der aktuellen Speisekarte.
   const categoryCount = useMemo(() => {
@@ -117,24 +116,7 @@ export function DesignTab({
     return set.size;
   }, [menuItems]);
 
-  useEffect(() => {
-    if (!preview) return;
-    // iOS-Standard-Trick gegen Background-Scroll: body fixieren, Scroll-Position
-    // merken und beim Schließen wiederherstellen (sonst springt die Seite oben).
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-    modalRef.current?.scrollTo(0, 0);
-    return () => {
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-      window.scrollTo(0, scrollY);
-    };
-  }, [preview]);
-
-  /** Beim Öffnen des Modals: Akzent vorinitialisieren — wenn der User das
+  /** Beim Öffnen der Vorschau: Akzent vorinitialisieren — wenn der User das
    *  aktuell aktive Template anschaut, übernimm dessen aktuellen accent_color,
    *  sonst den Template-Default. */
   useEffect(() => {
@@ -147,6 +129,7 @@ export function DesignTab({
     } else {
       setSelectedMode(DEFAULT_MODE_PER_TEMPLATE[preview.id]);
     }
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, [preview, template, accentColor, backgroundMode]);
 
   const hasItems = menuItems.length > 0;
@@ -198,6 +181,162 @@ export function DesignTab({
   }
 
   const tooManyCategories = categoryCount > MAX_RECOMMENDED_CATEGORIES;
+
+  if (preview) {
+    return (
+      <div className={slideClass}>
+        <button
+          type="button"
+          onClick={() => !saving && setPreview(null)}
+          className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold transition"
+          style={{ color: dash.mi }}
+        >
+          <span aria-hidden>←</span> Zurück zur Auswahl
+        </button>
+
+        <div
+          className="mb-5 flex items-center justify-center overflow-hidden rounded-[14px]"
+          style={{ background: "rgba(0,0,0,0.5)", padding: 16 }}
+        >
+          <TemplatePreview
+            id={preview.id}
+            width={preview.id === "clean" || preview.id === "playful" ? 130 : 240}
+            accentColor={selectedAccent || preview.defaultAccent}
+            backgroundMode={selectedMode}
+          />
+        </div>
+
+        <div className="text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: dash.primaryBg }}>
+          Template-Vorschau
+        </div>
+        <h2 className="mt-1 text-[26px] font-extrabold leading-tight" style={{ color: dash.tx }}>
+          {preview.label}
+        </h2>
+        <p className="mt-3 text-[14px] leading-[1.55]" style={{ color: dash.mi }}>
+          {preview.description}
+        </p>
+        <div
+          className="mt-4 rounded-[10px] border px-3.5 py-3 text-[12px] leading-[1.55]"
+          style={{ borderColor: dash.bo, color: dash.mi, background: dash.s2 }}
+        >
+          <span className="block text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: dash.primaryBg }}>
+            Stil
+          </span>
+          <span className="mt-1 block" style={{ color: dash.tx }}>{preview.colorInfo}</span>
+        </div>
+
+        {/* Color-Picker */}
+        <div className="mt-4">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: dash.mi }}>
+            Akzentfarbe anpassen
+          </div>
+          <div className="flex items-center gap-2.5">
+            <input
+              type="color"
+              value={selectedAccent || preview.defaultAccent}
+              onChange={(e) => setSelectedAccent(e.target.value)}
+              aria-label="Akzentfarbe"
+              style={{
+                width: 36, height: 36, padding: 0, border: `1px solid ${dash.bo}`,
+                borderRadius: 8, background: "transparent", cursor: "pointer",
+              }}
+            />
+            <div className="flex flex-1 flex-wrap gap-1.5">
+              {preview.swatches.map((c) => {
+                const isActive = selectedAccent.toLowerCase() === c.toLowerCase();
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setSelectedAccent(c)}
+                    aria-label={`Akzentfarbe ${c}`}
+                    style={{
+                      width: 28, height: 28, borderRadius: 8, background: c,
+                      border: isActive ? `2px solid ${dash.tx}` : `1px solid ${dash.bo}`,
+                      boxShadow: isActive ? `0 0 0 2px ${dash.bg}` : "none",
+                      cursor: "pointer",
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Hintergrund-Slider (5 Stufen) */}
+        <div className="mt-4">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: dash.mi }}>
+            Hintergrund
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            {BACKGROUND_MODES.map((m) => {
+              const isActive = selectedMode === m;
+              const swatch = resolveBackground(preview.id, m).bg;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setSelectedMode(m)}
+                  aria-label={MODE_LABELS[m]}
+                  title={MODE_LABELS[m]}
+                  style={{
+                    flex: 1,
+                    height: 40,
+                    borderRadius: 8,
+                    background: swatch,
+                    border: isActive ? `2px solid ${dash.primaryBg}` : `1px solid ${dash.bo}`,
+                    boxShadow: isActive ? `0 0 0 2px ${dash.bg}` : "none",
+                    cursor: "pointer",
+                  }}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-1.5 flex items-center justify-between text-[10px]" style={{ color: dash.mi }}>
+            <span>{MODE_LABELS.extraLight}</span>
+            <span>{MODE_LABELS.extraDark}</span>
+          </div>
+        </div>
+
+        {/* Kategorien-Warnung — nur für Templates mit Splash (Clean/Playful) */}
+        {tooManyCategories && (preview.id === "clean" || preview.id === "playful") ? (
+          <div
+            className="mt-4 flex items-start gap-2 rounded-[10px] border px-3.5 py-3 text-[12px] leading-[1.55]"
+            style={{
+              background: "rgba(250,204,21,0.08)",
+              borderColor: "rgba(250,204,21,0.35)",
+              color: "#fde68a",
+            }}
+            role="note"
+          >
+            <span aria-hidden>⚠️</span>
+            <span>
+              Deine Speisekarte hat {categoryCount} Kategorien. Für beste Darstellung empfehlen wir max. {MAX_RECOMMENDED_CATEGORIES}.
+            </span>
+          </div>
+        ) : null}
+
+        {preview.id === template ? (
+          <div
+            className="mt-4 inline-block rounded-full px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.08em]"
+            style={{ backgroundColor: "rgba(147,51,234,0.15)", color: dash.primaryBg }}
+          >
+            Bereits aktiv
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => void applyTemplate()}
+          disabled={saving}
+          className="mt-6 w-full rounded-[10px] py-3.5 text-[14px] font-bold transition disabled:opacity-60"
+          style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
+        >
+          {saving ? "Speichert …" : "Design übernehmen"}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={slideClass}>
@@ -264,203 +403,6 @@ export function DesignTab({
           );
         })}
       </div>
-
-      {preview ? (
-        <div
-          ref={modalRef}
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            overflowY: "scroll",
-            WebkitOverflowScrolling: "touch",
-            zIndex: 1000,
-            background: "rgba(0,0,0,0.8)",
-            backdropFilter: "blur(6px)",
-          }}
-          onClick={() => !saving && setPreview(null)}
-        >
-          <div
-            className="mx-auto w-full md:max-w-[760px] md:my-4 md:overflow-hidden md:rounded-[18px] md:border"
-            style={{
-              minHeight: "100%",
-              display: "flex",
-              flexDirection: "column",
-              padding: 0,
-              background: dash.bg,
-              borderColor: dash.bo,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex flex-col gap-6 p-6 md:flex-row md:items-stretch md:p-7">
-              <div
-                className="flex w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-[14px] md:w-auto md:min-w-[280px] md:self-center"
-                style={{ background: "rgba(0,0,0,0.5)", padding: 16 }}
-              >
-                <TemplatePreview
-                  id={preview.id}
-                  width={preview.id === "clean" || preview.id === "playful" ? 130 : 240}
-                  accentColor={selectedAccent || preview.defaultAccent}
-                  backgroundMode={selectedMode}
-                />
-              </div>
-              <div className="flex flex-1 flex-col justify-between gap-5">
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: dash.primaryBg }}>
-                    Template-Vorschau
-                  </div>
-                  <h2 className="mt-1 text-[26px] font-extrabold leading-tight" style={{ color: dash.tx }}>
-                    {preview.label}
-                  </h2>
-                  <p className="mt-3 text-[14px] leading-[1.55]" style={{ color: dash.mi }}>
-                    {preview.description}
-                  </p>
-                  <div
-                    className="mt-4 rounded-[10px] border px-3.5 py-3 text-[12px] leading-[1.55]"
-                    style={{ borderColor: dash.bo, color: dash.mi, background: dash.s2 }}
-                  >
-                    <span className="block text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: dash.primaryBg }}>
-                      Stil
-                    </span>
-                    <span className="mt-1 block" style={{ color: dash.tx }}>{preview.colorInfo}</span>
-                  </div>
-
-                  {/* Color-Picker */}
-                  <div className="mt-4">
-                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: dash.mi }}>
-                      Akzentfarbe anpassen
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="color"
-                        value={selectedAccent || preview.defaultAccent}
-                        onChange={(e) => setSelectedAccent(e.target.value)}
-                        aria-label="Akzentfarbe"
-                        style={{
-                          width: 36, height: 36, padding: 0, border: `1px solid ${dash.bo}`,
-                          borderRadius: 8, background: "transparent", cursor: "pointer",
-                        }}
-                      />
-                      <div className="flex flex-1 flex-wrap gap-1.5">
-                        {preview.swatches.map((c) => {
-                          const isActive = selectedAccent.toLowerCase() === c.toLowerCase();
-                          return (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => setSelectedAccent(c)}
-                              aria-label={`Akzentfarbe ${c}`}
-                              style={{
-                                width: 28, height: 28, borderRadius: 8, background: c,
-                                border: isActive ? `2px solid ${dash.tx}` : `1px solid ${dash.bo}`,
-                                boxShadow: isActive ? `0 0 0 2px ${dash.bg}` : "none",
-                                cursor: "pointer",
-                              }}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Hintergrund-Slider (5 Stufen) */}
-                  <div className="mt-4">
-                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: dash.mi }}>
-                      Hintergrund
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      {BACKGROUND_MODES.map((m) => {
-                        const isActive = selectedMode === m;
-                        const swatch = resolveBackground(preview.id, m).bg;
-                        return (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setSelectedMode(m)}
-                            aria-label={MODE_LABELS[m]}
-                            title={MODE_LABELS[m]}
-                            style={{
-                              flex: 1,
-                              height: 40,
-                              borderRadius: 8,
-                              background: swatch,
-                              border: isActive ? `2px solid ${dash.primaryBg}` : `1px solid ${dash.bo}`,
-                              boxShadow: isActive ? `0 0 0 2px ${dash.bg}` : "none",
-                              cursor: "pointer",
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                    <div className="mt-1.5 flex items-center justify-between text-[10px]" style={{ color: dash.mi }}>
-                      <span>{MODE_LABELS.extraLight}</span>
-                      <span>{MODE_LABELS.extraDark}</span>
-                    </div>
-                  </div>
-
-                  {/* Kategorien-Warnung — nur für Templates mit Splash (Clean/Playful) */}
-                  {tooManyCategories && (preview.id === "clean" || preview.id === "playful") ? (
-                    <div
-                      className="mt-4 flex items-start gap-2 rounded-[10px] border px-3.5 py-3 text-[12px] leading-[1.55]"
-                      style={{
-                        background: "rgba(250,204,21,0.08)",
-                        borderColor: "rgba(250,204,21,0.35)",
-                        color: "#fde68a",
-                      }}
-                      role="note"
-                    >
-                      <span aria-hidden>⚠️</span>
-                      <span>
-                        Deine Speisekarte hat {categoryCount} Kategorien. Für beste Darstellung empfehlen wir max. {MAX_RECOMMENDED_CATEGORIES}.
-                      </span>
-                    </div>
-                  ) : null}
-
-                  {preview.id === template ? (
-                    <div
-                      className="mt-4 inline-block rounded-full px-3 py-1 text-[10.5px] font-bold uppercase tracking-[0.08em]"
-                      style={{ backgroundColor: "rgba(147,51,234,0.15)", color: dash.primaryBg }}
-                    >
-                      Bereits aktiv
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-            <div
-              className="flex gap-2 border-t"
-              style={{
-                position: "static",
-                borderColor: dash.bo,
-                background: dash.s1,
-                padding: 20,
-                paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setPreview(null)}
-                disabled={saving}
-                className="flex-1 rounded-[10px] border px-4 py-3 text-[13px] font-semibold transition disabled:opacity-60"
-                style={{ borderColor: dash.bo, color: dash.mi, background: "transparent" }}
-              >
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                onClick={() => void applyTemplate()}
-                disabled={saving}
-                className="flex-[2] rounded-[10px] py-3 text-[13px] font-bold transition disabled:opacity-60"
-                style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
-              >
-                {saving ? "Speichert …" : "Design übernehmen"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
