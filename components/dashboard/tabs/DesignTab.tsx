@@ -130,7 +130,9 @@ export function DesignTab({
     if (!preview || saving) return;
     setSaving(true);
     try {
-      await onTemplateChange({ template: preview.id, accentColor: selectedAccent });
+      // Fallback wenn selectedAccent noch leer ist (race vor useEffect-Init).
+      const accentToSave = selectedAccent || preview.defaultAccent;
+      await onTemplateChange({ template: preview.id, accentColor: accentToSave });
       onToast("Template gespeichert");
       setPreview(null);
     } catch (err) {
@@ -316,8 +318,8 @@ export function DesignTab({
                     </div>
                   </div>
 
-                  {/* Kategorien-Warnung */}
-                  {tooManyCategories ? (
+                  {/* Kategorien-Warnung — nur für Templates mit Splash (Clean/Playful) */}
+                  {tooManyCategories && (preview.id === "clean" || preview.id === "playful") ? (
                     <div
                       className="mt-4 flex items-start gap-2 rounded-[10px] border px-3.5 py-3 text-[12px] leading-[1.55]"
                       style={{

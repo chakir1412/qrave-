@@ -355,25 +355,36 @@ export default function SplashScreen({ restaurant }: Props) {
         {/* Akzent-Streifen oben */}
         <div className="mx-auto mb-8 h-[3px] w-16 rounded-full" style={{ background: theme.accent }} />
 
-        {/* Restaurant-Name — Wrapper kappt Überstand, H1 skaliert clamp-responsive */}
-        <div style={{ overflow: "hidden", padding: "0 24px", width: "100%" }}>
-          <h1
-            className="text-center leading-tight tracking-tight"
-            style={{
-              color: theme.text,
-              fontFamily: theme.fontDisplay,
-              fontStyle: theme.fontItalic ? "italic" : "normal",
-              fontWeight: theme.fontDisplay.includes("Bebas") ? 400 : theme.fontDisplay.includes("Syne") ? 800 : 500,
-              letterSpacing: theme.fontDisplay.includes("Bebas") ? "0.03em" : "-0.02em",
-              fontSize: "clamp(1.6rem, 7vw, 2.4rem)",
-              maxWidth: "100%",
-              wordBreak: "break-word",
-              margin: 0,
-            }}
-          >
-            {restaurant.name}
-          </h1>
-        </div>
+        {/* Restaurant-Name — Wrapper kappt Überstand, H1 skaliert clamp-responsive.
+            Playful (Syne 800) ist visuell deutlich breiter pro Buchstabe —
+            eigene, kleinere clamp-Range damit lange Namen nicht raus laufen. */}
+        {(() => {
+          const isPlayful = theme.fontDisplay.includes("Syne");
+          const wrapperPadding = isPlayful ? "0 20px" : "0 24px";
+          const headlineSize = isPlayful
+            ? "clamp(1.4rem, 6vw, 2rem)"
+            : "clamp(1.6rem, 7vw, 2.4rem)";
+          return (
+            <div style={{ overflow: "hidden", padding: wrapperPadding, width: "100%" }}>
+              <h1
+                className="text-center leading-tight tracking-tight"
+                style={{
+                  color: theme.text,
+                  fontFamily: theme.fontDisplay,
+                  fontStyle: theme.fontItalic ? "italic" : "normal",
+                  fontWeight: theme.fontDisplay.includes("Bebas") ? 400 : isPlayful ? 800 : 500,
+                  letterSpacing: theme.fontDisplay.includes("Bebas") ? "0.03em" : "-0.02em",
+                  fontSize: headlineSize,
+                  maxWidth: "100%",
+                  wordBreak: "break-word",
+                  margin: 0,
+                }}
+              >
+                {restaurant.name}
+              </h1>
+            </div>
+          );
+        })()}
 
         {/* Stadtteil / Adresse */}
         {(restaurant.stadtbezirk?.trim() || restaurant.adresse?.trim()) ? (

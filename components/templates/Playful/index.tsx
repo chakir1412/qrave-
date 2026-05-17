@@ -240,7 +240,7 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
                                 <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, color: COL.text, marginBottom: 4, lineHeight: 1.2, textDecoration: soldOut ? "line-through" : undefined }}>{item.name}</div>
                                 {item.beschreibung ? <div style={{ fontSize: 12, color: COL.muted, lineHeight: 1.45, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.beschreibung}</div> : null}
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                  <div style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 800, color: COL.text }}>{getDisplayPrice(item)}</div>
+                                  <div style={{ fontFamily: DISPLAY, fontSize: 14, fontWeight: 800, color: COL.text }}>{getDisplayPrice(item)}</div>
                                   <div style={{ display: "flex", gap: 4 }}>
                                     {isVegan ? <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 999, border: "1.5px solid #2d6a4f", color: "#2d6a4f", background: "rgba(45,106,79,0.08)" }}>Vegan</span> : null}
                                     {isSpicy ? <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 999, border: `1.5px solid ${COL.accent}`, color: COL.accent, background: "rgba(255,61,127,0.08)" }}>Scharf</span> : null}
