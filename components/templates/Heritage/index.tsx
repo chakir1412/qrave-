@@ -563,6 +563,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
           background: `${COL.bg}f2`,
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
         <div className="mx-auto flex max-w-[880px] items-center gap-3 px-5 py-3">
@@ -780,6 +781,7 @@ function ItemList({
                         <img
                           src={item.bild_url as string}
                           alt={item.name}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                           style={{
                             width: 64,
                             height: 64,

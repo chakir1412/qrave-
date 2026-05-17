@@ -220,16 +220,22 @@ export async function POST(req: Request) {
     req.headers.get("origin") ??
     `https://${req.headers.get("host") ?? "qrave.menu"}`;
   const publishUrl = `${origin}/api/admin/publish-restaurant?id=${restaurantRow.id}&token=${encodeURIComponent(adminSecret)}`;
-  await sendRegistrationNotification({
-    restaurantId: restaurantRow.id,
-    restaurantName: restaurantRow.name,
-    slug: restaurantRow.slug,
-    ownerEmail: email,
-    adresse,
-    telefon,
-    restaurantTyp,
-    publishUrl,
-  });
+  try {
+    await sendRegistrationNotification({
+      restaurantId: restaurantRow.id,
+      restaurantName: restaurantRow.name,
+      slug: restaurantRow.slug,
+      ownerEmail: email,
+      adresse,
+      telefon,
+      restaurantTyp,
+      publishUrl,
+    });
+  } catch (mailErr) {
+    // Mail-Fehler darf die Registrierung nicht crashen — Restaurant + Auth-User
+    // sind bereits angelegt. Wir loggen und liefern trotzdem ok zurück.
+    console.error("[onboarding/register] sendRegistrationNotification failed:", mailErr);
+  }
 
   return NextResponse.json({
     ok: true,

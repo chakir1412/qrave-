@@ -535,6 +535,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
           background: COL.white,
           borderTop: `1px solid ${COL.border}`,
           padding: "10px 0 20px",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)",
           display: "flex",
           justifyContent: "space-around",
           zIndex: 140,
@@ -852,6 +853,7 @@ function CleanItemCard({
           <img
             src={item.bild_url as string}
             alt={item.name}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             style={{
               width: "100%",
               height: "100%",

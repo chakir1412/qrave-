@@ -120,6 +120,11 @@ const pillBase: CSSProperties = {
   fontWeight: 500,
 };
 
+/** JSON.stringify mit Schutz vor zirkulären Refs — gibt "" zurück statt zu werfen. */
+function safeStringify(v: unknown): string {
+  try { return JSON.stringify(v); } catch { return ""; }
+}
+
 function formatZutatenPlainLoose(zutaten: unknown[]): string {
   try {
     return zutaten
@@ -150,13 +155,13 @@ function safeZutatenDisplay(raw: unknown): string | null {
         if (typeof parsed === "string") return parsed.trim() || null;
         if (Array.isArray(parsed)) {
           const line = formatZutatenPlainLoose(parsed);
-          return line || JSON.stringify(parsed);
+          return line || safeStringify(parsed);
         }
         if (parsed && typeof parsed === "object") {
           const line = formatZutatenPlainLoose([parsed]);
-          return line || JSON.stringify(parsed);
+          return line || safeStringify(parsed);
         }
-        return JSON.stringify(parsed);
+        return safeStringify(parsed);
       } catch {
         const t = raw.trim();
         return t || null;
@@ -171,7 +176,7 @@ function safeZutatenDisplay(raw: unknown): string | null {
     if (typeof raw === "object" && raw !== null) {
       const line = formatZutatenPlainLoose([raw]);
       try {
-        return line || JSON.stringify(raw);
+        return line || safeStringify(raw);
       } catch {
         return line || null;
       }
@@ -191,14 +196,14 @@ function safeStoryTextDisplay(raw: unknown): string | null {
         const parsed: unknown = JSON.parse(raw);
         return typeof parsed === "string"
           ? parsed.trim() || null
-          : JSON.stringify(parsed);
+          : safeStringify(parsed);
       } catch {
         return raw.trim() || null;
       }
     }
     if (typeof raw === "object" && raw !== null) {
       try {
-        return JSON.stringify(raw);
+        return safeStringify(raw);
       } catch {
         return null;
       }
@@ -255,6 +260,7 @@ export default function ItemModal({
   const [justAdded, setJustAdded] = useState(false);
   const [qty, setQty] = useState(1);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     setQty(1);
@@ -262,11 +268,36 @@ export default function ItemModal({
   }, [item.id]);
 
   useEffect(() => {
+    // Body-Scroll-Lock so lange das Modal offen ist. Cleanup beim Unmount
+    // setzt overflow IMMER zurück — auch bei abruptem Unmount (Navigation).
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       timeoutsRef.current.forEach((t) => clearTimeout(t));
       timeoutsRef.current = [];
     };
   }, []);
+
+  /** Drag-Detection: schließt nur wenn touchstart und touchend < 10px auseinander —
+   *  verhindert versehentliches Schließen beim Scrollen am Modal-Backdrop. */
+  function handleBackdropPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+  }
+  function handleBackdropPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const start = dragStartRef.current;
+    dragStartRef.current = null;
+    if (!start) return;
+    if (e.target !== e.currentTarget) return; // Klick aufs Modal selbst — ignorieren.
+    const dx = Math.abs(e.clientX - start.x);
+    const dy = Math.abs(e.clientY - start.y);
+    if (dx < 10 && dy < 10) onClose();
+  }
 
   const handleAdd = () => {
     if (onAddToWishlist) {
@@ -364,7 +395,8 @@ export default function ItemModal({
     <div
       className="fixed inset-0 z-[500] flex items-end justify-center animate-[fadeIn_0.2s_ease]"
       style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-      onClick={onClose}
+      onPointerDown={handleBackdropPointerDown}
+      onPointerUp={handleBackdropPointerUp}
     >
       <div
         className="flex max-h-[92vh] w-full max-w-[520px] flex-col overflow-hidden animate-[slideUp_0.35s_cubic-bezier(0.34,1.56,0.64,1)] sm:max-h-[88vh]"
@@ -408,16 +440,19 @@ export default function ItemModal({
             onClick={onClose}
             className="absolute flex items-center justify-center text-white"
             style={{
-              top: 16,
-              right: 16,
-              width: 32,
-              height: 32,
+              top: 12,
+              right: 12,
+              minWidth: 44,
+              minHeight: 44,
+              width: 44,
+              height: 44,
               borderRadius: "50%",
               background: "rgba(0,0,0,0.5)",
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
               border: "none",
               cursor: "pointer",
+              fontSize: 18,
             }}
             aria-label="Schließen"
           >

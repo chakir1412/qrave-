@@ -79,7 +79,71 @@ export default function DatenschutzPage() {
         lit. a DSGVO).
       </p>
 
-      <h2 className="mt-10 text-lg font-medium text-white">5. Betroffenenrechte</h2>
+      <h2 className="mt-10 text-lg font-medium text-white">
+        5. Auftragsverarbeiter
+      </h2>
+      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
+        Zur Bereitstellung unserer Dienste setzen wir folgende Auftragsverarbeiter
+        ein:
+      </p>
+      <ul className="mt-3 list-disc space-y-3 pl-5 text-[15px] leading-[1.8] text-white/60">
+        <li>
+          <strong className="text-white/80">Anthropic PBC</strong>, 548 Market St,
+          San Francisco, CA 94104, USA: KI-gestützte Analyse von
+          Speisekarten-PDFs und Generierung von Beschreibungen.
+          Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung).
+          Übermittlung in Drittland USA auf Basis von Standardvertragsklauseln.
+        </li>
+        <li>
+          <strong className="text-white/80">DeepL SE</strong>, Maarweg 165, 50825
+          Köln: Übersetzung von Speisekarten-Inhalten. Rechtsgrundlage: Art. 6
+          Abs. 1 lit. b DSGVO. Verarbeitung innerhalb der EU.
+        </li>
+      </ul>
+
+      <h2 className="mt-10 text-lg font-medium text-white">
+        6. Lokaler Speicher
+      </h2>
+      <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
+        Diese Website nutzt den <em>lokalen Speicher</em> des Browsers
+        (localStorage — keine Cookies im technischen Sinne) für folgende
+        technisch notwendige Zwecke:
+      </p>
+      <ul className="mt-3 list-disc space-y-2 pl-5 text-[15px] leading-[1.8] text-white/60">
+        <li>
+          <code className="rounded bg-white/5 px-1.5 py-0.5 text-[13px]">
+            qrave_landing_consent
+          </code>{" "}
+          — speichert deine Cookie-/Tracking-Entscheidung auf der Startseite.
+        </li>
+        <li>
+          <code className="rounded bg-white/5 px-1.5 py-0.5 text-[13px]">
+            qrave_consent
+          </code>{" "}
+          — speichert deine Tracking-Entscheidung in der Gäste-Speisekarte (Werte
+          „accepted" oder „declined").
+        </li>
+        <li>
+          <code className="rounded bg-white/5 px-1.5 py-0.5 text-[13px]">
+            qrave_visitor_id
+          </code>{" "}
+          — pseudonyme Geräte-ID für anonyme Nutzungsstatistiken (Tier-0). Wird
+          nicht an den Server übertragen, solange keine Einwilligung erteilt
+          wurde.
+        </li>
+        <li>
+          <code className="rounded bg-white/5 px-1.5 py-0.5 text-[13px]">
+            qrave-locale
+          </code>{" "}
+          — gewählte Sprache der Speisekarte.
+        </li>
+      </ul>
+      <p className="mt-3 text-[15px] leading-[1.8] text-white/60">
+        Diese Einträge können in den Browser-Einstellungen jederzeit gelöscht
+        werden.
+      </p>
+
+      <h2 className="mt-10 text-lg font-medium text-white">7. Betroffenenrechte</h2>
       <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
         Sie haben das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung
         der Verarbeitung Ihrer Daten sowie das Recht auf Datenübertragbarkeit. Da
@@ -95,7 +159,7 @@ export default function DatenschutzPage() {
         </a>
       </p>
 
-      <h2 className="mt-10 text-lg font-medium text-white">6. Beschwerderecht</h2>
+      <h2 className="mt-10 text-lg font-medium text-white">8. Beschwerderecht</h2>
       <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
         Sie haben das Recht, sich bei der zuständigen Aufsichtsbehörde zu beschweren.
         Zuständig ist der Hessische Beauftragte für Datenschutz und

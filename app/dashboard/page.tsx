@@ -67,7 +67,9 @@ export default function DashboardPage() {
         ),
       );
 
-      const [items, pushes, offers, dashAnalytics] = await Promise.all([
+      // allSettled: einzelne Resource-Fehler dürfen den Rest nicht killen.
+      // Wir loggen jeden Fehler, setzen aber alle erfolgreichen States.
+      const results = await Promise.allSettled([
         fetchMenuItemsForDashboard(restRow.id),
         fetchDailyPushes(restRow.id),
         fetchLunchOffers(restRow.id),
@@ -76,10 +78,15 @@ export default function DashboardPage() {
 
       if (cancelled) return;
 
-      setMenuItems(items);
-      setDailyPushes(pushes);
-      setLunchOffers(offers);
-      setAnalytics(dashAnalytics);
+      const [itemsRes, pushesRes, offersRes, analyticsRes] = results;
+      if (itemsRes.status === "fulfilled") setMenuItems(itemsRes.value);
+      else console.error("[dashboard] menu items failed:", itemsRes.reason);
+      if (pushesRes.status === "fulfilled") setDailyPushes(pushesRes.value);
+      else console.error("[dashboard] daily pushes failed:", pushesRes.reason);
+      if (offersRes.status === "fulfilled") setLunchOffers(offersRes.value);
+      else console.error("[dashboard] lunch offers failed:", offersRes.reason);
+      if (analyticsRes.status === "fulfilled") setAnalytics(analyticsRes.value);
+      else console.error("[dashboard] analytics failed:", analyticsRes.reason);
       setLoading(false);
     })();
 

@@ -82,16 +82,20 @@ export function EditItemOverlay({
   const isCreate = !editing;
 
   async function handleSave() {
+    // Double-Submit-Lock: wenn schon ein Request läuft, sofort verwerfen.
+    if (busy) return;
+    setBusy(true);
     const p = parsePreisInput(preisStr);
     if (!name.trim() || p === null) {
       onToast("Name und gültiger Preis nötig");
+      setBusy(false);
       return;
     }
     if (!kategorie.trim()) {
       onToast("Kategorie ist erforderlich");
+      setBusy(false);
       return;
     }
-    setBusy(true);
     const kat = kategorie.trim();
     const newName = name.trim();
     const newDesc = desc.trim() || null;

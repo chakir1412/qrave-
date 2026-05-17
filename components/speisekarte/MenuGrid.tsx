@@ -9,9 +9,6 @@ import { BADGE_STYLES, BADGE_LABELS, VOL_LABELS } from "./constants";
 
 export type Section = { kategorie: string; subtitle: string | null; items: MenuItem[] };
 
-/** "bar-soleil" = Dark Luxury (speisekarte-v4): heller Text, Kupfer, dunkle Karten */
-type MenuGridTheme = "light" | "bar-soleil";
-
 type MenuGridProps = {
   showHighlightSlider: boolean;
   highlights: MenuItem[];
@@ -21,7 +18,6 @@ type MenuGridProps = {
   onItemClick: (item: MenuItem) => void;
   activeAllergens: Set<string>;
   bannerSlot?: ReactNode;
-  theme?: MenuGridTheme;
   isInWishlist?: (itemId: string) => boolean;
   /** Ref je Kategorie-Sektion für Tier-1-Tracking (IntersectionObserver) */
   onCategorySectionRef?: (kategorie: string, element: HTMLElement | null) => void;
@@ -29,18 +25,8 @@ type MenuGridProps = {
   onItemCardRef?: (item: MenuItem, element: HTMLElement | null) => void;
 };
 
-const barSoleil = {
-  text: "#F0EBE3",
-  muted: "#8A7E70",
-  dim: "#4A4238",
-  copper: "#C8894E",
-  copper2: "#E8A96E",
-  border: "rgba(255,255,255,0.07)",
-  border2: "rgba(255,255,255,0.12)",
-  card: "#221F1A",
-  card2: "#2A2520",
-  surface: "#1A1712",
-};
+const PARTNER_COPPER = "#C8894E";
+const PARTNER_COPPER_LIGHT = "#E8A96E";
 
 export default function MenuGrid({
   showHighlightSlider,
@@ -51,32 +37,30 @@ export default function MenuGrid({
   onItemClick,
   activeAllergens,
   bannerSlot,
-  theme = "light",
   isInWishlist = () => false,
   onCategorySectionRef,
   onItemCardRef,
 }: MenuGridProps) {
-  const dark = theme === "bar-soleil";
   const cl = {
-    secTitle: dark ? barSoleil.text : "#1a1916",
-    secSub: dark ? barSoleil.muted : "#9a948a",
-    secBorder: dark ? barSoleil.border : "#e8e4dc",
-    itemName: dark ? barSoleil.text : "#1a1916",
-    itemDesc: dark ? barSoleil.muted : "#9a948a",
-    price: dark ? barSoleil.copper : "#b8966a",
-    empty: dark ? barSoleil.muted : "#9a948a",
-    thumbBorder: dark ? barSoleil.border : "#e8e4dc",
-    legendBg: dark ? barSoleil.card : "white",
-    legendBorder: dark ? barSoleil.border : "#e8e4dc",
-    disclaimer: dark ? barSoleil.muted : "#9a948a",
-    disclaimerBorder: dark ? barSoleil.border : "#f0ece5",
+    secTitle: "#1a1916",
+    secSub: "#9a948a",
+    secBorder: "#e8e4dc",
+    itemName: "#1a1916",
+    itemDesc: "#9a948a",
+    price: "#b8966a",
+    empty: "#9a948a",
+    thumbBorder: "#e8e4dc",
+    legendBg: "white",
+    legendBorder: "#e8e4dc",
+    disclaimer: "#9a948a",
+    disclaimerBorder: "#f0ece5",
   };
 
   return (
     <>
       {showHighlightSlider && (
         <section className="mb-9">
-          <div className={`flex items-center gap-3 text-[0.6rem] uppercase tracking-widest mb-3`} style={{ color: cl.secSub }}>
+          <div className="flex items-center gap-3 text-[0.6rem] uppercase tracking-widest mb-3" style={{ color: cl.secSub }}>
             <span className="h-px flex-1" style={{ backgroundColor: cl.secBorder }} /> ✦ EMPFEHLUNGEN ✦ <span className="h-px flex-1" style={{ backgroundColor: cl.secBorder }} />
           </div>
           <div className="flex gap-3 overflow-x-auto scrollbar-hide scroll-snap-x snap-mandatory pb-1">
@@ -89,16 +73,16 @@ export default function MenuGrid({
                   style={{
                     borderWidth: 1,
                     borderStyle: "solid",
-                    borderColor: dark ? barSoleil.border : "#e8e4dc",
-                    backgroundColor: dark ? barSoleil.card : "white",
+                    borderColor: "#e8e4dc",
+                    backgroundColor: "white",
                   }}
                 >
                   <div className="h-[116px] flex items-center justify-center relative" style={{ background: emojiGradient(emoji) }}>
                     <span className="text-[3rem]">{emoji}</span>
-                    <span className="absolute top-2 left-2 rounded-full px-2 py-0.5 text-[0.52rem] font-bold text-white uppercase tracking-wide" style={{ backgroundColor: barSoleil.copper }}>Partner</span>
+                    <span className="absolute top-2 left-2 rounded-full px-2 py-0.5 text-[0.52rem] font-bold text-white uppercase tracking-wide" style={{ backgroundColor: PARTNER_COPPER }}>Partner</span>
                   </div>
                   <div className="p-3">
-                    <div className="text-[0.56rem] uppercase tracking-wider font-semibold mb-0.5" style={{ color: barSoleil.copper }}>{h.partner_name || "Partner"}</div>
+                    <div className="text-[0.56rem] uppercase tracking-wider font-semibold mb-0.5" style={{ color: PARTNER_COPPER }}>{h.partner_name || "Partner"}</div>
                     <div className="font-serif text-[1.06rem] mb-2" style={{ color: cl.itemName }}>{h.name}</div>
                     <div className="flex items-center justify-between">
                       <span className="font-serif text-[1rem] font-medium" style={{ color: cl.price }}>{getDisplayPrice(h)}</span>
@@ -110,7 +94,7 @@ export default function MenuGrid({
                         style={
                           isInWishlist(h.id)
                             ? { borderWidth: 1, borderStyle: "solid", borderColor: "rgba(122,158,110,0.6)", backgroundColor: "rgba(122,158,110,0.2)", color: "#7a9e6e" }
-                            : { borderWidth: 1, borderStyle: "solid", borderColor: dark ? barSoleil.border2 : "#e8e4dc", color: barSoleil.copper2 }
+                            : { borderWidth: 1, borderStyle: "solid", borderColor: "#e8e4dc", color: PARTNER_COPPER_LIGHT }
                         }
                       >
                         {isInWishlist(h.id) ? "👍 Gemerkt" : "+ Merken"}
@@ -156,18 +140,18 @@ export default function MenuGrid({
                         type="button"
                         ref={(el) => onItemCardRef?.(item, el)}
                         onClick={() => !allergenWarn && onItemClick(item)}
-                        className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-all active:opacity-90 ${item.sponsored && !dark ? "bg-[rgba(184,150,106,0.02)]" : ""} ${allergenWarn ? "opacity-30 pointer-events-none" : ""} ${soldOut ? "opacity-50" : ""} ${dark ? "hover:bg-white/[0.05]" : "hover:bg-[rgba(184,150,106,0.06)]"}`}
+                        className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-all active:opacity-90 ${item.sponsored ? "bg-[rgba(184,150,106,0.02)]" : ""} ${allergenWarn ? "opacity-30 pointer-events-none" : ""} ${soldOut ? "opacity-50" : ""} hover:bg-[rgba(184,150,106,0.06)]`}
                       >
                         <div className={`flex-shrink-0 w-[68px] h-[68px] rounded-[10px] overflow-hidden flex items-center justify-center ${soldOut ? "grayscale" : ""}`} style={{ borderWidth: 1, borderStyle: "solid", borderColor: cl.thumbBorder, background: emojiGradient(emoji) }}>
                           {item.bild_url ? (
-                            <Image src={item.bild_url} alt={item.name} width={68} height={68} className="w-full h-full object-cover" unoptimized />
+                            <Image src={item.bild_url} alt={item.name} width={68} height={68} className="w-full h-full object-cover" unoptimized onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                           ) : (
                             <span className="text-[1.75rem]">{emoji}</span>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           {item.sponsored && item.partner_name && (
-                            <div className="text-[0.55rem] uppercase tracking-wider font-medium mb-0.5" style={{ color: barSoleil.copper2 }}>★ Empfohlen von {item.partner_name}</div>
+                            <div className="text-[0.55rem] uppercase tracking-wider font-medium mb-0.5" style={{ color: PARTNER_COPPER_LIGHT }}>★ Empfohlen von {item.partner_name}</div>
                           )}
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className={`font-serif text-[1.06rem] ${soldOut ? "line-through" : ""}`} style={{ color: cl.itemName }}>{item.name}</span>

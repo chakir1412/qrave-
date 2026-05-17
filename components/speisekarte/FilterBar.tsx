@@ -24,9 +24,6 @@ const SUB_CATEGORIES_BY_MAIN: Record<string, string[]> = {
   snacks: ["Snacks & Burger"],
 };
 
-/** "bar-soleil" = Dark Luxury: helle Texte, Kupfer-Akzente */
-type FilterBarTheme = "light" | "bar-soleil";
-
 type FilterBarProps = {
   mainTab: string;
   onMainTabChange: (key: string) => void;
@@ -36,19 +33,10 @@ type FilterBarProps = {
   onFilterChange: (f: FilterKey) => void;
   activeAllergenCount: number;
   onAllergenOpen: () => void;
-  theme?: FilterBarTheme;
   /** Wenn gesetzt: dynamische Haupt-Tabs (z. B. Standard-Speisekarte). Sonst: hardcodierte [ Speisen | Getränke | Snacks ]. */
   mainTabs?: MainTabItem[];
   /** Wenn gesetzt: dynamische Sub-Kategorien. Sonst: hardcodierte Kategorien je mainTab. */
   subCategories?: string[];
-};
-
-const barSoleilFilter = {
-  muted: "#8A7E70",
-  copper2: "#E8A96E",
-  border: "rgba(255,255,255,0.07)",
-  border2: "rgba(255,255,255,0.12)",
-  bg: "#0F0D0A",
 };
 
 export default function FilterBar({
@@ -60,18 +48,16 @@ export default function FilterBar({
   onFilterChange,
   activeAllergenCount,
   onAllergenOpen,
-  theme = "light",
   mainTabs: mainTabsProp,
   subCategories: subCategoriesProp,
 }: FilterBarProps) {
-  const dark = theme === "bar-soleil";
-  const navBorder = dark ? barSoleilFilter.border : "#e8e4dc";
-  const tabActive = dark ? barSoleilFilter.copper2 : "#b8966a";
-  const tabInactive = dark ? barSoleilFilter.muted : "#9a948a";
-  const subInactiveBg = dark ? "rgba(255,255,255,0.04)" : "white";
-  const subInactiveBorder = dark ? barSoleilFilter.border : "#e8e4dc";
-  const filterActiveBg = dark ? "rgba(200,137,78,0.08)" : "rgba(184,150,106,0.07)";
-  const allergenInactiveBg = dark ? "rgba(255,255,255,0.05)" : "#f5f4f0";
+  const navBorder = "#e8e4dc";
+  const tabActive = "#b8966a";
+  const tabInactive = "#9a948a";
+  const subInactiveBg = "white";
+  const subInactiveBorder = "#e8e4dc";
+  const filterActiveBg = "rgba(184,150,106,0.07)";
+  const allergenInactiveBg = "#f5f4f0";
 
   const mainTabs = mainTabsProp && mainTabsProp.length > 0 ? mainTabsProp : MAIN_TABS;
   const subCategories =
@@ -110,7 +96,7 @@ export default function FilterBar({
             className="flex-shrink-0 rounded-full border px-3.5 py-1.5 text-[0.71rem]"
             style={
               !subCategory
-                ? { backgroundColor: dark ? barSoleilFilter.copper2 : "#1a1916", color: "#fafaf8", borderColor: dark ? barSoleilFilter.copper2 : "#1a1916" }
+                ? { backgroundColor: "#1a1916", color: "#fafaf8", borderColor: "#1a1916" }
                 : { backgroundColor: subInactiveBg, borderColor: subInactiveBorder, color: tabInactive }
             }
           >
@@ -124,7 +110,7 @@ export default function FilterBar({
               className="flex-shrink-0 rounded-full border px-3.5 py-1.5 text-[0.71rem]"
               style={
                 subCategory === cat
-                  ? { backgroundColor: dark ? barSoleilFilter.copper2 : "#1a1916", color: "#fafaf8", borderColor: dark ? barSoleilFilter.copper2 : "#1a1916" }
+                  ? { backgroundColor: "#1a1916", color: "#fafaf8", borderColor: "#1a1916" }
                   : { backgroundColor: subInactiveBg, borderColor: subInactiveBorder, color: tabInactive }
               }
             >
@@ -135,7 +121,7 @@ export default function FilterBar({
       )}
 
       {/* Filter-Pills + Allergene */}
-      <div className="flex items-center gap-1.5 py-2 border-t" style={{ borderColor: dark ? barSoleilFilter.border : "#f0ece5" }}>
+      <div className="flex items-center gap-1.5 py-2 border-t" style={{ borderColor: "#f0ece5" }}>
         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide flex-1">
           {FILTER_KEYS.map((f) => (
             <button

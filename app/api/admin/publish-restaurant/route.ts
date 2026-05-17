@@ -81,11 +81,17 @@ export async function GET(req: Request) {
   }
 
   if (before.email) {
-    await sendPublishConfirmation({
-      restaurantName: String(before.name),
-      slug: String(before.slug),
-      ownerEmail: String(before.email),
-    });
+    try {
+      await sendPublishConfirmation({
+        restaurantName: String(before.name),
+        slug: String(before.slug),
+        ownerEmail: String(before.email),
+      });
+    } catch (mailErr) {
+      // Mail-Fehler darf die Freischaltung nicht crashen — DB-Update ist durch,
+      // Restaurant ist live. Wir loggen nur und liefern trotzdem 200.
+      console.error("[publish-restaurant] sendPublishConfirmation failed:", mailErr);
+    }
   }
 
   return new NextResponse(

@@ -713,7 +713,9 @@ export function KarteTab({
       if (!res.ok) {
         throw new Error(body.error ?? `Analyse fehlgeschlagen (${res.status})`);
       }
-      if (!body.items?.length) {
+      // Shape-Validierung: API könnte items als null, object, primitive zurückliefern.
+      // Optional chaining schützt vor null/undefined, aber wir wollen explizit ein Array.
+      if (!Array.isArray(body.items) || body.items.length === 0) {
         throw new Error("Keine Gerichte erkannt.");
       }
 

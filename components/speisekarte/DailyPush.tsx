@@ -54,25 +54,12 @@ export function DailyPushBanner({ dailyPush, onOpenPopup }: DailyPushBannerProps
   );
 }
 
-type DailyPushPopupTheme = "light" | "bar-soleil";
-
 type DailyPushPopupProps = {
   dailyPush: DailyPush;
   menuItems: MenuItem[];
   open: boolean;
   onClose: () => void;
   onAddToCart: (item: MenuItem, qty?: number) => void;
-  theme?: DailyPushPopupTheme;
-};
-
-const barSoleilPopup = {
-  bg: "#0F0D0A",
-  surface: "#1C1914",
-  text: "#F0EBE3",
-  muted: "#8A7E70",
-  copper: "#C8894E",
-  copper2: "#E8A96E",
-  border: "rgba(255,255,255,0.12)",
 };
 
 export function DailyPushPopup({
@@ -81,12 +68,10 @@ export function DailyPushPopup({
   open,
   onClose,
   onAddToCart,
-  theme = "light",
 }: DailyPushPopupProps) {
   const [justAdded, setJustAdded] = useState(false);
   const [visible, setVisible] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dark = theme === "bar-soleil";
 
   const matchedItem = useMemo(() => {
     const name = (dailyPush.item_name ?? "").trim().toLowerCase();
@@ -137,7 +122,7 @@ export function DailyPushPopup({
     <div
       className="fixed inset-0 z-[700] flex items-center justify-center backdrop-blur-sm"
       style={{
-        backgroundColor: dark ? "rgba(0,0,0,0.8)" : "rgba(0,0,0,0.55)",
+        backgroundColor: "rgba(0,0,0,0.55)",
         opacity: visible ? 1 : 0,
         transition: "opacity 300ms ease",
       }}
@@ -146,8 +131,8 @@ export function DailyPushPopup({
       <div
         className="w-full max-w-[480px] mx-4 rounded-[22px] overflow-hidden border"
         style={{
-          backgroundColor: dark ? barSoleilPopup.surface : "white",
-          borderColor: dark ? barSoleilPopup.border : "#e8e4dc",
+          backgroundColor: "white",
+          borderColor: "#e8e4dc",
           opacity: visible ? 1 : 0,
           transform: visible ? "scale(1)" : "scale(0.95)",
           transition: "opacity 300ms ease, transform 300ms ease",
@@ -163,11 +148,7 @@ export function DailyPushPopup({
             type="button"
             onClick={onClose}
             className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-md text-[0.85rem]"
-            style={{
-              backgroundColor: dark ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.9)",
-              color: dark ? barSoleilPopup.text : "#555",
-              border: dark ? "1px solid rgba(240,235,227,0.4)" : "none",
-            }}
+            style={{ backgroundColor: "rgba(255,255,255,0.9)", color: "#555", border: "none" }}
           >
             ✕
           </button>
@@ -175,20 +156,20 @@ export function DailyPushPopup({
         <div className="p-5 pt-4">
           <div
             className="text-[0.58rem] uppercase tracking-[0.14em] font-semibold mb-1.5"
-            style={{ color: dark ? barSoleilPopup.copper2 : "#b8966a" }}
+            style={{ color: "#b8966a" }}
           >
             Chef empfiehlt heute
           </div>
           <h3
             className="font-serif text-[1.7rem] font-normal leading-tight mb-1"
-            style={{ color: dark ? barSoleilPopup.text : "#1a1916" }}
+            style={{ color: "#1a1916" }}
           >
             {dailyPush.item_name}
           </h3>
           {matchedItem && (
             <p
               className="font-serif text-[1rem] font-medium mb-2"
-              style={{ color: dark ? barSoleilPopup.copper : "#b8966a" }}
+              style={{ color: "#b8966a" }}
             >
               {getDisplayPrice(matchedItem)}
             </p>
@@ -196,7 +177,7 @@ export function DailyPushPopup({
           {dailyPush.item_desc && (
             <p
               className="text-[0.8rem] leading-relaxed mb-3"
-              style={{ color: dark ? barSoleilPopup.muted : "#9a948a" }}
+              style={{ color: "#9a948a" }}
             >
               {dailyPush.item_desc}
             </p>
@@ -205,7 +186,7 @@ export function DailyPushPopup({
             <div className="mb-4">
               <div
                 className="text-[0.7rem] uppercase tracking-[0.16em] font-semibold mb-2"
-                style={{ color: dark ? barSoleilPopup.copper2 : "#b8966a" }}
+                style={{ color: "#b8966a" }}
               >
                 Zutaten
               </div>
@@ -214,26 +195,15 @@ export function DailyPushPopup({
                   <div
                     key={`${z.name}-${idx}`}
                     className="flex items-center gap-2 rounded-lg px-3 py-1.5"
-                    style={{
-                      backgroundColor: dark ? "rgba(255,255,255,0.03)" : "#f5f4f0",
-                      border: dark
-                        ? "1px solid rgba(255,255,255,0.08)"
-                        : "1px solid #e8e4dc",
-                    }}
+                    style={{ backgroundColor: "#f5f4f0", border: "1px solid #e8e4dc" }}
                   >
                     <div className="text-[1.2rem] flex-shrink-0">{z.emoji}</div>
                     <div className="min-w-0 flex-1">
-                      <div
-                        className="text-[0.8rem] font-semibold truncate"
-                        style={{ color: dark ? barSoleilPopup.text : "#1a1916" }}
-                      >
+                      <div className="text-[0.8rem] font-semibold truncate" style={{ color: "#1a1916" }}>
                         {z.name}
                       </div>
                       {z.subtext && (
-                        <div
-                          className="text-[0.7rem] leading-snug"
-                          style={{ color: dark ? barSoleilPopup.muted : "#9a948a" }}
-                        >
+                        <div className="text-[0.7rem] leading-snug" style={{ color: "#9a948a" }}>
                           {z.subtext}
                         </div>
                       )}
@@ -250,7 +220,7 @@ export function DailyPushPopup({
             style={{
               ...(justAdded
                 ? { backgroundColor: "rgba(122,158,110,0.35)", color: "#2d4a24" }
-                : { backgroundColor: dark ? barSoleilPopup.copper : "#1a1916", color: "#fafaf8" }),
+                : { backgroundColor: "#1a1916", color: "#fafaf8" }),
               transition: "background-color 0.3s ease, color 0.3s ease",
             }}
           >

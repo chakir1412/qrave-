@@ -174,7 +174,7 @@ export default function MinimalTemplate(props: SpeisekarteProps) {
                           <div style={{ width: 90, minWidth: 90, height: 90, borderRadius: 10, background: "linear-gradient(135deg, #f0f0f0, #e4e4e4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, flexShrink: 0, overflow: "hidden" }}>
                             {hasImg ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={item.bild_url as string} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
+                              <img src={item.bild_url as string} alt={item.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
                             ) : (<span aria-hidden>{item.emoji || "🍽"}</span>)}
                           </div>
                         </button>
@@ -195,7 +195,7 @@ export default function MinimalTemplate(props: SpeisekarteProps) {
         </footer>
       </div>
 
-      <nav style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: COL.white, borderTop: `1px solid ${COL.border}`, padding: "10px 0 20px", display: "flex", justifyContent: "space-around", zIndex: 140 }}>
+      <nav style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: COL.white, borderTop: `1px solid ${COL.border}`, padding: "10px 0 20px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)", display: "flex", justifyContent: "space-around", zIndex: 140 }}>
         <button type="button" onClick={() => { if (wishlistOpen) closeWishlist(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: !wishlistOpen ? 1 : 0.3, background: "transparent", border: "none" }}>
           <span style={{ fontSize: 20 }} aria-hidden>◈</span>
           <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.text, fontWeight: 500 }}>Karte</span>

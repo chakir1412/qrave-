@@ -513,6 +513,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
           WebkitBackdropFilter: "blur(20px)",
           borderTop: `1px solid ${COL.border}`,
           padding: "12px 0 28px",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 28px)",
           display: "flex",
           justifyContent: "space-around",
           zIndex: 140,
@@ -731,6 +732,7 @@ function NoirItemCard({
         <img
           src={item.bild_url as string}
           alt={item.name}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
           style={{
             width: "100%",
             height: 200,

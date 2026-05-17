@@ -230,7 +230,7 @@ export default function TrattoriaTemplate(props: SpeisekarteProps) {
                           <div style={{ width: 100, minWidth: 100, height: 100, background: "linear-gradient(135deg, #f0e4d0, #e8d4b8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, flexShrink: 0, overflow: "hidden" }}>
                             {hasImg ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={item.bild_url as string} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
+                              <img src={item.bild_url as string} alt={item.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
                             ) : (<span aria-hidden>{item.emoji || "🍝"}</span>)}
                           </div>
                           <div style={{ flex: 1, padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "space-between", minWidth: 0 }}>
@@ -288,7 +288,7 @@ function BottomNav({ cartCount, wishlistOpen, onOpenWishlist, onCloseWishlist, a
   return (
     <nav style={{
       position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430,
-      background: bg, borderTop: `1px solid ${border}`, padding: "10px 0 20px", display: "flex", justifyContent: "space-around",
+      background: bg, borderTop: `1px solid ${border}`, padding: "10px 0 20px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)", display: "flex", justifyContent: "space-around",
       zIndex: 140, boxShadow: "0 -4px 20px rgba(0,0,0,0.06)",
     }}>
       <button type="button" onClick={() => { if (wishlistOpen) onCloseWishlist(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: !wishlistOpen ? 1 : 0.35, background: "transparent", border: "none" }}>

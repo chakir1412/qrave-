@@ -167,7 +167,7 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
                           <div style={{ width: "100%", height: 170, background: "linear-gradient(135deg, #f0e6d8, #e8d8c4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 72, position: "relative", overflow: "hidden" }}>
                             {hasImg ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={item.bild_url as string} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
+                              <img src={item.bild_url as string} alt={item.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
                             ) : (<span aria-hidden>{item.emoji || "🍽"}</span>)}
                             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 60, background: `linear-gradient(transparent, ${COL.card})`, pointerEvents: "none" }} />
                           </div>
@@ -203,7 +203,7 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
         </footer>
       </div>
 
-      <nav style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: COL.bg, borderTop: `1px solid ${COL.border}`, padding: "10px 0 20px", display: "flex", justifyContent: "space-around", zIndex: 140, boxShadow: "0 -4px 20px rgba(44,26,14,0.06)" }}>
+      <nav style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: COL.bg, borderTop: `1px solid ${COL.border}`, padding: "10px 0 20px", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)", display: "flex", justifyContent: "space-around", zIndex: 140, boxShadow: "0 -4px 20px rgba(44,26,14,0.06)" }}>
         <button type="button" onClick={() => { if (wishlistOpen) closeWishlist(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: !wishlistOpen ? 1 : 0.35, background: "transparent", border: "none" }}>
           <span style={{ fontSize: 20 }} aria-hidden>◈</span>
           <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.accent, fontWeight: 600 }}>Karte</span>
