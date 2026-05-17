@@ -27,7 +27,6 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 
 export default function PlayfulTemplate(props: SpeisekarteProps) {
   const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [] } = props;
-  const [splashOpen, setSplashOpen] = useState(true);
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
@@ -44,7 +43,6 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
   useEffect(() => { const u = () => setHasActiveLunch(activeLunchOffers(lunchOffers).length > 0); u(); const t = window.setInterval(u, 60_000); return () => window.clearInterval(t); }, [lunchOffers]);
   useMemo(() => { track("view_menu", { restaurantName, hasDailyPush: dailyPushes.length > 0, itemCount: menuItems.length, template: "playful" }); return undefined; }, [track, restaurantName, dailyPushes.length, menuItems.length]);
   const derivedTabs = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
-  const splashCategories = derivedTabs;
   const mainTabs = useMemo(() => hasActiveLunch ? [{ key: LUNCH_TAB_KEY, label: "Mittagsangebot" }, ...derivedTabs] : derivedTabs, [derivedTabs, hasActiveLunch]);
   const mainTab = useMemo(() => (pickedMainTab && mainTabs.some((t) => t.key === pickedMainTab)) ? pickedMainTab : (mainTabs[0]?.key ?? CATEGORY_TAB_ALLE_KEY), [pickedMainTab, mainTabs]);
   const effectiveMainTab = useMemo(() => {
@@ -72,20 +70,6 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
     pushModal(m ?? dailyPushToMenuItem(dp));
   }, [dailyPushes, menuItems, pushModal]);
 
-  function openCategory(key: string) {
-    setPickedMainTab(key);
-    setFilter("all");
-    setSplashOpen(false);
-    if (key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(key));
-  }
-
-  useEffect(() => {
-    if (splashOpen && splashCategories.length <= 1 && splashCategories[0]) {
-      setSplashOpen(false);
-      setPickedMainTab(splashCategories[0].key);
-    }
-  }, [splashOpen, splashCategories]);
-
   const featured = dailyPushes[0] ?? null;
 
   return (
@@ -112,38 +96,65 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
       {!consentGiven && <ConsentBanner onConsent={() => setConsentGiven(true)} />}
 
       <div className="play-template" style={{ maxWidth: 430, margin: "0 auto", width: "100%", paddingBottom: 100 }}>
-        {splashOpen ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "40px 24px", textAlign: "center" }}>
-            <div className="play-blob" style={{ width: 200, height: 200, background: "rgba(255,61,127,0.15)", marginBottom: -60 }} />
-            <h1 style={{ fontFamily: DISPLAY, fontSize: 64, fontWeight: 800, color: COL.text, letterSpacing: "-0.03em", lineHeight: 1, margin: "0 0 8px", position: "relative" }}>
-              {restaurantName}<span style={{ color: COL.accent }}>!</span>
-            </h1>
-            <div style={{ fontSize: 12, color: COL.muted, marginBottom: 48, letterSpacing: "0.1em", textTransform: "uppercase" }}>Speisekarte</div>
-            <div className="play-star" style={{ fontSize: 48, marginBottom: 32, display: "inline-block" }} aria-hidden>✳</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 280 }}>
-              {splashCategories.map((c, i) => {
-                const highlight = i === 0 ? COL.accent : i === 2 ? COL.accent2 : COL.white;
-                const textColor = i === 0 ? "#fff" : COL.text;
-                return (
-                  <button key={c.key} type="button" onClick={() => openCategory(c.key)} className="play-cat-btn" style={{
-                    background: highlight, border: "none", borderRadius: 999, padding: "18px 32px",
-                    fontFamily: DISPLAY, fontSize: 22, fontWeight: 700, color: textColor, cursor: "pointer",
-                    transition: "transform 0.15s, box-shadow 0.15s", boxShadow: `4px 4px 0px ${COL.text}`,
-                    textAlign: "center", width: "100%",
-                  }}>{c.label}</button>
-                );
-              })}
-            </div>
+        <header style={{ background: COL.bg, padding: "20px 20px 0", position: "sticky", top: 0, zIndex: 10 }}>
+          <div style={{ fontFamily: DISPLAY, fontSize: 32, fontWeight: 800, color: COL.text, letterSpacing: "-0.03em", lineHeight: 1 }}>
+            {restaurantName}<span style={{ color: COL.accent }}>!</span>
           </div>
-        ) : (
-          <>
-            <header style={{ background: COL.bg, padding: "20px 20px 16px", display: "flex", alignItems: "center", gap: 14, position: "sticky", top: 0, zIndex: 10, borderBottom: `2px solid ${COL.text}` }}>
-              <button type="button" onClick={() => setSplashOpen(true)} style={{ fontSize: 22, cursor: "pointer", border: "none", background: COL.white, borderRadius: 999, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `2px 2px 0 ${COL.text}`, fontWeight: 700 }} aria-label="Zurück">←</button>
-              <div style={{ fontFamily: DISPLAY, fontSize: 28, fontWeight: 800, color: COL.text, letterSpacing: "-0.02em" }}>{activeCategoryLabel}</div>
-            </header>
+        </header>
 
-            <div className="play-scrollbar-hide" style={{ display: "flex", gap: 8, padding: "8px 16px 12px", overflowX: "auto" }}>
-              {(["all", "vegan", "veg", "gf"] as FilterKey[]).map((k) => {
+        {/* Kategorie-Tabs (horizontaler Scroll, aktiver unterstrichen) */}
+        <nav
+          className="play-scrollbar-hide"
+          style={{
+            position: "sticky",
+            top: 56,
+            zIndex: 9,
+            background: COL.bg,
+            display: "flex",
+            overflowX: "auto",
+            padding: "12px 16px 0",
+            borderBottom: `2px solid ${COL.text}`,
+          }}
+        >
+          {mainTabs.map((tab) => {
+            const active = effectiveMainTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => {
+                  setPickedMainTab(tab.key);
+                  setFilter("all");
+                  if (tab.key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(tab.key));
+                }}
+                style={{
+                  flexShrink: 0,
+                  padding: "10px 14px",
+                  fontFamily: DISPLAY,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  color: active ? COL.accent : COL.text,
+                  borderBottom: `3px solid ${active ? COL.accent : "transparent"}`,
+                  background: "transparent",
+                  border: "none",
+                  borderBottomWidth: 3,
+                  borderBottomStyle: "solid",
+                  borderBottomColor: active ? COL.accent : "transparent",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  marginBottom: -2,
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="play-scrollbar-hide" style={{ display: "flex", gap: 8, padding: "8px 16px 12px", overflowX: "auto" }}>
+          {(["all", "vegan", "veg", "gf"] as FilterKey[]).map((k) => {
                 const active = filter === k;
                 const label = k === "all" ? "Alle" : k === "vegan" ? "Vegan" : k === "veg" ? "Vegetarisch" : "GF";
                 return (<button key={k} type="button" onClick={() => setFilter(k)} style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, padding: "6px 16px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", border: `2px solid ${COL.text}`, background: active ? COL.text : "transparent", color: active ? "#fff" : COL.text }}>{label}</button>);
@@ -213,27 +224,23 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
                 <a href="/datenschutz" style={{ color: COL.muted, textDecoration: "none" }}>Datenschutz</a>
               </p>
             </footer>
-          </>
-        )}
       </div>
 
-      {!splashOpen ? (
-        <nav style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: COL.bg, borderTop: `2px solid ${COL.text}`, padding: "10px 0 20px", display: "flex", justifyContent: "space-around", zIndex: 140 }}>
-          <button type="button" onClick={() => { if (wishlistOpen) closeWishlist(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: !wishlistOpen ? 1 : 0.35, background: "transparent", border: "none" }}>
-            <span style={{ fontSize: 20 }} aria-hidden>◈</span>
-            <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.text, fontWeight: 700 }}>Karte</span>
-          </button>
-          <button type="button" onClick={openWishlist} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: wishlistOpen ? 1 : 0.35, background: "transparent", border: "none" }}>
-            <span style={{ fontSize: 20 }} aria-hidden>♡</span>
-            <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.text, fontWeight: 700 }}>Merkliste</span>
-            {cartCount > 0 ? (<span style={{ position: "absolute", top: -4, right: 8, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: COL.accent, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{cartCount}</span>) : null}
-          </button>
-          <button type="button" onClick={() => setAllergenOpen(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: 0.35, background: "transparent", border: "none" }}>
-            <span style={{ fontSize: 20 }} aria-hidden>⚠</span>
-            <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.text, fontWeight: 700 }}>Allergene</span>
-          </button>
-        </nav>
-      ) : null}
+      <nav style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: COL.bg, borderTop: `2px solid ${COL.text}`, padding: "10px 0 20px", display: "flex", justifyContent: "space-around", zIndex: 140 }}>
+        <button type="button" onClick={() => { if (wishlistOpen) closeWishlist(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: !wishlistOpen ? 1 : 0.35, background: "transparent", border: "none" }}>
+          <span style={{ fontSize: 20 }} aria-hidden>◈</span>
+          <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.text, fontWeight: 700 }}>Karte</span>
+        </button>
+        <button type="button" onClick={openWishlist} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: wishlistOpen ? 1 : 0.35, background: "transparent", border: "none" }}>
+          <span style={{ fontSize: 20 }} aria-hidden>♡</span>
+          <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.text, fontWeight: 700 }}>Merkliste</span>
+          {cartCount > 0 ? (<span style={{ position: "absolute", top: -4, right: 8, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: COL.accent, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{cartCount}</span>) : null}
+        </button>
+        <button type="button" onClick={() => setAllergenOpen(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: 0.35, background: "transparent", border: "none" }}>
+          <span style={{ fontSize: 20 }} aria-hidden>⚠</span>
+          <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.text, fontWeight: 700 }}>Allergene</span>
+        </button>
+      </nav>
 
       {modalItem && (<HeritageItemModal item={modalItem} menuItems={menuItems} sponsoredItems={sponsoredItems} restaurantId={restaurantId} onClose={popModal} onSelectItem={pushModal} onAddToWishlist={handleAddToWishlist} isInWishlist={isInWishlist} onToggleWishlist={handleToggleWishlist} theme="playful" />)}
       <Wishlist open={wishlistOpen} onClose={closeWishlist} overlayZIndex={999} cart={entries} onUpdateQty={updateQty} onRemove={handleRemoveFromWishlist} cartTotal={cartTotal} onClear={clearWishlist} restaurantName={restaurantName} />
