@@ -31,7 +31,7 @@ import { getDisplayPrice } from "@/components/speisekarte/utils";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 import HeritageItemModal from "./HeritageItemModal";
 
-const COL = {
+const COL_DEFAULT = {
   bg: "#F5F0E8",
   text: "#1A1209",
   textMuted: "#6E665C",
@@ -42,7 +42,7 @@ const COL = {
   dividerSoft: "rgba(200,137,78,0.18)",
   white: "#FFFFFF",
   cream: "#EDE5D6",
-} as const;
+};
 
 const SERIF = 'Georgia, "Times New Roman", ui-serif, serif';
 const LUNCH_TAB_KEY = "__wirtshaus_lunch__";
@@ -83,6 +83,16 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
     backgroundMode = null,
   } = props;
   const bgTheme = resolveBackground("heritage", backgroundMode as BackgroundMode | null);
+  // Lokales COL überschattet das Modul-Default: bg/text/textMuted folgen
+  // dem Hintergrund-Mode, alle anderen Tokens (Akzent, Divider, etc.)
+  // bleiben Template-CI.
+  const COL = {
+    ...COL_DEFAULT,
+    bg: bgTheme.bg,
+    text: bgTheme.text,
+    textMuted: bgTheme.textMuted,
+    textSubtle: bgTheme.textMuted,
+  };
 
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -504,6 +514,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
             onCategorySectionRef={onCategorySectionRef}
             onItemCardRef={onItemCardRef}
             hideCategories={filter !== "all" ? DRINK_CATEGORIES : null}
+            COL={COL}
           />
         )}
       </main>
@@ -676,6 +687,9 @@ type ItemListProps = {
   /** Wenn gesetzt: Kategorien aus diesem Set werden komplett ausgeblendet
    *  (z. B. Getränke bei aktivem Diät-Filter). */
   hideCategories: ReadonlySet<string> | null;
+  /** Dynamisches Color-Set (vom main HeritageTemplate basierend auf
+   *  bgTheme zusammengestellt). */
+  COL: typeof COL_DEFAULT;
 };
 
 function ItemList({
@@ -685,6 +699,7 @@ function ItemList({
   onCategorySectionRef,
   onItemCardRef,
   hideCategories,
+  COL,
 }: ItemListProps) {
   const visibleSections =
     hideCategories === null

@@ -30,7 +30,7 @@ import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
-const COL = {
+const COL_DEFAULT = {
   bg: "#f0eeea",
   white: "#ffffff",
   text: "#1a1a1a",
@@ -39,7 +39,7 @@ const COL = {
   accent: "#2d6a4f",
   accentLight: "rgba(45,106,79,0.09)",
   accentSoft: "rgba(45,106,79,0.18)",
-} as const;
+};
 
 const SERIF = `'Playfair Display', Georgia, ui-serif, serif`;
 const LUNCH_TAB_KEY = "__clean_lunch__";
@@ -72,6 +72,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
     backgroundMode = null,
   } = props;
   const bgTheme = resolveBackground("clean", backgroundMode as BackgroundMode | null);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted };
 
   /** Splash-Flow: initial true → Kategorie-Grid sichtbar. Klick auf eine
    *  Kategorie setzt sie + verlässt Splash. Back-Button kehrt zurück. */
@@ -372,6 +373,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
             categories={splashCategories}
             emoji={categoryEmoji}
             onPick={openCategory}
+            COL={COL}
           />
         ) : (
           <>
@@ -504,6 +506,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
                   onItemClick={pushModal}
                   onCategorySectionRef={onCategorySectionRef}
                   onItemCardRef={onItemCardRef}
+                  COL={COL}
                 />
               )}
             </main>
@@ -642,10 +645,12 @@ function CategorySplash({
   categories,
   emoji,
   onPick,
+  COL,
 }: {
   categories: ReadonlyArray<{ key: string; label: string }>;
   emoji: (key: string) => string;
   onPick: (key: string) => void;
+  COL: typeof COL_DEFAULT;
 }) {
   // Versetzte 2-Spalten-Anordnung — links normal, rechts +60px Versatz.
   const leftCol: Array<{ key: string; label: string }> = [];
@@ -660,12 +665,12 @@ function CategorySplash({
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 12 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {leftCol.map((c, i) => (
-            <CleanCatCard key={c.key} category={c} emoji={emoji(c.key)} onPick={onPick} firstInColumn={i === 0} />
+            <CleanCatCard key={c.key} category={c} emoji={emoji(c.key)} onPick={onPick} firstInColumn={i === 0} COL={COL} />
           ))}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 60 }}>
           {rightCol.map((c, i) => (
-            <CleanCatCard key={c.key} category={c} emoji={emoji(c.key)} onPick={onPick} firstInColumn={i === 0} />
+            <CleanCatCard key={c.key} category={c} emoji={emoji(c.key)} onPick={onPick} firstInColumn={i === 0} COL={COL} />
           ))}
         </div>
       </div>
@@ -678,11 +683,13 @@ function CleanCatCard({
   emoji,
   onPick,
   firstInColumn,
+  COL,
 }: {
   category: { key: string; label: string };
   emoji: string;
   onPick: (key: string) => void;
   firstInColumn: boolean;
+  COL: typeof COL_DEFAULT;
 }) {
   return (
     <button
@@ -738,6 +745,7 @@ type CleanItemListProps = {
   onItemClick: (item: MenuItem) => void;
   onCategorySectionRef: (kategorie: string, el: HTMLElement | null) => void;
   onItemCardRef?: (item: MenuItem, el: HTMLElement | null) => void;
+  COL: typeof COL_DEFAULT;
 };
 
 function CleanItemList({
@@ -746,6 +754,7 @@ function CleanItemList({
   onItemClick,
   onCategorySectionRef,
   onItemCardRef,
+  COL,
 }: CleanItemListProps) {
   if (sections.length === 0) {
     return (
@@ -772,6 +781,7 @@ function CleanItemList({
                 item={item}
                 onClick={() => onItemClick(item)}
                 cardRef={(el) => onItemCardRef?.(item, el)}
+                COL={COL}
               />
             ))}
           </section>
@@ -785,10 +795,12 @@ function CleanItemCard({
   item,
   onClick,
   cardRef,
+  COL,
 }: {
   item: MenuItem;
   onClick: () => void;
   cardRef: (el: HTMLElement | null) => void;
+  COL: typeof COL_DEFAULT;
 }) {
   const soldOut = item.sold_out === true;
   const hasImage = Boolean(item.bild_url);

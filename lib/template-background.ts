@@ -57,6 +57,15 @@ export const DEFAULT_MODE_PER_TEMPLATE: Record<TemplateId, BackgroundMode> = {
   mediterranean: "light",
 };
 
+/** Templates die VON HAUS AUS dunkel sind — alle ihre 5 Mode-Bg-Töne
+ *  liegen im dunklen Bereich. Sie nutzen IMMER helle Schrift, egal
+ *  welcher Mode gewählt ist. */
+const INHERENTLY_DARK_TEMPLATES = new Set<TemplateId>([
+  "noir",
+  "asian-dark",
+  "street-food",
+]);
+
 function darkTextFor(template: TemplateId): string {
   // Pro hellem Mode: dunkler Templates-eigener Text-Ton.
   switch (template) {
@@ -99,7 +108,10 @@ export function resolveBackground(
   const t = (templateId && templateId in BG_PER_TEMPLATE ? templateId : "minimal") as TemplateId;
   const m: BackgroundMode = mode && BACKGROUND_MODES.includes(mode) ? mode : DEFAULT_MODE_PER_TEMPLATE[t];
   const bg = BG_PER_TEMPLATE[t][m];
-  const isDark = m === "dark" || m === "extraDark";
+  // Templates die strukturell dunkel sind (Noir/AsianDark/StreetFood) sind
+  // in ALLEN Modi dunkel — egal welche Stufe der Wirt wählt. Sonst (helle
+  // Templates) bestimmt der Mode ob dark oder light.
+  const isDark = INHERENTLY_DARK_TEMPLATES.has(t) || m === "dark" || m === "extraDark";
 
   if (isDark) {
     return {

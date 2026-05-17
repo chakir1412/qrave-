@@ -31,7 +31,7 @@ import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
-const COL = {
+const COL_DEFAULT = {
   bg: "#0a0805",
   cream: "rgba(255,248,235,0.88)",
   creamFull: "#fff8eb",
@@ -42,7 +42,7 @@ const COL = {
   card: "rgba(255,248,235,0.03)",
   border: "rgba(201,168,76,0.14)",
   borderStrong: "rgba(201,168,76,0.25)",
-} as const;
+};
 
 const SERIF = `'Cormorant Garamond', Georgia, "Times New Roman", ui-serif, serif`;
 const LUNCH_TAB_KEY = "__noir_lunch__";
@@ -76,6 +76,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
     backgroundMode = null,
   } = props;
   const bgTheme = resolveBackground("noir", backgroundMode as BackgroundMode | null);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, cream: bgTheme.text, muted: bgTheme.textMuted };
 
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -483,6 +484,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
               onCategorySectionRef={onCategorySectionRef}
               onItemCardRef={onItemCardRef}
               hideCategories={filter !== "all" ? DRINK_CATEGORIES : null}
+              COL={COL}
             />
           )}
         </main>
@@ -628,6 +630,7 @@ type NoirItemListProps = {
   onCategorySectionRef: (kategorie: string, el: HTMLElement | null) => void;
   onItemCardRef?: (item: MenuItem, el: HTMLElement | null) => void;
   hideCategories: ReadonlySet<string> | null;
+  COL: typeof COL_DEFAULT;
 };
 
 function NoirItemList({
@@ -637,6 +640,7 @@ function NoirItemList({
   onCategorySectionRef,
   onItemCardRef,
   hideCategories,
+  COL,
 }: NoirItemListProps) {
   const visibleSections =
     hideCategories === null ? sections : sections.filter((sec) => !hideCategories.has(sec.kategorie));
@@ -673,6 +677,7 @@ function NoirItemList({
                   item={item}
                   onClick={() => onItemClick(item)}
                   cardRef={(el) => onItemCardRef?.(item, el)}
+                  COL={COL}
                 />
               ))}
             </div>
@@ -687,10 +692,12 @@ function NoirItemCard({
   item,
   onClick,
   cardRef,
+  COL,
 }: {
   item: MenuItem;
   onClick: () => void;
   cardRef: (el: HTMLElement | null) => void;
+  COL: typeof COL_DEFAULT;
 }) {
   const soldOut = item.sold_out === true;
   const hasImage = Boolean(item.bild_url);

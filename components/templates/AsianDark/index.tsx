@@ -19,7 +19,7 @@ import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
-const COL = { bg: "#0d0d0f", bg2: "#141417", white: "#f0eee8", text: "#f0eee8", muted: "rgba(240,238,232,0.4)", border: "rgba(240,238,232,0.07)", accent: "#e8282e", accent2: "#ff6b35", gold: "#c9a84c", card: "rgba(255,255,255,0.04)" } as const;
+const COL_DEFAULT = { bg: "#0d0d0f", bg2: "#141417", white: "#f0eee8", text: "#f0eee8", muted: "rgba(240,238,232,0.4)", border: "rgba(240,238,232,0.07)", accent: "#e8282e", accent2: "#ff6b35", gold: "#c9a84c", card: "rgba(255,255,255,0.04)" };
 const JP = `'Noto Sans JP', system-ui, sans-serif`;
 const LUNCH_TAB_KEY = "__asiandark_lunch__";
 const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
@@ -29,6 +29,7 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 export default function AsianDarkTemplate(props: SpeisekarteProps) {
   const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
   const bgTheme = resolveBackground("asian-dark", backgroundMode as BackgroundMode | null);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted };
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());

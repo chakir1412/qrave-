@@ -24,7 +24,7 @@ import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
-const COL = {
+const COL_DEFAULT = {
   bg: "#f5ede0",
   white: "#fffaf5",
   text: "#1c1410",
@@ -33,7 +33,7 @@ const COL = {
   accent: "#c0392b",
   accentLight: "rgba(192,57,43,0.08)",
   accentSoft: "rgba(192,57,43,0.18)",
-} as const;
+};
 
 const SERIF = `'Lora', Georgia, ui-serif, serif`;
 const LUNCH_TAB_KEY = "__trattoria_lunch__";
@@ -49,6 +49,7 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 export default function TrattoriaTemplate(props: SpeisekarteProps) {
   const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
   const bgTheme = resolveBackground("trattoria", backgroundMode as BackgroundMode | null);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted };
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());

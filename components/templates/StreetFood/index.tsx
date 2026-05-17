@@ -19,7 +19,7 @@ import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
-const COL = { bg: "#111110", bg2: "#1a1a18", white: "#f5f4f0", text: "#f5f4f0", muted: "rgba(245,244,240,0.45)", border: "rgba(245,244,240,0.08)", accent: "#e8b400", accent2: "#ff4422", card: "rgba(255,255,255,0.04)" } as const;
+const COL_DEFAULT = { bg: "#111110", bg2: "#1a1a18", white: "#f5f4f0", text: "#f5f4f0", muted: "rgba(245,244,240,0.45)", border: "rgba(245,244,240,0.08)", accent: "#e8b400", accent2: "#ff4422", card: "rgba(255,255,255,0.04)" };
 const DISPLAY = `'Bebas Neue', Impact, system-ui, sans-serif`;
 const LUNCH_TAB_KEY = "__streetfood_lunch__";
 const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
@@ -29,6 +29,7 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 export default function StreetFoodTemplate(props: SpeisekarteProps) {
   const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
   const bgTheme = resolveBackground("street-food", backgroundMode as BackgroundMode | null);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted };
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());

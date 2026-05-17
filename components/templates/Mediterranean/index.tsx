@@ -19,7 +19,7 @@ import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
-const COL = { bg: "#faf6f0", white: "#fff", text: "#2c1a0e", muted: "rgba(44,26,14,0.45)", border: "rgba(44,26,14,0.1)", accent: "#c0580a", accent2: "#5c8a3c", gold: "#c9972a", terracotta: "#d4613a", card: "#fff" } as const;
+const COL_DEFAULT = { bg: "#faf6f0", white: "#fff", text: "#2c1a0e", muted: "rgba(44,26,14,0.45)", border: "rgba(44,26,14,0.1)", accent: "#c0580a", accent2: "#5c8a3c", gold: "#c9972a", terracotta: "#d4613a", card: "#fff" };
 const LUNCH_TAB_KEY = "__med_lunch__";
 const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
   all: [], vegan: ["vegan"], veg: ["vegetarisch", "veg", "vegetarian"], gf: ["glutenfrei", "gf"], spicy: ["scharf", "spicy", "hot"],
@@ -28,6 +28,7 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 export default function MediterraneanTemplate(props: SpeisekarteProps) {
   const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
   const bgTheme = resolveBackground("mediterranean", backgroundMode as BackgroundMode | null);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted };
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());

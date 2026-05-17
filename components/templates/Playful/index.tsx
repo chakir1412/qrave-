@@ -19,7 +19,7 @@ import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
-const COL = { bg: "#ffe5f0", white: "#fff", text: "#1a0a12", muted: "rgba(26,10,18,0.5)", border: "rgba(26,10,18,0.1)", accent: "#ff3d7f", accent2: "#ffb800" } as const;
+const COL_DEFAULT = { bg: "#ffe5f0", white: "#fff", text: "#1a0a12", muted: "rgba(26,10,18,0.5)", border: "rgba(26,10,18,0.1)", accent: "#ff3d7f", accent2: "#ffb800" };
 const DISPLAY = `'Syne', system-ui, sans-serif`;
 const LUNCH_TAB_KEY = "__playful_lunch__";
 const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
@@ -29,6 +29,7 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 export default function PlayfulTemplate(props: SpeisekarteProps) {
   const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
   const bgTheme = resolveBackground("playful", backgroundMode as BackgroundMode | null);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted };
   const [splashOpen, setSplashOpen] = useState(true);
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
