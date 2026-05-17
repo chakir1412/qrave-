@@ -357,13 +357,16 @@ export default function SplashScreen({ restaurant }: Props) {
 
         {/* Restaurant-Name */}
         <h1
-          className="text-center text-[2.6rem] leading-tight tracking-tight"
+          className="text-center leading-tight tracking-tight"
           style={{
             color: theme.text,
             fontFamily: theme.fontDisplay,
             fontStyle: theme.fontItalic ? "italic" : "normal",
             fontWeight: theme.fontDisplay.includes("Bebas") ? 400 : theme.fontDisplay.includes("Syne") ? 800 : 500,
             letterSpacing: theme.fontDisplay.includes("Bebas") ? "0.03em" : "-0.02em",
+            fontSize: "clamp(1.8rem, 8vw, 2.6rem)",
+            maxWidth: "100%",
+            wordBreak: "break-word",
           }}
         >
           {restaurant.name}
