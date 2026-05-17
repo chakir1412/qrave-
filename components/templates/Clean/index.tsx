@@ -70,6 +70,9 @@ export default function CleanTemplate(props: SpeisekarteProps) {
     lunchOffers = [],
   } = props;
 
+  /** Splash-Flow: initial true → Kategorie-Grid sichtbar. Klick auf eine
+   *  Kategorie setzt sie + verlässt Splash. Back-Button kehrt zurück. */
+  const [splashOpen, setSplashOpen] = useState(true);
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
@@ -125,6 +128,10 @@ export default function CleanTemplate(props: SpeisekarteProps) {
   }, [track, restaurantName, dailyPushes.length, menuItems.length]);
 
   const derivedTabs = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
+
+  /** Splash zeigt nur reale Kategorien (kein Lunch-Tab). Im Items-View
+   *  wird Lunch optional als erster Tab eingeblendet. */
+  const splashCategories = derivedTabs;
 
   const mainTabs = useMemo(() => {
     if (hasActiveLunch) {
@@ -237,25 +244,20 @@ export default function CleanTemplate(props: SpeisekarteProps) {
     [dailyPushes, menuItems, pushModal],
   );
 
-  const tabButtonStyle = (active: boolean): CSSProperties => ({
-    flexShrink: 0,
-    padding: "10px 4px",
-    margin: "0 8px",
-    fontSize: 12,
-    fontWeight: active ? 600 : 500,
-    letterSpacing: "0.14em",
-    textTransform: "uppercase",
-    color: active ? COL.accent : COL.muted,
-    borderBottom: `2px solid ${active ? COL.accent : "transparent"}`,
-    background: "transparent",
-    border: "none",
-    borderBottomWidth: 2,
-    borderBottomStyle: "solid",
-    borderBottomColor: active ? COL.accent : "transparent",
-    cursor: "pointer",
-    transition: "color 200ms ease, border-color 200ms ease",
-    whiteSpace: "nowrap",
-  });
+  function openCategory(tabKey: string) {
+    setPickedMainTab(tabKey);
+    setFilter("all");
+    setSplashOpen(false);
+    if (tabKey !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(tabKey));
+  }
+
+  /** Splash auto-skip wenn nur eine Kategorie existiert. */
+  useEffect(() => {
+    if (splashOpen && splashCategories.length <= 1 && splashCategories[0]) {
+      setSplashOpen(false);
+      setPickedMainTab(splashCategories[0].key);
+    }
+  }, [splashOpen, splashCategories]);
 
   const filterPillStyle = (active: boolean): CSSProperties => ({
     flexShrink: 0,
@@ -273,6 +275,16 @@ export default function CleanTemplate(props: SpeisekarteProps) {
 
   const featuredDailyPush = dailyPushes[0] ?? null;
 
+  // Splash-Card emoji: erstes Item dieser Kategorie hat emoji?
+  function categoryEmoji(tabKey: string): string {
+    const sections = buildSectionsForCategoryTab(tabKey, menuItems);
+    for (const sec of sections) {
+      for (const item of sec.items) {
+        if (item.emoji) return item.emoji;
+      }
+    }
+    return "🍽";
+  }
 
   return (
     <div
@@ -317,12 +329,33 @@ export default function CleanTemplate(props: SpeisekarteProps) {
             zIndex: 10,
           }}
         >
+          {splashOpen ? null : (
+            <button
+              type="button"
+              onClick={() => setSplashOpen(true)}
+              style={{
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                fontSize: 20,
+                color: COL.muted,
+                cursor: "pointer",
+                marginBottom: 8,
+                lineHeight: 1,
+              }}
+              aria-label="Zurück zur Kategorie-Übersicht"
+            >
+              ←
+            </button>
+          )}
           <div style={{ fontFamily: SERIF, fontSize: 24, fontWeight: 600, color: COL.text }}>
-            {restaurantName}
+            {splashOpen ? restaurantName : activeCategoryLabel}
           </div>
-          <div style={{ fontSize: 11, color: COL.muted, marginTop: 2 }}>
-            Speisekarte
-          </div>
+          {splashOpen ? (
+            <div style={{ fontSize: 11, color: COL.muted, marginTop: 2 }}>
+              Speisekarte
+            </div>
+          ) : null}
         </header>
 
         {guestNote && guestNote.trim() ? (
@@ -331,37 +364,62 @@ export default function CleanTemplate(props: SpeisekarteProps) {
           </div>
         ) : null}
 
-        {/* Kategorie-Tabs (horizontaler Scroll, aktiver unterstrichen) */}
-        <nav
-          className="clean-scrollbar-hide"
-          style={{
-            display: "flex",
-            overflowX: "auto",
-            padding: "0 12px",
-            background: COL.white,
-            borderBottom: `1px solid ${COL.border}`,
-          }}
-        >
-          {mainTabs.map((tab) => {
-            const active = effectiveMainTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => {
-                  setPickedMainTab(tab.key);
-                  setFilter("all");
-                  if (tab.key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(tab.key));
-                }}
-                style={tabButtonStyle(active)}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
+        {splashOpen ? (
+          <CategorySplash
+            categories={splashCategories}
+            emoji={categoryEmoji}
+            onPick={openCategory}
+          />
+        ) : (
+          <>
+            {/* Kategorie-Tabs (horizontal scroll, aktiver unterstrichen) */}
+            <nav
+              className="clean-scrollbar-hide"
+              style={{
+                display: "flex",
+                overflowX: "auto",
+                padding: "0 12px",
+                background: COL.white,
+                borderBottom: `1px solid ${COL.border}`,
+              }}
+            >
+              {mainTabs.map((tab) => {
+                const active = effectiveMainTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      setPickedMainTab(tab.key);
+                      setFilter("all");
+                      if (tab.key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(tab.key));
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      padding: "10px 4px",
+                      margin: "0 8px",
+                      fontSize: 12,
+                      fontWeight: active ? 600 : 500,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: active ? COL.accent : COL.muted,
+                      background: "transparent",
+                      border: "none",
+                      borderBottomWidth: 2,
+                      borderBottomStyle: "solid",
+                      borderBottomColor: active ? COL.accent : "transparent",
+                      cursor: "pointer",
+                      transition: "color 200ms ease, border-color 200ms ease",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
 
-        {/* Filter-Row */}
+            {/* Filter-Row */}
             <div
               className="clean-scrollbar-hide"
               style={{
@@ -446,6 +504,8 @@ export default function CleanTemplate(props: SpeisekarteProps) {
                 />
               )}
             </main>
+          </>
+        )}
 
         {/* Footer */}
         <footer style={{ borderTop: `1px solid ${COL.border}`, padding: "16px 20px", textAlign: "center", background: COL.white, marginTop: 24 }}>
@@ -572,6 +632,100 @@ export default function CleanTemplate(props: SpeisekarteProps) {
         onClearAll={() => setActiveAllergens(new Set())}
       />
     </div>
+  );
+}
+
+function CategorySplash({
+  categories,
+  emoji,
+  onPick,
+}: {
+  categories: ReadonlyArray<{ key: string; label: string }>;
+  emoji: (key: string) => string;
+  onPick: (key: string) => void;
+}) {
+  // Versetzte 2-Spalten-Anordnung — links normal, rechts +60px Versatz.
+  const leftCol: Array<{ key: string; label: string }> = [];
+  const rightCol: Array<{ key: string; label: string }> = [];
+  categories.forEach((c, i) => {
+    if (i % 2 === 0) leftCol.push(c);
+    else rightCol.push(c);
+  });
+
+  return (
+    <div style={{ padding: "24px 16px 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {leftCol.map((c, i) => (
+            <CleanCatCard key={c.key} category={c} emoji={emoji(c.key)} onPick={onPick} firstInColumn={i === 0} />
+          ))}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 60 }}>
+          {rightCol.map((c, i) => (
+            <CleanCatCard key={c.key} category={c} emoji={emoji(c.key)} onPick={onPick} firstInColumn={i === 0} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CleanCatCard({
+  category,
+  emoji,
+  onPick,
+  firstInColumn,
+}: {
+  category: { key: string; label: string };
+  emoji: string;
+  onPick: (key: string) => void;
+  firstInColumn: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(category.key)}
+      className="clean-cat-card"
+      style={{
+        position: "relative",
+        background: COL.white,
+        borderRadius: 18,
+        paddingTop: 130,
+        paddingBottom: 16,
+        cursor: "pointer",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)",
+        transition: "transform 0.2s, box-shadow 0.2s",
+        marginTop: firstInColumn ? 60 : 0,
+        border: "none",
+        width: "100%",
+        textAlign: "center",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: -56,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "90%",
+          aspectRatio: "1 / 1",
+          borderRadius: 16,
+          background: "linear-gradient(135deg, #f5f2ee, #e8e4dd)",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.13)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 56,
+          overflow: "hidden",
+        }}
+        aria-hidden
+      >
+        {emoji}
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 500, color: COL.text, padding: "0 12px" }}>
+        {category.label}
+      </div>
+    </button>
   );
 }
 

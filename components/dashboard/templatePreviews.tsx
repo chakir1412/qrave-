@@ -20,27 +20,32 @@ type Variant = "default" | "splash" | "items";
 export function TemplatePreview({
   id,
   width = 180,
+  accentColor,
 }: {
   id: PreviewTemplateId;
   width?: number;
+  /** Override für die primäre Akzentfarbe; wird als CSS-Var --p-accent
+   *  an die Stage gehängt und von jedem Frame als Fallback-aware var() gelesen. */
+  accentColor?: string;
 }) {
   if (id === "clean" || id === "playful") {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <PreviewStage width={width}>{renderFrame(id, "splash")}</PreviewStage>
+        <PreviewStage width={width} accent={accentColor}>{renderFrame(id, "splash")}</PreviewStage>
         <span aria-hidden style={{ fontSize: Math.max(10, width * 0.07), color: "rgba(255,255,255,0.5)" }}>→</span>
-        <PreviewStage width={width}>{renderFrame(id, "items")}</PreviewStage>
+        <PreviewStage width={width} accent={accentColor}>{renderFrame(id, "items")}</PreviewStage>
       </div>
     );
   }
-  return <PreviewStage width={width}>{renderFrame(id, "default")}</PreviewStage>;
+  return <PreviewStage width={width} accent={accentColor}>{renderFrame(id, "default")}</PreviewStage>;
 }
 
-function PreviewStage({ children, width }: { children: ReactNode; width: number }) {
+function PreviewStage({ children, width, accent }: { children: ReactNode; width: number; accent?: string }) {
   const scale = width / BASE_W;
   const height = BASE_H * scale;
+  const accentStyle = accent ? ({ "--p-accent": accent } as React.CSSProperties) : undefined;
   return (
-    <div style={{ width, height, position: "relative", overflow: "hidden", borderRadius: 14 * scale, flexShrink: 0 }}>
+    <div style={{ width, height, position: "relative", overflow: "hidden", borderRadius: 14 * scale, flexShrink: 0, ...accentStyle }}>
       <div
         style={{
           transform: `scale(${scale})`,
@@ -109,7 +114,8 @@ function HomeIndicator({ color = "rgba(255,255,255,0.3)" }: { color?: string }) 
 /* ─────────────────────── Heritage ─────────────────────── */
 
 function HeritageFrame() {
-  const COL = { bg: "#F5F0E8", text: "#1A1209", accent: "#C8894E", divider: "rgba(200,137,78,0.18)", muted: "#6E665C" };
+  const COL = { bg: "#F5F0E8", text: "#1A1209", divider: "rgba(200,137,78,0.18)", muted: "#6E665C" };
+  const accent = "var(--p-accent, #C8894E)";
   const items = [
     { name: "Handkäs' mit Musik", price: "6,90 €" },
     { name: "Schnitzel Wiener Art", price: "19,80 €" },
@@ -121,12 +127,12 @@ function HeritageFrame() {
       <StatusBar color={COL.text} />
       <div style={{ textAlign: "center", padding: "10px 14px 8px", borderBottom: `1px solid ${COL.divider}` }}>
         <div style={{ fontFamily: 'Georgia, serif', fontSize: 14, color: COL.text, letterSpacing: "-0.02em" }}>Frankfurter Wirtshaus</div>
-        <div style={{ fontSize: 7, letterSpacing: "0.2em", color: COL.accent, marginTop: 4, fontWeight: 500 }}>
+        <div style={{ fontSize: 7, letterSpacing: "0.2em", color: accent, marginTop: 4, fontWeight: 500 }}>
           VORSPEISEN · HAUPTGERICHTE · GETRÄNKE
         </div>
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 14, padding: "8px 0", borderBottom: `1px solid ${COL.divider}` }}>
-        <div style={{ fontSize: 7, fontWeight: 600, color: COL.accent, borderBottom: `1.5px solid ${COL.accent}`, paddingBottom: 4 }}>VORSPEISEN</div>
+        <div style={{ fontSize: 7, fontWeight: 600, color: accent, borderBottom: `1.5px solid ${accent}`, paddingBottom: 4 }}>VORSPEISEN</div>
         <div style={{ fontSize: 7, color: COL.muted }}>HAUPT</div>
         <div style={{ fontSize: 7, color: COL.muted }}>GETRÄNKE</div>
       </div>
@@ -134,7 +140,7 @@ function HeritageFrame() {
         {items.map((it, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: i < items.length - 1 ? `1px dotted ${COL.divider}` : "none" }}>
             <span style={{ fontFamily: 'Georgia, serif', fontSize: 9, color: COL.text }}>{it.name}</span>
-            <span style={{ fontFamily: 'Georgia, serif', fontSize: 9, fontWeight: 500, color: COL.accent }}>{it.price}</span>
+            <span style={{ fontFamily: 'Georgia, serif', fontSize: 9, fontWeight: 500, color: accent }}>{it.price}</span>
           </div>
         ))}
       </div>
@@ -146,7 +152,8 @@ function HeritageFrame() {
 /* ─────────────────────── Noir ─────────────────────── */
 
 function NoirFrame() {
-  const COL = { bg: "#0a0805", text: "rgba(255,248,235,0.88)", gold: "#c9a84c", border: "rgba(201,168,76,0.14)", card: "rgba(255,248,235,0.03)", muted: "rgba(255,248,235,0.38)" };
+  const COL = { bg: "#0a0805", text: "rgba(255,248,235,0.88)", border: "rgba(201,168,76,0.14)", card: "rgba(255,248,235,0.03)", muted: "rgba(255,248,235,0.38)" };
+  const accent = "var(--p-accent, #c9a84c)";
   const items = [
     { name: "Old Fashioned", price: "13,00 €", emoji: "🥃" },
     { name: "Negroni", price: "12,00 €", emoji: "🖤" },
@@ -155,11 +162,11 @@ function NoirFrame() {
     <PhoneShell bg={COL.bg}>
       <StatusBar />
       <div style={{ padding: "8px 14px 8px", borderBottom: `1px solid ${COL.border}` }}>
-        <div style={{ fontSize: 6, letterSpacing: "0.22em", color: COL.gold, marginBottom: 2 }}>QRAVE.MENU</div>
+        <div style={{ fontSize: 6, letterSpacing: "0.22em", color: accent, marginBottom: 2 }}>QRAVE.MENU</div>
         <div style={{ fontFamily: 'Georgia, serif', fontSize: 14, fontWeight: 300, color: "#fff8eb", letterSpacing: "0.02em" }}>Noir & Ember</div>
       </div>
       <div style={{ display: "flex", padding: "8px 14px 0", gap: 12, borderBottom: `1px solid ${COL.border}` }}>
-        <div style={{ fontSize: 7, color: COL.gold, paddingBottom: 6, borderBottom: `1px solid ${COL.gold}`, marginBottom: -1 }}>COCKTAILS</div>
+        <div style={{ fontSize: 7, color: accent, paddingBottom: 6, borderBottom: `1px solid ${accent}`, marginBottom: -1 }}>COCKTAILS</div>
         <div style={{ fontSize: 7, color: COL.muted, paddingBottom: 6 }}>WEINE</div>
         <div style={{ fontSize: 7, color: COL.muted, paddingBottom: 6 }}>DESSERTS</div>
       </div>
@@ -169,7 +176,7 @@ function NoirFrame() {
             <div style={{ height: 56, background: "linear-gradient(135deg, rgba(201,168,76,0.08), rgba(255,248,235,0.03))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{it.emoji}</div>
             <div style={{ padding: "5px 8px 7px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontFamily: 'Georgia, serif', fontSize: 9, color: "#fff8eb" }}>{it.name}</span>
-              <span style={{ fontFamily: 'Georgia, serif', fontSize: 9, fontWeight: 600, color: COL.gold }}>{it.price}</span>
+              <span style={{ fontFamily: 'Georgia, serif', fontSize: 9, fontWeight: 600, color: accent }}>{it.price}</span>
             </div>
           </div>
         ))}
@@ -220,7 +227,8 @@ function CleanSplashFrame() {
 }
 
 function CleanItemsFrame() {
-  const COL = { bg: "#f0eeea", white: "#fff", text: "#1a1a1a", accent: "#2d6a4f", muted: "#999", border: "#e4e1db" };
+  const COL = { bg: "#f0eeea", white: "#fff", text: "#1a1a1a", muted: "#999", border: "#e4e1db" };
+  const accent = "var(--p-accent, #2d6a4f)";
   const items = [
     { name: "Avocado Bowl", price: "14,50 €", emoji: "🥗" },
     { name: "Caesar Salad", price: "11,00 €", emoji: "🥬" },
@@ -234,7 +242,7 @@ function CleanItemsFrame() {
         <span style={{ fontFamily: 'Georgia, serif', fontSize: 11, fontWeight: 600, color: COL.text }}>Bowls & Salate</span>
       </div>
       <div style={{ display: "flex", gap: 6, padding: "6px 10px", background: COL.white, borderBottom: `1px solid ${COL.border}` }}>
-        <div style={{ fontSize: 6, padding: "3px 8px", borderRadius: 999, border: `1px solid ${COL.accent}`, color: COL.accent, background: "rgba(45,106,79,0.09)" }}>Alle</div>
+        <div style={{ fontSize: 6, padding: "3px 8px", borderRadius: 999, border: `1px solid ${accent}`, color: accent, background: "rgba(45,106,79,0.09)" }}>Alle</div>
         <div style={{ fontSize: 6, padding: "3px 8px", borderRadius: 999, border: `1px solid ${COL.border}`, color: COL.muted }}>Vegan</div>
         <div style={{ fontSize: 6, padding: "3px 8px", borderRadius: 999, border: `1px solid ${COL.border}`, color: COL.muted }}>GF</div>
       </div>
@@ -255,7 +263,8 @@ function CleanItemsFrame() {
 /* ─────────────────────── Trattoria ─────────────────────── */
 
 function TrattoriaFrame() {
-  const COL = { bg: "#f5ede0", white: "#fffaf5", text: "#1c1410", accent: "#c0392b", muted: "#a08060", border: "#e8d8c4" };
+  const COL = { bg: "#f5ede0", white: "#fffaf5", text: "#1c1410", muted: "#a08060", border: "#e8d8c4" };
+  const accent = "var(--p-accent, #c0392b)";
   const items = [
     { name: "Margherita", price: "8,00 €", emoji: "🍕" },
     { name: "Bresaola", price: "8,90 €", emoji: "🫙" },
@@ -269,7 +278,7 @@ function TrattoriaFrame() {
         <div style={{ fontFamily: 'Georgia, serif', fontSize: 17, fontStyle: "italic", color: COL.text, lineHeight: 1.1 }}>il Piatto</div>
       </div>
       <div style={{ display: "flex", padding: "10px 14px 0", gap: 14, borderBottom: `1px solid ${COL.border}` }}>
-        <div style={{ fontSize: 7, fontWeight: 500, color: COL.accent, paddingBottom: 6, borderBottom: `1.5px solid ${COL.accent}`, marginBottom: -1 }}>Pizza</div>
+        <div style={{ fontSize: 7, fontWeight: 500, color: accent, paddingBottom: 6, borderBottom: `1.5px solid ${accent}`, marginBottom: -1 }}>Pizza</div>
         <div style={{ fontSize: 7, color: COL.muted, paddingBottom: 6 }}>Pasta</div>
         <div style={{ fontSize: 7, color: COL.muted, paddingBottom: 6 }}>Drinks</div>
       </div>
@@ -293,6 +302,7 @@ function TrattoriaFrame() {
 
 function MinimalFrame() {
   const COL = { bg: "#fff", text: "#111", muted: "#888", border: "#ebebeb" };
+  const accent = "var(--p-accent, #111)";
   const items = [
     { name: "Avocado Bowl", price: "14,50 €", emoji: "🥗" },
     { name: "Caesar Salad", price: "11,00 €", emoji: "🥬" },
@@ -305,7 +315,7 @@ function MinimalFrame() {
         <div style={{ fontSize: 10, fontWeight: 600, color: COL.text }}>Vorspeisen & Gerichte</div>
       </div>
       <div style={{ display: "flex", gap: 5, padding: "8px 10px", borderBottom: `1px solid ${COL.border}`, overflow: "hidden" }}>
-        <div style={{ fontSize: 7, fontWeight: 500, padding: "3px 9px", borderRadius: 999, border: `1px solid ${COL.text}`, background: COL.text, color: "#fff" }}>Naschen</div>
+        <div style={{ fontSize: 7, fontWeight: 500, padding: "3px 9px", borderRadius: 999, border: `1px solid ${accent}`, background: accent, color: "#fff" }}>Naschen</div>
         <div style={{ fontSize: 7, fontWeight: 500, padding: "3px 9px", borderRadius: 999, border: `1px solid ${COL.border}`, color: COL.muted }}>Salate</div>
         <div style={{ fontSize: 7, fontWeight: 500, padding: "3px 9px", borderRadius: 999, border: `1px solid ${COL.border}`, color: COL.muted }}>Fleisch</div>
       </div>
@@ -328,19 +338,20 @@ function MinimalFrame() {
 /* ─────────────────────── Playful (Splash + Items) ─────────────────────── */
 
 function PlayfulSplashFrame() {
-  const COL = { bg: "#ffe5f0", white: "#fff", text: "#1a0a12", accent: "#ff3d7f", accent2: "#ffb800" };
+  const COL = { bg: "#ffe5f0", white: "#fff", text: "#1a0a12", accent2: "#ffb800" };
+  const accent = "var(--p-accent, #ff3d7f)";
   return (
     <PhoneShell bg={COL.bg} borderColor="rgba(26,10,18,0.15)">
       <StatusBar color={COL.text} />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 12px 0", textAlign: "center" }}>
         <div style={{ width: 56, height: 56, background: "rgba(255,61,127,0.15)", borderRadius: "60% 40% 70% 30% / 50% 60% 40% 50%", marginBottom: -18 }} />
         <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 26, fontWeight: 800, color: COL.text, letterSpacing: "-0.03em", lineHeight: 1, marginTop: 4 }}>
-          bello<span style={{ color: COL.accent }}>!</span>
+          bello<span style={{ color: accent }}>!</span>
         </div>
         <div style={{ fontSize: 6, color: "rgba(26,10,18,0.5)", letterSpacing: "0.1em", marginTop: 4, marginBottom: 10 }}>BAR & KÜCHE</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "75%" }}>
           {[
-            { l: "Dinner", bg: COL.accent, fg: "#fff" },
+            { l: "Dinner", bg: accent, fg: "#fff" },
             { l: "Lunch", bg: COL.white, fg: COL.text },
             { l: "Weine", bg: COL.accent2, fg: COL.text },
           ].map((b, i) => (
@@ -356,7 +367,8 @@ function PlayfulSplashFrame() {
 }
 
 function PlayfulItemsFrame() {
-  const COL = { bg: "#ffe5f0", white: "#fff", text: "#1a0a12", accent: "#ff3d7f", muted: "rgba(26,10,18,0.5)" };
+  const COL = { bg: "#ffe5f0", white: "#fff", text: "#1a0a12", muted: "rgba(26,10,18,0.5)" };
+  const accent = "var(--p-accent, #ff3d7f)";
   const items = [
     { name: "Burrata", price: "14,50 €", emoji: "🥗" },
     { name: "Cacio e Pepe", price: "16,00 €", emoji: "🍝" },
@@ -391,7 +403,8 @@ function PlayfulItemsFrame() {
 /* ─────────────────────── Asian Dark ─────────────────────── */
 
 function AsianDarkFrame() {
-  const COL = { bg: "#0d0d0f", text: "#f0eee8", muted: "rgba(240,238,232,0.4)", accent: "#e8282e", gold: "#c9a84c", border: "rgba(240,238,232,0.07)", card: "rgba(255,255,255,0.04)" };
+  const COL = { bg: "#0d0d0f", text: "#f0eee8", muted: "rgba(240,238,232,0.4)", gold: "#c9a84c", border: "rgba(240,238,232,0.07)", card: "rgba(255,255,255,0.04)" };
+  const accent = "var(--p-accent, #e8282e)";
   const items = [
     { name: "Tonkotsu", jp: "豚骨", price: "15,90 €", emoji: "🍜" },
     { name: "Miso", jp: "辛味噌", price: "14,50 €", emoji: "🌶" },
@@ -400,12 +413,12 @@ function AsianDarkFrame() {
     <PhoneShell bg={COL.bg}>
       <StatusBar />
       <div style={{ padding: "8px 14px 8px", borderBottom: `1px solid ${COL.border}` }}>
-        <div style={{ fontSize: 6, letterSpacing: "0.3em", color: COL.accent }}>ラーメン · RAMEN</div>
+        <div style={{ fontSize: 6, letterSpacing: "0.3em", color: accent }}>ラーメン · RAMEN</div>
         <div style={{ fontSize: 13, fontWeight: 700, color: COL.text, letterSpacing: "0.05em", marginTop: 2 }}>Yuki Ramen</div>
-        <div style={{ height: 1.5, background: `linear-gradient(90deg, ${COL.accent}, transparent)`, marginTop: 6 }} />
+        <div style={{ height: 1.5, background: `linear-gradient(90deg, ${accent}, transparent)`, marginTop: 6 }} />
       </div>
       <div style={{ display: "flex", padding: "0 14px", gap: 12 }}>
-        <div style={{ fontSize: 7, color: COL.accent, padding: "7px 0", borderBottom: `1.5px solid ${COL.accent}` }}>RAMEN</div>
+        <div style={{ fontSize: 7, color: accent, padding: "7px 0", borderBottom: `1.5px solid ${accent}` }}>RAMEN</div>
         <div style={{ fontSize: 7, color: COL.muted, padding: "7px 0" }}>GYOZA</div>
         <div style={{ fontSize: 7, color: COL.muted, padding: "7px 0" }}>SUSHI</div>
       </div>
@@ -431,16 +444,17 @@ function AsianDarkFrame() {
 /* ─────────────────────── Street Food ─────────────────────── */
 
 function StreetFoodFrame() {
-  const COL = { bg: "#111110", bg2: "#1a1a18", text: "#f5f4f0", muted: "rgba(245,244,240,0.45)", border: "rgba(245,244,240,0.08)", accent: "#e8b400", accent2: "#ff4422" };
+  const COL = { bg: "#111110", bg2: "#1a1a18", text: "#f5f4f0", muted: "rgba(245,244,240,0.45)", border: "rgba(245,244,240,0.08)", accent2: "#ff4422" };
+  const accent = "var(--p-accent, #e8b400)";
   return (
     <PhoneShell bg={COL.bg}>
       <StatusBar />
-      <div style={{ background: COL.accent, padding: "8px 14px 10px", position: "relative", overflow: "hidden" }}>
+      <div style={{ background: accent, padding: "8px 14px 10px", position: "relative", overflow: "hidden" }}>
         <div style={{ fontSize: 6, letterSpacing: "0.2em", color: "rgba(0,0,0,0.5)", fontWeight: 600 }}>QRAVE.MENU</div>
         <div style={{ fontFamily: 'Impact, Arial Black, sans-serif', fontSize: 22, color: "#111", lineHeight: 0.9, letterSpacing: "0.02em", marginTop: 1 }}>SMASH HAUS</div>
       </div>
       <div style={{ display: "flex", padding: "0 12px", gap: 4, borderBottom: `1px solid ${COL.border}` }}>
-        <div style={{ fontSize: 7, fontWeight: 600, color: COL.accent, padding: "8px 6px", borderBottom: `1.5px solid ${COL.accent}` }}>BURGER</div>
+        <div style={{ fontSize: 7, fontWeight: 600, color: accent, padding: "8px 6px", borderBottom: `1.5px solid ${accent}` }}>BURGER</div>
         <div style={{ fontSize: 7, fontWeight: 600, color: COL.muted, padding: "8px 6px" }}>SIDES</div>
         <div style={{ fontSize: 7, fontWeight: 600, color: COL.muted, padding: "8px 6px" }}>DRINKS</div>
       </div>
@@ -452,14 +466,14 @@ function StreetFoodFrame() {
           </div>
           <div style={{ padding: "5px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontFamily: 'Impact, sans-serif', fontSize: 11, color: COL.text }}>SMASH CLASSIC</span>
-            <span style={{ fontFamily: 'Impact, sans-serif', fontSize: 11, color: COL.accent }}>8,90€</span>
+            <span style={{ fontFamily: 'Impact, sans-serif', fontSize: 11, color: accent }}>8,90€</span>
           </div>
         </div>
         <div style={{ background: COL.bg2, borderRadius: 7, overflow: "hidden", border: `1px solid ${COL.border}` }}>
           <div style={{ height: 56, background: "linear-gradient(135deg, #2a2520, #1a1815)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>🧀</div>
           <div style={{ padding: "5px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontFamily: 'Impact, sans-serif', fontSize: 11, color: COL.text }}>TRUFFLE</span>
-            <span style={{ fontFamily: 'Impact, sans-serif', fontSize: 11, color: COL.accent }}>11,90€</span>
+            <span style={{ fontFamily: 'Impact, sans-serif', fontSize: 11, color: accent }}>11,90€</span>
           </div>
         </div>
       </div>
@@ -471,7 +485,8 @@ function StreetFoodFrame() {
 /* ─────────────────────── Mediterranean ─────────────────────── */
 
 function MediterraneanFrame() {
-  const COL = { bg: "#faf6f0", text: "#2c1a0e", muted: "rgba(44,26,14,0.45)", accent: "#c0580a", accent2: "#5c8a3c", gold: "#c9972a", terracotta: "#d4613a", border: "rgba(44,26,14,0.1)" };
+  const COL = { bg: "#faf6f0", text: "#2c1a0e", muted: "rgba(44,26,14,0.45)", accent2: "#5c8a3c", gold: "#c9972a", terracotta: "#d4613a", border: "rgba(44,26,14,0.1)" };
+  const accent = "var(--p-accent, #c0580a)";
   return (
     <PhoneShell bg={COL.bg} borderColor="rgba(0,0,0,0.12)">
       <div style={{ height: 4, background: `repeating-linear-gradient(90deg, ${COL.terracotta} 0px, ${COL.terracotta} 8px, ${COL.gold} 8px, ${COL.gold} 16px, ${COL.accent2} 16px, ${COL.accent2} 24px, ${COL.gold} 24px, ${COL.gold} 32px)` }} />
@@ -485,7 +500,7 @@ function MediterraneanFrame() {
         </div>
       </div>
       <div style={{ display: "flex", padding: "0 14px", gap: 10, borderBottom: `1px solid ${COL.border}` }}>
-        <div style={{ fontSize: 7, fontWeight: 600, color: COL.accent, padding: "8px 0", borderBottom: `1.5px solid ${COL.accent}` }}>Mezze</div>
+        <div style={{ fontSize: 7, fontWeight: 600, color: accent, padding: "8px 0", borderBottom: `1.5px solid ${accent}` }}>Mezze</div>
         <div style={{ fontSize: 7, color: COL.muted, padding: "8px 0" }}>Kebab</div>
         <div style={{ fontSize: 7, color: COL.muted, padding: "8px 0" }}>Pide</div>
       </div>
@@ -498,7 +513,7 @@ function MediterraneanFrame() {
             <div style={{ height: 48, background: "linear-gradient(135deg, #f0e6d8, #e8d8c4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{it.emoji}</div>
             <div style={{ padding: "5px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 8, fontWeight: 600, color: COL.text }}>{it.name}</span>
-              <span style={{ fontSize: 8, fontWeight: 700, color: COL.accent }}>{it.price}</span>
+              <span style={{ fontSize: 8, fontWeight: 700, color: accent }}>{it.price}</span>
             </div>
           </div>
         ))}
