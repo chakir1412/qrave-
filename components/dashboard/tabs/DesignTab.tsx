@@ -119,10 +119,18 @@ export function DesignTab({
 
   useEffect(() => {
     if (!preview) return;
-    document.body.style.overflow = "hidden";
+    // iOS-Standard-Trick gegen Background-Scroll: body fixieren, Scroll-Position
+    // merken und beim Schließen wiederherstellen (sonst springt die Seite oben).
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
     modalRef.current?.scrollTo(0, 0);
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      window.scrollTo(0, scrollY);
     };
   }, [preview]);
 
@@ -260,10 +268,15 @@ export function DesignTab({
       {preview ? (
         <div
           ref={modalRef}
-          className="fixed inset-0 z-[1000]"
           style={{
-            overflowY: "auto",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            overflowY: "scroll",
             WebkitOverflowScrolling: "touch",
+            zIndex: 1000,
             background: "rgba(0,0,0,0.8)",
             backdropFilter: "blur(6px)",
           }}
