@@ -79,13 +79,6 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
     if (key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(key));
   }
 
-  useEffect(() => {
-    if (splashOpen && splashCategories.length <= 1 && splashCategories[0]) {
-      setSplashOpen(false);
-      setPickedMainTab(splashCategories[0].key);
-    }
-  }, [splashOpen, splashCategories]);
-
   const featured = dailyPushes[0] ?? null;
 
   return (
@@ -115,9 +108,24 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
         {splashOpen ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "40px 24px", textAlign: "center" }}>
             <div className="play-blob" style={{ width: 200, height: 200, background: "rgba(255,61,127,0.15)", marginBottom: -60 }} />
-            <h1 style={{ fontFamily: DISPLAY, fontSize: 64, fontWeight: 800, color: COL.text, letterSpacing: "-0.03em", lineHeight: 1, margin: "0 0 8px", position: "relative" }}>
-              {restaurantName}<span style={{ color: COL.accent }}>!</span>
-            </h1>
+            <div style={{ overflow: "hidden", padding: "0 20px", width: "100%", maxWidth: "100%" }}>
+              <h1
+                style={{
+                  fontFamily: DISPLAY,
+                  fontSize: "clamp(1.4rem, 6vw, 2rem)",
+                  fontWeight: 800,
+                  color: COL.text,
+                  letterSpacing: "-0.03em",
+                  lineHeight: 1.1,
+                  margin: "0 0 8px",
+                  position: "relative",
+                  wordBreak: "break-word",
+                  maxWidth: "100%",
+                }}
+              >
+                {restaurantName}<span style={{ color: COL.accent }}>!</span>
+              </h1>
+            </div>
             <div style={{ fontSize: 12, color: COL.muted, marginBottom: 48, letterSpacing: "0.1em", textTransform: "uppercase" }}>Speisekarte</div>
             <div className="play-star" style={{ fontSize: 48, marginBottom: 32, display: "inline-block" }} aria-hidden>✳</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 280 }}>
