@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { MenuItem } from "@/lib/supabase";
-import { formatPrice, getItemEmoji, getDisplayPrice } from "./utils";
+import { formatPrice, getDisplayPrice } from "./utils";
 import PresentationMode from "./PresentationMode";
 
 type CartItem = { item: MenuItem; qty: number };
@@ -102,17 +102,7 @@ export default function Wishlist({
                       className="h-11 w-11 shrink-0 rounded-[10px] object-cover"
                       style={{ border: `1px solid ${dark ? barSoleilWishlist.border : "#e8e4dc"}` }}
                     />
-                  ) : (
-                    <span
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-[1.4rem]"
-                      style={{
-                        background: dark ? barSoleilWishlist.buttonBg : "#f5f4f0",
-                        border: `1px solid ${dark ? barSoleilWishlist.border : "#e8e4dc"}`,
-                      }}
-                    >
-                      {getItemEmoji(item)}
-                    </span>
-                  )}
+                  ) : null}
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-[0.84rem]" style={{ color: dark ? barSoleilWishlist.text : "#1a1916" }}>
                       {item.name}

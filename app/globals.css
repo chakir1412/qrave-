@@ -45,6 +45,12 @@ body {
   display: none;
 }
 
+/* Tab-Bar: Rand-Fade als Hinweis auf weitere Tabs beim Scrollen */
+.tab-bar-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 20px, black calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black 20px, black calc(100% - 20px), transparent 100%);
+}
+
 /* Speisekarte template: overlay animations */
 @keyframes fadeIn {
   from { opacity: 0; }

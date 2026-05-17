@@ -269,7 +269,7 @@ export function DesignTab({
           >
             <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-stretch sm:p-7" style={{ maxHeight: "calc(92vh - 80px)", overflow: "auto" }}>
               <div
-                className="flex flex-shrink-0 items-center justify-center overflow-hidden rounded-[14px]"
+                className="flex w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-[14px] sm:w-auto sm:min-w-[280px]"
                 style={{ background: "rgba(0,0,0,0.5)", padding: 16, alignSelf: "center" }}
               >
                 <TemplatePreview

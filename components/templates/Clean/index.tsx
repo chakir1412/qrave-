@@ -379,7 +379,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
           <>
             {/* Kategorie-Tabs (horizontal scroll, aktiver unterstrichen) */}
             <nav
-              className="clean-scrollbar-hide"
+              className="clean-scrollbar-hide tab-bar-fade"
               style={{
                 display: "flex",
                 overflowX: "auto",

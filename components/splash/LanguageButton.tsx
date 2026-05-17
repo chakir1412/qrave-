@@ -18,11 +18,15 @@ type Props = {
   slug: string;
   activeLanguages: SupportedLocale[];
   accent: string;
+  /** Theme-Tokens vom Splash — sonst sieht Button auf hellem Bg ausgegraut aus. */
+  bg?: string;
+  border?: string;
+  text?: string;
 };
 
 const STORAGE_KEY = "qrave-locale";
 
-export function LanguageButton({ slug, activeLanguages, accent }: Props) {
+export function LanguageButton({ slug, activeLanguages, accent, bg, border, text }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<SupportedLocale>("de");
@@ -56,11 +60,11 @@ export function LanguageButton({ slug, activeLanguages, accent }: Props) {
       <button
         type="button"
         onClick={() => (onlyOne ? router.push(`/${slug}/karte`) : setOpen(true))}
-        className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-4 py-4 text-sm font-semibold transition-colors active:bg-white/[0.04]"
+        className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-4 py-4 text-sm font-semibold transition-colors"
         style={{
-          borderColor: "rgba(255,255,255,0.14)",
-          background: "rgba(255,255,255,0.04)",
-          color: "#fff",
+          borderColor: border ?? "rgba(255,255,255,0.14)",
+          background: bg ?? "rgba(255,255,255,0.04)",
+          color: text ?? "#fff",
         }}
         aria-label="Sprache wählen"
       >

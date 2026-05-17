@@ -104,7 +104,7 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
           </div>
         </header>
 
-        <nav className="med-scrollbar-hide" style={{ position: "sticky", top: 0, zIndex: 10, background: COL.bg, borderBottom: `1px solid ${COL.border}`, display: "flex", overflowX: "auto", padding: "0 20px", gap: 0 }}>
+        <nav className="med-scrollbar-hide tab-bar-fade" style={{ position: "sticky", top: 0, zIndex: 10, background: COL.bg, borderBottom: `1px solid ${COL.border}`, display: "flex", overflowX: "auto", padding: "0 20px", gap: 0 }}>
           {mainTabs.map((tab) => {
             const active = effectiveMainTab === tab.key;
             return (

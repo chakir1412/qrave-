@@ -102,7 +102,7 @@ export default function MinimalTemplate(props: SpeisekarteProps) {
           <div style={{ fontSize: 17, fontWeight: 600, color: COL.text, textAlign: "center", flex: 1 }}>{restaurantName}</div>
           <div style={{ width: 22 }} />
         </header>
-        <div className="min-scrollbar-hide" style={{ display: "flex", gap: 8, padding: "12px 16px", overflowX: "auto", borderBottom: `1px solid ${COL.border}`, background: COL.white, position: "sticky", top: 57, zIndex: 9 }}>
+        <div className="min-scrollbar-hide tab-bar-fade" style={{ display: "flex", gap: 8, padding: "12px 16px", overflowX: "auto", borderBottom: `1px solid ${COL.border}`, background: COL.white, position: "sticky", top: 57, zIndex: 9 }}>
           {mainTabs.map((tab) => {
             const active = effectiveMainTab === tab.key;
             return (

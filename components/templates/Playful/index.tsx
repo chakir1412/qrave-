@@ -155,7 +155,7 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
 
             {/* Kategorie-Tabs (horizontal scroll, aktiver unterstrichen) */}
             <nav
-              className="play-scrollbar-hide"
+              className="play-scrollbar-hide tab-bar-fade"
               style={{
                 display: "flex",
                 overflowX: "auto",

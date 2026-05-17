@@ -11,6 +11,30 @@ export function categoryTabLabel(key: string): string {
   return key === CATEGORY_TAB_ALLE_KEY ? "Alle" : key;
 }
 
+const DRINK_KEYWORDS = [
+  "wein", "bier", "spirituosen", "cocktail", "aperitif", "longdrink",
+  "softdrink", "saft", "heißgetränk", "heissgetränk", "rum", "whiskey",
+  "whisky", "gin", "vodka", "wodka", "flaschenbier",
+];
+
+function isDrinkCategory(name: string): boolean {
+  const lower = name.toLowerCase();
+  return DRINK_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+/** Wenn das Restaurant >8 Kategorien hat, Alkohol-/Getränke-Kategorien zu einem
+ *  einzigen "Getränke"-Tab zusammenfassen — verhindert Tab-Überflutung. */
+function normalizeCategoriesForTabs(menuItems: MenuItem[]): MenuItem[] {
+  const uniqueCats = new Set<string>();
+  for (const i of menuItems) uniqueCats.add(i.kategorie?.trim() || "Sonstiges");
+  if (uniqueCats.size <= 8) return menuItems;
+  return menuItems.map((item) => {
+    const cat = item.kategorie?.trim() || "";
+    if (cat && isDrinkCategory(cat)) return { ...item, kategorie: "Getränke" };
+    return item;
+  });
+}
+
 function compareItemsBySortOrder(a: MenuItem, b: MenuItem): number {
   const sa = a.sort_order ?? 99;
   const sb = b.sort_order ?? 99;
@@ -22,6 +46,7 @@ function compareItemsBySortOrder(a: MenuItem, b: MenuItem): number {
  * Eindeutige Kategorien in der Reihenfolge wie nach DB-Sortierung (sort_order → kategorie → Name).
  */
 export function orderedCategoriesFromItems(menuItems: MenuItem[]): string[] {
+  menuItems = normalizeCategoriesForTabs(menuItems);
   const sorted = [...menuItems].sort((a, b) => {
     const sa = a.sort_order ?? 999999;
     const sb = b.sort_order ?? 999999;
@@ -58,6 +83,7 @@ export function deriveCategoryTabsFromItems(menuItems: MenuItem[]): MainTabDef[]
  * – sonst: nur diese Kategorie
  */
 export function buildSectionsForCategoryTab(activeKey: string, menuItems: MenuItem[]): Section[] {
+  menuItems = normalizeCategoriesForTabs(menuItems);
   const items =
     activeKey === CATEGORY_TAB_ALLE_KEY
       ? menuItems

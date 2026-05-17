@@ -152,7 +152,7 @@ export default function TrattoriaTemplate(props: SpeisekarteProps) {
         </header>
 
         <div style={{ position: "sticky", top: 0, zIndex: 10, background: COL.bg }}>
-          <nav className="tratt-scrollbar-hide" style={{ display: "flex", overflowX: "auto", padding: "16px 20px 0", gap: 24, borderBottom: `1px solid ${COL.border}` }}>
+          <nav className="tratt-scrollbar-hide tab-bar-fade" style={{ display: "flex", overflowX: "auto", padding: "16px 20px 0", gap: 24, borderBottom: `1px solid ${COL.border}` }}>
             {mainTabs.map((tab) => {
               const active = effectiveMainTab === tab.key;
               return (

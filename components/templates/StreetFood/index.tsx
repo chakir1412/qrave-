@@ -100,7 +100,7 @@ export default function StreetFoodTemplate(props: SpeisekarteProps) {
           <h1 style={{ fontFamily: DISPLAY, fontSize: 52, color: "#111", lineHeight: 0.9, letterSpacing: "0.02em", margin: 0 }}>{restaurantName.toUpperCase()}</h1>
         </header>
 
-        <nav className="sf-scrollbar-hide" style={{ position: "sticky", top: 0, zIndex: 10, background: COL.bg, borderBottom: `1px solid ${COL.border}`, display: "flex", overflowX: "auto", padding: "0 16px", gap: 0 }}>
+        <nav className="sf-scrollbar-hide tab-bar-fade" style={{ position: "sticky", top: 0, zIndex: 10, background: COL.bg, borderBottom: `1px solid ${COL.border}`, display: "flex", overflowX: "auto", padding: "0 16px", gap: 0 }}>
           {mainTabs.map((tab) => {
             const active = effectiveMainTab === tab.key;
             return (

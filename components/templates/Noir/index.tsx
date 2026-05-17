@@ -361,7 +361,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
 
         {/* Tabs */}
         <nav
-          className="noir-scrollbar-hide"
+          className="noir-scrollbar-hide tab-bar-fade"
           style={{
             display: "flex",
             overflowX: "auto",

@@ -100,7 +100,7 @@ export default function AsianDarkTemplate(props: SpeisekarteProps) {
           <div style={{ height: 2, background: `linear-gradient(90deg, ${COL.accent}, transparent)`, marginTop: 16 }} />
         </header>
 
-        <nav className="asian-scrollbar-hide" style={{ position: "sticky", top: 0, zIndex: 10, background: "rgba(13,13,15,0.96)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${COL.border}`, display: "flex", overflowX: "auto", padding: "0 20px" }}>
+        <nav className="asian-scrollbar-hide tab-bar-fade" style={{ position: "sticky", top: 0, zIndex: 10, background: "rgba(13,13,15,0.96)", backdropFilter: "blur(16px)", borderBottom: `1px solid ${COL.border}`, display: "flex", overflowX: "auto", padding: "0 20px" }}>
           {mainTabs.map((tab) => {
             const active = effectiveMainTab === tab.key;
             return (

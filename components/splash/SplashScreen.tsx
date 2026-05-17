@@ -280,7 +280,6 @@ export default function SplashScreen({ restaurant }: Props) {
     return null;
   })();
 
-  const hasHeroMedia = mediaUrl.length > 0 || legacyImageUrl.length > 0;
   const isDark = theme.mode === "dark";
 
   return (
@@ -448,6 +447,7 @@ export default function SplashScreen({ restaurant }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <Link
             href={`/${restaurant.slug}/kontakt`}
+            prefetch
             className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-4 py-4 text-sm font-semibold transition-colors"
             style={{
               borderColor: theme.secondaryBorder,
@@ -470,13 +470,17 @@ export default function SplashScreen({ restaurant }: Props) {
               ) as SupportedLocale[]
             }
             accent={theme.accent}
+            bg={theme.secondaryBg}
+            border={theme.secondaryBorder}
+            text={theme.secondaryText}
           />
         </div>
 
         {/* Primär-CTA */}
         <Link
           href={`/${restaurant.slug}/karte`}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-bold tracking-tight transition-transform active:scale-[0.98]"
+          prefetch
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-bold tracking-tight active:scale-[0.98]"
           style={{
             background: theme.buttonBg,
             color: theme.buttonFg,

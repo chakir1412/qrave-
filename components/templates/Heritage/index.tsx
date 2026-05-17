@@ -440,7 +440,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
       >
         <div className="mx-auto max-w-[880px]">
           <div
-            className="scrollbar-hide flex overflow-x-auto px-5"
+            className="scrollbar-hide tab-bar-fade flex overflow-x-auto px-5"
             style={{ paddingBottom: 0 }}
           >
             {mainTabs.map((tab) => {

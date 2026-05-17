@@ -96,7 +96,7 @@ function LoginInner() {
           border-radius: 12px;
           padding: 12px 16px;
           color: #fff;
-          font-size: 14px;
+          font-size: 16px;
           font-family: ${FONT_DM};
           outline: none;
           transition: border-color 0.2s, box-shadow 0.2s;

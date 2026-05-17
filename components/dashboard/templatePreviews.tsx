@@ -31,14 +31,18 @@ export function TemplatePreview({
 }) {
   if (id === "clean" || id === "playful") {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, width: "100%" }}>
         <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "splash")}</PreviewStage>
         <span aria-hidden style={{ fontSize: Math.max(10, width * 0.07), color: "rgba(255,255,255,0.5)" }}>→</span>
         <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "items")}</PreviewStage>
       </div>
     );
   }
-  return <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "default")}</PreviewStage>;
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100%" }}>
+      <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "default")}</PreviewStage>
+    </div>
+  );
 }
 
 function PreviewStage({

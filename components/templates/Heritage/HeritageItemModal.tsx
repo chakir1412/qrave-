@@ -286,38 +286,41 @@ export default function HeritageItemModal({
 
   return (
     <div
-      className="fixed inset-0 z-[500] flex items-end justify-center animate-[fadeIn_0.2s_ease]"
-      style={{ background: COL.overlay, backdropFilter: "blur(4px)" }}
+      className="fixed inset-0 z-[500] flex items-stretch justify-center sm:items-end animate-[fadeIn_0.2s_ease]"
+      style={{
+        background: COL.overlay,
+        backdropFilter: "blur(4px)",
+        touchAction: "none",
+      }}
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[90vh] w-full max-w-[520px] flex-col overflow-hidden animate-[slideUp_0.35s_cubic-bezier(0.34,1.56,0.64,1)] sm:max-h-[88vh]"
+        className="relative flex h-[100dvh] w-full flex-col overflow-hidden animate-[slideUp_0.35s_cubic-bezier(0.34,1.56,0.64,1)] sm:h-auto sm:max-h-[88vh] sm:max-w-[520px]"
         style={{
           background: COL.bg,
           color: COL.text,
-          borderRadius: "20px 20px 0 0",
+          borderRadius: 0,
           border: `1px solid ${COL.divider}`,
-          borderBottom: "none",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sticky Close-Button — bleibt beim Scroll immer oben sichtbar */}
+        {/* Close-Button — fix verankert, immer erreichbar (auch nach Scroll) */}
         <button
           type="button"
           onClick={onClose}
           className="absolute flex items-center justify-center"
           style={{
-            top: 12,
+            top: "calc(env(safe-area-inset-top, 0px) + 12px)",
             right: 12,
-            width: 34,
-            height: 34,
+            width: 38,
+            height: 38,
             borderRadius: "50%",
             background: COL.bg,
             color: COL.text,
             border: `1px solid ${COL.divider}`,
             cursor: "pointer",
-            zIndex: 20,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            zIndex: 30,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
           }}
           aria-label="Schließen"
         >
@@ -344,8 +347,10 @@ export default function HeritageItemModal({
             className="min-h-0 flex-1 overflow-y-auto"
             style={{
               padding: hasImage ? "16px 18px 28px" : "16px 18px 28px",
-              paddingTop: hasImage ? 16 : 56,
+              paddingTop: hasImage ? 16 : 64,
               WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+              touchAction: "pan-y",
             }}
           >
             {tagPills.length > 0 ? (
