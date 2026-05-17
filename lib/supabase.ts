@@ -10,6 +10,7 @@ export type Restaurant = {
   slug: string;
   name: string;
   template?: string | null;
+  background_mode?: string | null;
   stadt: string | null;
   adresse: string | null;
   telefon: string | null;

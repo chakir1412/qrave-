@@ -291,7 +291,7 @@ export default function HeritageItemModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[92vh] w-full max-w-[520px] flex-col overflow-hidden animate-[slideUp_0.35s_cubic-bezier(0.34,1.56,0.64,1)] sm:max-h-[88vh]"
+        className="relative flex max-h-[90vh] w-full max-w-[520px] flex-col overflow-hidden animate-[slideUp_0.35s_cubic-bezier(0.34,1.56,0.64,1)] sm:max-h-[88vh]"
         style={{
           background: COL.bg,
           color: COL.text,
@@ -301,9 +301,31 @@ export default function HeritageItemModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Sticky Close-Button — bleibt beim Scroll immer oben sichtbar */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute flex items-center justify-center"
+          style={{
+            top: 12,
+            right: 12,
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            background: COL.bg,
+            color: COL.text,
+            border: `1px solid ${COL.divider}`,
+            cursor: "pointer",
+            zIndex: 20,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          }}
+          aria-label="Schließen"
+        >
+          ✕
+        </button>
         {hasImage ? (
           <div
-            className="relative h-[280px] w-full shrink-0 overflow-hidden"
+            className="relative h-[200px] w-full shrink-0 overflow-hidden sm:h-[280px]"
             style={{ background: COL.cream }}
           >
             <Image
@@ -314,55 +336,16 @@ export default function HeritageItemModal({
               sizes="(max-width: 520px) 100vw, 520px"
               unoptimized
             />
-            <button
-              type="button"
-              onClick={onClose}
-              className="absolute flex items-center justify-center"
-              style={{
-                top: 14,
-                right: 14,
-                width: 34,
-                height: 34,
-                borderRadius: "50%",
-                background: COL.bg,
-                color: COL.text,
-                border: `1px solid ${COL.divider}`,
-                cursor: "pointer",
-              }}
-              aria-label="Schließen"
-            >
-              ✕
-            </button>
           </div>
         ) : null}
 
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-          {!hasImage ? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="absolute z-[1] flex items-center justify-center"
-              style={{
-                top: 14,
-                right: 14,
-                width: 34,
-                height: 34,
-                borderRadius: "50%",
-                background: COL.cream,
-                color: COL.text,
-                border: `1px solid ${COL.divider}`,
-                cursor: "pointer",
-              }}
-              aria-label="Schließen"
-            >
-              ✕
-            </button>
-          ) : null}
           <div
             className="min-h-0 flex-1 overflow-y-auto"
             style={{
-              padding: hasImage ? "20px 22px 32px" : "20px 22px 32px",
-              paddingTop: hasImage ? 20 : 56,
+              padding: hasImage ? "16px 18px 28px" : "16px 18px 28px",
+              paddingTop: hasImage ? 16 : 56,
+              WebkitOverflowScrolling: "touch",
             }}
           >
             {tagPills.length > 0 ? (

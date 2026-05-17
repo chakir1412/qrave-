@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { MenuItem } from "@/lib/supabase";
 import { dash, dashPrimaryButtonStyle } from "../constants";
 import { TemplatePreview, type PreviewTemplateId } from "../templatePreviews";
+import {
+  BACKGROUND_MODES,
+  DEFAULT_MODE_PER_TEMPLATE,
+  MODE_LABELS,
+  resolveBackground,
+  type BackgroundMode,
+} from "@/lib/template-background";
 
 type TemplateOption = {
   id: PreviewTemplateId;
@@ -77,8 +84,9 @@ type Props = {
   slideClass: string;
   template: string | null;
   accentColor: string | null;
+  backgroundMode: string | null;
   menuItems: MenuItem[];
-  onTemplateChange: (input: { template: string; accentColor: string }) => Promise<void>;
+  onTemplateChange: (input: { template: string; accentColor: string; backgroundMode: BackgroundMode }) => Promise<void>;
   onTabChange: (tab: "karte") => void;
   onToast: (msg: string) => void;
 };
@@ -87,6 +95,7 @@ export function DesignTab({
   slideClass,
   template,
   accentColor,
+  backgroundMode,
   menuItems,
   onTemplateChange,
   onTabChange,
@@ -94,6 +103,7 @@ export function DesignTab({
 }: Props) {
   const [preview, setPreview] = useState<TemplateOption | null>(null);
   const [selectedAccent, setSelectedAccent] = useState<string>("");
+  const [selectedMode, setSelectedMode] = useState<BackgroundMode>("light");
   const [saving, setSaving] = useState(false);
 
   // Anzahl distinct-Kategorien aus der aktuellen Speisekarte.
@@ -122,7 +132,13 @@ export function DesignTab({
     if (!preview) return;
     if (preview.id === template && accentColor) setSelectedAccent(accentColor);
     else setSelectedAccent(preview.defaultAccent);
-  }, [preview, template, accentColor]);
+    // Background-Mode: bestehend wenn dieses Template aktiv, sonst Template-Default.
+    if (preview.id === template && backgroundMode && (BACKGROUND_MODES as readonly string[]).includes(backgroundMode)) {
+      setSelectedMode(backgroundMode as BackgroundMode);
+    } else {
+      setSelectedMode(DEFAULT_MODE_PER_TEMPLATE[preview.id]);
+    }
+  }, [preview, template, accentColor, backgroundMode]);
 
   const hasItems = menuItems.length > 0;
 
@@ -132,7 +148,7 @@ export function DesignTab({
     try {
       // Fallback wenn selectedAccent noch leer ist (race vor useEffect-Init).
       const accentToSave = selectedAccent || preview.defaultAccent;
-      await onTemplateChange({ template: preview.id, accentColor: accentToSave });
+      await onTemplateChange({ template: preview.id, accentColor: accentToSave, backgroundMode: selectedMode });
       onToast("Template gespeichert");
       setPreview(null);
     } catch (err) {
@@ -185,6 +201,9 @@ export function DesignTab({
         {TEMPLATE_OPTIONS.map((opt) => {
           const active = template === opt.id;
           const previewAccent = active && accentColor ? accentColor : opt.defaultAccent;
+          const previewMode = (active && backgroundMode && (BACKGROUND_MODES as readonly string[]).includes(backgroundMode))
+            ? (backgroundMode as BackgroundMode)
+            : DEFAULT_MODE_PER_TEMPLATE[opt.id];
           const isSplit = opt.id === "clean" || opt.id === "playful";
           return (
             <button
@@ -202,7 +221,7 @@ export function DesignTab({
                 className="mb-2.5 flex items-center justify-center overflow-hidden rounded-[10px]"
                 style={{ background: "rgba(0,0,0,0.4)", padding: 6, minHeight: isSplit ? 110 : 178 }}
               >
-                <TemplatePreview id={opt.id} width={isSplit ? 60 : 100} accentColor={previewAccent} />
+                <TemplatePreview id={opt.id} width={isSplit ? 60 : 100} accentColor={previewAccent} backgroundMode={previewMode} />
               </div>
 
               <div className="flex items-start justify-between gap-2">
@@ -257,6 +276,7 @@ export function DesignTab({
                   id={preview.id}
                   width={preview.id === "clean" || preview.id === "playful" ? 130 : 240}
                   accentColor={selectedAccent || preview.defaultAccent}
+                  backgroundMode={selectedMode}
                 />
               </div>
               <div className="flex flex-1 flex-col justify-between gap-5">
@@ -315,6 +335,41 @@ export function DesignTab({
                           );
                         })}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Hintergrund-Slider (5 Stufen) */}
+                  <div className="mt-4">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: dash.mi }}>
+                      Hintergrund
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      {BACKGROUND_MODES.map((m) => {
+                        const isActive = selectedMode === m;
+                        const swatch = resolveBackground(preview.id, m).bg;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setSelectedMode(m)}
+                            aria-label={MODE_LABELS[m]}
+                            title={MODE_LABELS[m]}
+                            style={{
+                              flex: 1,
+                              height: 40,
+                              borderRadius: 8,
+                              background: swatch,
+                              border: isActive ? `2px solid ${dash.primaryBg}` : `1px solid ${dash.bo}`,
+                              boxShadow: isActive ? `0 0 0 2px ${dash.bg}` : "none",
+                              cursor: "pointer",
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between text-[10px]" style={{ color: dash.mi }}>
+                      <span>{MODE_LABELS.extraLight}</span>
+                      <span>{MODE_LABELS.extraDark}</span>
                     </div>
                   </div>
 

@@ -382,16 +382,17 @@ export function DashboardApp({
               slideClass={slideClass}
               template={restaurant.template ?? null}
               accentColor={restaurant.accent_color ?? null}
+              backgroundMode={(restaurant as { background_mode?: string | null }).background_mode ?? null}
               menuItems={menuItems}
-              onTemplateChange={async ({ template: tpl, accentColor: ac }) => {
+              onTemplateChange={async ({ template: tpl, accentColor: ac, backgroundMode: bm }) => {
                 const { data, error } = await supabase
                   .from("restaurants")
-                  .update({ template: tpl, accent_color: ac })
+                  .update({ template: tpl, accent_color: ac, background_mode: bm })
                   .eq("id", restaurant.id)
                   .select("id");
                 if (error) throw new Error(error.message ?? "Speichern fehlgeschlagen");
                 if (!data || data.length === 0) throw new Error("Keine Berechtigung zum Speichern");
-                setRestaurant((r) => ({ ...r, template: tpl, accent_color: ac }));
+                setRestaurant((r) => ({ ...r, template: tpl, accent_color: ac, background_mode: bm }));
               }}
               onTabChange={(t) => goTab(t)}
               onToast={showToast}

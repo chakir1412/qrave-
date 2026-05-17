@@ -17,6 +17,7 @@ import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisek
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
 const COL = { bg: "#111110", bg2: "#1a1a18", white: "#f5f4f0", text: "#f5f4f0", muted: "rgba(245,244,240,0.45)", border: "rgba(245,244,240,0.08)", accent: "#e8b400", accent2: "#ff4422", card: "rgba(255,255,255,0.04)" } as const;
 const DISPLAY = `'Bebas Neue', Impact, system-ui, sans-serif`;
@@ -26,7 +27,8 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 };
 
 export default function StreetFoodTemplate(props: SpeisekarteProps) {
-  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [] } = props;
+  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
+  const bgTheme = resolveBackground("street-food", backgroundMode as BackgroundMode | null);
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
@@ -74,7 +76,7 @@ export default function StreetFoodTemplate(props: SpeisekarteProps) {
   const totalItems = sections.reduce((sum, s) => sum + filterItems(s.items).length, 0);
 
   return (
-    <div className="speisekarte-template" style={{ background: COL.bg, color: COL.text, minHeight: "100vh" }}>
+    <div className="speisekarte-template" style={{ background: bgTheme.bg, color: bgTheme.text, minHeight: "100vh" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600&display=swap');
         .sf-template { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }

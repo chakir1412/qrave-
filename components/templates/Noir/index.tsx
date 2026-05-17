@@ -29,6 +29,7 @@ import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisek
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
 const COL = {
   bg: "#0a0805",
@@ -72,7 +73,9 @@ export default function NoirTemplate(props: SpeisekarteProps) {
     sponsoredItems = [],
     guestNote = null,
     lunchOffers = [],
+    backgroundMode = null,
   } = props;
+  const bgTheme = resolveBackground("noir", backgroundMode as BackgroundMode | null);
 
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -285,8 +288,8 @@ export default function NoirTemplate(props: SpeisekarteProps) {
     <div
       className="speisekarte-template"
       style={{
-        background: COL.bg,
-        color: COL.cream,
+        background: bgTheme.bg,
+        color: bgTheme.text,
         minHeight: "100vh",
         overflowX: "hidden",
         position: "relative",

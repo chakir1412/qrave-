@@ -17,6 +17,7 @@ import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisek
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
 const COL = { bg: "#ffe5f0", white: "#fff", text: "#1a0a12", muted: "rgba(26,10,18,0.5)", border: "rgba(26,10,18,0.1)", accent: "#ff3d7f", accent2: "#ffb800" } as const;
 const DISPLAY = `'Syne', system-ui, sans-serif`;
@@ -26,7 +27,8 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 };
 
 export default function PlayfulTemplate(props: SpeisekarteProps) {
-  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [] } = props;
+  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
+  const bgTheme = resolveBackground("playful", backgroundMode as BackgroundMode | null);
   const [splashOpen, setSplashOpen] = useState(true);
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -82,7 +84,7 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
   const featured = dailyPushes[0] ?? null;
 
   return (
-    <div className="speisekarte-template" style={{ background: COL.bg, color: COL.text, minHeight: "100vh", overflowX: "hidden" }}>
+    <div className="speisekarte-template" style={{ background: bgTheme.bg, color: bgTheme.text, minHeight: "100vh", overflowX: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap');
         .play-template { font-family: 'DM Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }

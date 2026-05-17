@@ -71,6 +71,7 @@ export default async function SpeisekartePage({
     sponsoredItems,
     guestNote: data.restaurant.guest_note ?? null,
     lunchOffers: data.lunchOffers,
+    backgroundMode: (data.restaurant as { background_mode?: string | null }).background_mode ?? null,
   };
 
   const templateKey = (data.restaurant.template ?? "minimal") as string;

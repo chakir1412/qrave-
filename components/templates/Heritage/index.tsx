@@ -28,6 +28,7 @@ import { DRINK_CATEGORIES } from "@/lib/category-types";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 import HeritageItemModal from "./HeritageItemModal";
 
 const COL = {
@@ -79,7 +80,9 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
     sponsoredItems = [],
     guestNote = null,
     lunchOffers = [],
+    backgroundMode = null,
   } = props;
+  const bgTheme = resolveBackground("heritage", backgroundMode as BackgroundMode | null);
 
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -308,7 +311,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
   return (
     <div
       className="min-h-screen speisekarte-template"
-      style={{ backgroundColor: COL.bg, color: COL.text }}
+      style={{ backgroundColor: bgTheme.bg, color: bgTheme.text }}
     >
       {!consentGiven && (
         <ConsentBanner theme="warm" onConsent={() => setConsentGiven(true)} />

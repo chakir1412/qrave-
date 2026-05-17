@@ -4,6 +4,7 @@ import { getOpenStatus } from "@/lib/oeffnungszeiten";
 import ShareButton from "./ShareButton";
 import { LanguageButton } from "./LanguageButton";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
 type Props = {
   restaurant: PublicRestaurant;
@@ -240,6 +241,10 @@ function statusBadgeColors(kind: "open" | "opens-later" | "closed-today", mode: 
 
 export default function SplashScreen({ restaurant }: Props) {
   const theme = getTheme(restaurant.template);
+  const bgOverride = resolveBackground(
+    restaurant.template,
+    ((restaurant as { background_mode?: string | null }).background_mode ?? null) as BackgroundMode | null,
+  );
   const mediaUrl = restaurant.splash_media_url?.trim() ?? "";
   const mediaType = restaurant.splash_media_type === "video" ? "video" : "image";
   const legacyImageUrl =
@@ -281,7 +286,7 @@ export default function SplashScreen({ restaurant }: Props) {
   return (
     <div
       className="relative flex min-h-dvh flex-col overflow-hidden"
-      style={{ background: theme.bg, color: theme.text, fontFamily: theme.fontDisplay }}
+      style={{ background: bgOverride.bg, color: bgOverride.text, fontFamily: theme.fontDisplay }}
     >
       {theme.fontImport ? <style>{`@import url('${theme.fontImport}');`}</style> : null}
 

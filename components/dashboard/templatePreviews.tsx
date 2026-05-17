@@ -7,6 +7,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
 const BASE_W = 180;
 const BASE_H = 320;
@@ -21,31 +22,50 @@ export function TemplatePreview({
   id,
   width = 180,
   accentColor,
+  backgroundMode,
 }: {
   id: PreviewTemplateId;
   width?: number;
-  /** Override für die primäre Akzentfarbe; wird als CSS-Var --p-accent
-   *  an die Stage gehängt und von jedem Frame als Fallback-aware var() gelesen. */
   accentColor?: string;
+  backgroundMode?: BackgroundMode;
 }) {
   if (id === "clean" || id === "playful") {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <PreviewStage width={width} accent={accentColor}>{renderFrame(id, "splash")}</PreviewStage>
+        <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "splash")}</PreviewStage>
         <span aria-hidden style={{ fontSize: Math.max(10, width * 0.07), color: "rgba(255,255,255,0.5)" }}>→</span>
-        <PreviewStage width={width} accent={accentColor}>{renderFrame(id, "items")}</PreviewStage>
+        <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "items")}</PreviewStage>
       </div>
     );
   }
-  return <PreviewStage width={width} accent={accentColor}>{renderFrame(id, "default")}</PreviewStage>;
+  return <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "default")}</PreviewStage>;
 }
 
-function PreviewStage({ children, width, accent }: { children: ReactNode; width: number; accent?: string }) {
+function PreviewStage({
+  children,
+  width,
+  accent,
+  mode,
+  templateId,
+}: {
+  children: ReactNode;
+  width: number;
+  accent?: string;
+  mode?: BackgroundMode;
+  templateId: PreviewTemplateId;
+}) {
   const scale = width / BASE_W;
   const height = BASE_H * scale;
-  const accentStyle = accent ? ({ "--p-accent": accent } as React.CSSProperties) : undefined;
+  // Background-Override via CSS-Variablen — Frames lesen --p-bg / --p-text als Fallback.
+  const bg = mode ? resolveBackground(templateId, mode) : null;
+  const cssVars: React.CSSProperties = {};
+  if (accent) (cssVars as Record<string, string>)["--p-accent"] = accent;
+  if (bg) {
+    (cssVars as Record<string, string>)["--p-bg"] = bg.bg;
+    (cssVars as Record<string, string>)["--p-text"] = bg.text;
+  }
   return (
-    <div style={{ width, height, position: "relative", overflow: "hidden", borderRadius: 14 * scale, flexShrink: 0, ...accentStyle }}>
+    <div style={{ width, height, position: "relative", overflow: "hidden", borderRadius: 14 * scale, flexShrink: 0, ...cssVars }}>
       <div
         style={{
           transform: `scale(${scale})`,
@@ -123,7 +143,7 @@ function HeritageFrame() {
     { name: "Tafelspitz", price: "22,50 €" },
   ];
   return (
-    <PhoneShell bg={COL.bg} borderColor="rgba(0,0,0,0.15)">
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`} borderColor="rgba(0,0,0,0.15)">
       <StatusBar color={COL.text} />
       <div style={{ textAlign: "center", padding: "10px 14px 8px", borderBottom: `1px solid ${COL.divider}` }}>
         <div style={{ fontFamily: 'Georgia, serif', fontSize: 14, color: COL.text, letterSpacing: "-0.02em" }}>Frankfurter Wirtshaus</div>
@@ -159,7 +179,7 @@ function NoirFrame() {
     { name: "Negroni", price: "12,00 €", emoji: "🖤" },
   ];
   return (
-    <PhoneShell bg={COL.bg}>
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`}>
       <StatusBar />
       <div style={{ padding: "8px 14px 8px", borderBottom: `1px solid ${COL.border}` }}>
         <div style={{ fontSize: 6, letterSpacing: "0.22em", color: accent, marginBottom: 2 }}>QRAVE.MENU</div>
@@ -197,7 +217,7 @@ function CleanSplashFrame() {
     { label: "Hauptg.", emoji: "🍽" },
   ];
   return (
-    <PhoneShell bg={COL.bg} borderColor="rgba(0,0,0,0.12)">
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`} borderColor="rgba(0,0,0,0.12)">
       <StatusBar color={COL.text} />
       <div style={{ background: COL.white, padding: "8px 12px 10px", borderBottom: `1px solid ${COL.border}` }}>
         <div style={{ fontFamily: 'Georgia, serif', fontSize: 12, fontWeight: 600, color: COL.text }}>Grünzeit Café</div>
@@ -235,7 +255,7 @@ function CleanItemsFrame() {
     { name: "Trüffel-Pasta", price: "18,00 €", emoji: "🍝" },
   ];
   return (
-    <PhoneShell bg={COL.bg} borderColor="rgba(0,0,0,0.12)">
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`} borderColor="rgba(0,0,0,0.12)">
       <StatusBar color={COL.text} />
       <div style={{ background: COL.white, padding: "8px 12px 8px", borderBottom: `1px solid ${COL.border}`, display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 12, color: COL.muted }}>←</span>
@@ -271,7 +291,7 @@ function TrattoriaFrame() {
     { name: "Diavola", price: "10,00 €", emoji: "🌶" },
   ];
   return (
-    <PhoneShell bg={COL.bg} borderColor="rgba(0,0,0,0.12)">
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`} borderColor="rgba(0,0,0,0.12)">
       <StatusBar color={COL.text} />
       <div style={{ padding: "8px 14px 0" }}>
         <div style={{ fontSize: 6, letterSpacing: "0.22em", color: COL.muted }}>QRAVE.MENU</div>
@@ -309,7 +329,7 @@ function MinimalFrame() {
     { name: "Gazpacho", price: "8,00 €", emoji: "🍅" },
   ];
   return (
-    <PhoneShell bg={COL.bg} borderColor="rgba(0,0,0,0.12)">
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`} borderColor="rgba(0,0,0,0.12)">
       <StatusBar color={COL.text} />
       <div style={{ padding: "8px 14px", borderBottom: `1px solid ${COL.border}`, textAlign: "center" }}>
         <div style={{ fontSize: 10, fontWeight: 600, color: COL.text }}>Vorspeisen & Gerichte</div>
@@ -341,7 +361,7 @@ function PlayfulSplashFrame() {
   const COL = { bg: "#ffe5f0", white: "#fff", text: "#1a0a12", accent2: "#ffb800" };
   const accent = "var(--p-accent, #ff3d7f)";
   return (
-    <PhoneShell bg={COL.bg} borderColor="rgba(26,10,18,0.15)">
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`} borderColor="rgba(26,10,18,0.15)">
       <StatusBar color={COL.text} />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "10px 12px 0", textAlign: "center" }}>
         <div style={{ width: 56, height: 56, background: "rgba(255,61,127,0.15)", borderRadius: "60% 40% 70% 30% / 50% 60% 40% 50%", marginBottom: -18 }} />
@@ -374,7 +394,7 @@ function PlayfulItemsFrame() {
     { name: "Cacio e Pepe", price: "16,00 €", emoji: "🍝" },
   ];
   return (
-    <PhoneShell bg={COL.bg} borderColor="rgba(26,10,18,0.15)">
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`} borderColor="rgba(26,10,18,0.15)">
       <StatusBar color={COL.text} />
       <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1.5px solid ${COL.text}` }}>
         <div style={{ width: 18, height: 18, borderRadius: 999, background: COL.white, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, boxShadow: `1.5px 1.5px 0 ${COL.text}` }}>←</div>
@@ -410,7 +430,7 @@ function AsianDarkFrame() {
     { name: "Miso", jp: "辛味噌", price: "14,50 €", emoji: "🌶" },
   ];
   return (
-    <PhoneShell bg={COL.bg}>
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`}>
       <StatusBar />
       <div style={{ padding: "8px 14px 8px", borderBottom: `1px solid ${COL.border}` }}>
         <div style={{ fontSize: 6, letterSpacing: "0.3em", color: accent }}>ラーメン · RAMEN</div>
@@ -447,7 +467,7 @@ function StreetFoodFrame() {
   const COL = { bg: "#111110", bg2: "#1a1a18", text: "#f5f4f0", muted: "rgba(245,244,240,0.45)", border: "rgba(245,244,240,0.08)", accent2: "#ff4422" };
   const accent = "var(--p-accent, #e8b400)";
   return (
-    <PhoneShell bg={COL.bg}>
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`}>
       <StatusBar />
       <div style={{ background: accent, padding: "8px 14px 10px", position: "relative", overflow: "hidden" }}>
         <div style={{ fontSize: 6, letterSpacing: "0.2em", color: "rgba(0,0,0,0.5)", fontWeight: 600 }}>QRAVE.MENU</div>
@@ -488,7 +508,7 @@ function MediterraneanFrame() {
   const COL = { bg: "#faf6f0", text: "#2c1a0e", muted: "rgba(44,26,14,0.45)", accent2: "#5c8a3c", gold: "#c9972a", terracotta: "#d4613a", border: "rgba(44,26,14,0.1)" };
   const accent = "var(--p-accent, #c0580a)";
   return (
-    <PhoneShell bg={COL.bg} borderColor="rgba(0,0,0,0.12)">
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`} borderColor="rgba(0,0,0,0.12)">
       <div style={{ height: 4, background: `repeating-linear-gradient(90deg, ${COL.terracotta} 0px, ${COL.terracotta} 8px, ${COL.gold} 8px, ${COL.gold} 16px, ${COL.accent2} 16px, ${COL.accent2} 24px, ${COL.gold} 24px, ${COL.gold} 32px)` }} />
       <StatusBar color={COL.text} />
       <div style={{ padding: "6px 14px 10px", textAlign: "center", borderBottom: `1px solid ${COL.border}` }}>

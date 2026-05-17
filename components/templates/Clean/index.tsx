@@ -28,6 +28,7 @@ import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisek
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
 const COL = {
   bg: "#f0eeea",
@@ -68,7 +69,9 @@ export default function CleanTemplate(props: SpeisekarteProps) {
     sponsoredItems = [],
     guestNote = null,
     lunchOffers = [],
+    backgroundMode = null,
   } = props;
+  const bgTheme = resolveBackground("clean", backgroundMode as BackgroundMode | null);
 
   /** Splash-Flow: initial true → Kategorie-Grid sichtbar. Klick auf eine
    *  Kategorie setzt sie + verlässt Splash. Back-Button kehrt zurück. */
@@ -290,8 +293,8 @@ export default function CleanTemplate(props: SpeisekarteProps) {
     <div
       className="speisekarte-template"
       style={{
-        background: COL.bg,
-        color: COL.text,
+        background: bgTheme.bg,
+        color: bgTheme.text,
         minHeight: "100vh",
       }}
     >

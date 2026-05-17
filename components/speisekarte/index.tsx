@@ -42,6 +42,9 @@ export type SpeisekarteProps = {
   guestNote?: string | null;
   /** Mittagsangebote — wenn aktuell im Zeitfenster, eigene Sektion oben. */
   lunchOffers?: LunchOffer[];
+  /** Vom Wirt gewählter Hintergrund-Mode (extraLight..extraDark). Wenn null,
+   *  nutzt das jeweilige Template seinen Default. */
+  backgroundMode?: string | null;
 };
 
 export default function Speisekarte({

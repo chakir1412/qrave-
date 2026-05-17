@@ -17,6 +17,7 @@ import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisek
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
 const COL = { bg: "#f5f5f5", white: "#fff", text: "#111", muted: "#888", border: "#ebebeb", accent: "#111" } as const;
 const LUNCH_TAB_KEY = "__minimal_lunch__";
@@ -25,7 +26,8 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 };
 
 export default function MinimalTemplate(props: SpeisekarteProps) {
-  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [] } = props;
+  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
+  const bgTheme = resolveBackground("minimal", backgroundMode as BackgroundMode | null);
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
@@ -77,7 +79,7 @@ export default function MinimalTemplate(props: SpeisekarteProps) {
   const featured = dailyPushes[0] ?? null;
 
   return (
-    <div className="speisekarte-template" style={{ background: COL.bg, color: COL.text, minHeight: "100vh" }}>
+    <div className="speisekarte-template" style={{ background: bgTheme.bg, color: bgTheme.text, minHeight: "100vh" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         .min-template { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }

@@ -17,6 +17,7 @@ import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisek
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
 const COL = { bg: "#faf6f0", white: "#fff", text: "#2c1a0e", muted: "rgba(44,26,14,0.45)", border: "rgba(44,26,14,0.1)", accent: "#c0580a", accent2: "#5c8a3c", gold: "#c9972a", terracotta: "#d4613a", card: "#fff" } as const;
 const LUNCH_TAB_KEY = "__med_lunch__";
@@ -25,7 +26,8 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 };
 
 export default function MediterraneanTemplate(props: SpeisekarteProps) {
-  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [] } = props;
+  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
+  const bgTheme = resolveBackground("mediterranean", backgroundMode as BackgroundMode | null);
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
@@ -72,7 +74,7 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
   const featured = dailyPushes[0] ?? null;
 
   return (
-    <div className="speisekarte-template" style={{ background: COL.bg, color: COL.text, minHeight: "100vh" }}>
+    <div className="speisekarte-template" style={{ background: bgTheme.bg, color: bgTheme.text, minHeight: "100vh" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
         .med-template { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }

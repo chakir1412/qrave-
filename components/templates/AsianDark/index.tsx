@@ -17,6 +17,7 @@ import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisek
 import { type FilterKey } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
+import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
 
 const COL = { bg: "#0d0d0f", bg2: "#141417", white: "#f0eee8", text: "#f0eee8", muted: "rgba(240,238,232,0.4)", border: "rgba(240,238,232,0.07)", accent: "#e8282e", accent2: "#ff6b35", gold: "#c9a84c", card: "rgba(255,255,255,0.04)" } as const;
 const JP = `'Noto Sans JP', system-ui, sans-serif`;
@@ -26,7 +27,8 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 };
 
 export default function AsianDarkTemplate(props: SpeisekarteProps) {
-  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [] } = props;
+  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
+  const bgTheme = resolveBackground("asian-dark", backgroundMode as BackgroundMode | null);
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
@@ -73,7 +75,7 @@ export default function AsianDarkTemplate(props: SpeisekarteProps) {
   const featured = dailyPushes[0] ?? null;
 
   return (
-    <div className="speisekarte-template" style={{ background: COL.bg, color: COL.text, minHeight: "100vh", position: "relative" }}>
+    <div className="speisekarte-template" style={{ background: bgTheme.bg, color: bgTheme.text, minHeight: "100vh", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Inter:wght@300;400;500;600&display=swap');
         .asian-template { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
