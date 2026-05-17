@@ -259,21 +259,24 @@ export function DesignTab({
 
       {preview ? (
         <div
-          ref={modalRef}
-          className="fixed inset-0 z-[1000] overflow-y-auto md:flex md:items-center md:justify-center md:p-4"
-          style={{
-            background: "rgba(0,0,0,0.7)",
-            backdropFilter: "blur(6px)",
-            WebkitOverflowScrolling: "touch",
-          }}
+          className="fixed inset-0 z-[1000] flex md:items-center md:justify-center md:p-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}
           onClick={() => !saving && setPreview(null)}
         >
           <div
-            className="flex min-h-full w-full flex-col md:min-h-0 md:max-h-[92vh] md:max-w-[760px] md:overflow-hidden md:rounded-[18px] md:border"
+            className="flex h-full w-full flex-col md:h-auto md:max-h-[92vh] md:max-w-[760px] md:overflow-hidden md:rounded-[18px] md:border"
             style={{ background: dash.bg, borderColor: dash.bo }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex flex-1 flex-col gap-6 p-6 md:flex-row md:items-stretch md:overflow-y-auto md:p-7">
+            <div
+              ref={modalRef}
+              className="flex flex-1 flex-col gap-6 p-6 md:flex-row md:items-stretch md:p-7"
+              style={{
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                paddingBottom: 120,
+              }}
+            >
               <div
                 className="flex w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-[14px] md:w-auto md:min-w-[280px] md:self-center"
                 style={{ background: "rgba(0,0,0,0.5)", padding: 16 }}
@@ -409,11 +412,15 @@ export function DesignTab({
               </div>
             </div>
             <div
-              className="sticky bottom-0 z-10 flex gap-2 border-t p-4 md:static md:p-5"
+              className="flex flex-shrink-0 gap-2 border-t"
               style={{
+                position: "sticky",
+                bottom: 0,
+                zIndex: 10,
                 borderColor: dash.bo,
                 background: dash.s1,
-                paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+                padding: "16px 20px",
+                paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
               }}
             >
               <button
