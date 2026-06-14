@@ -23,7 +23,7 @@ export default function FounderLayout({
             body {
               position: relative;
               background-color: #0c0c0f !important;
-              min-height: 100vh !important;
+              min-height: 100dvh !important;
               color: rgba(255,255,255,0.92);
               font-family: ${inter.style.fontFamily} !important;
             }
@@ -34,7 +34,7 @@ export default function FounderLayout({
               z-index: 0;
               pointer-events: none;
               background:
-                radial-gradient(ellipse 80% 55% at 92% 8%, rgba(255,92,26,0.2) 0%, transparent 55%),
+                radial-gradient(ellipse 80% 55% at 92% 8%, rgba(147,51,234,0.2) 0%, transparent 55%),
                 radial-gradient(ellipse 70% 70% at 0% 45%, rgba(91,155,255,0.16) 0%, transparent 52%),
                 radial-gradient(ellipse 85% 50% at 88% 96%, rgba(52,232,158,0.14) 0%, transparent 55%);
             }

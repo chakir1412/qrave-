@@ -15,7 +15,7 @@ import { defaultLast7Ymd } from "@/lib/restaurant-analytics-presets";
 import { slugifyRestaurantName } from "@/lib/slugify-restaurant";
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
-const ORANGE = "#FF5C1A";
+const ORANGE = "#9333ea";
 
 type UiStatus = "live" | "setup" | "pause";
 
@@ -31,6 +31,11 @@ type Props = {
    *  Priorität vor dem `scanEvents`-Window — verlässlicher bei viel
    *  Traffic, da das Daily-Aggregat nicht gedeckelt ist. */
   sessionsWeekOverride?: Map<string, number>;
+  /** Onboarding-Tracking: letzter Dashboard-Login pro auth_user_id.
+   *  Aus Supabase Auth Admin API. */
+  lastLoginByUserId?: Record<string, string | null>;
+  /** Onboarding-Tracking: MAX(menu_items.updated_at) pro restaurant_id. */
+  lastMenuUpdateByRestaurantId?: Record<string, string | null>;
 };
 
 const STICKER_TIERS = [
@@ -46,6 +51,39 @@ function extForRestaurant(
   restaurantId: string,
 ): FounderRestaurantExtRow | undefined {
   return extras.find((e) => e.restaurant_id === restaurantId);
+}
+
+/** "vor 3 Tagen" / "heute" / "—" für Onboarding-Tracking-Spalten. */
+function formatRelativeDe(iso: string | null): string {
+  if (!iso) return "—";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "—";
+  const diffMs = Date.now() - t;
+  if (diffMs < 0) return "soeben";
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "soeben";
+  if (minutes < 60) return `vor ${minutes} Min.`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `vor ${hours} Std.`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "gestern";
+  if (days < 30) return `vor ${days} Tagen`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `vor ${months} Mon.`;
+  const years = Math.floor(days / 365);
+  return `vor ${years} J.`;
+}
+
+/** Frische-Indikator: grün <= threshold/2, gelb <= threshold, rot drüber.
+ *  threshold = Tage. null → neutral grau. */
+function stalenessColor(iso: string | null, threshold: number): string {
+  if (!iso) return "rgba(255,255,255,0.4)";
+  const days = (Date.now() - Date.parse(iso)) / 86400000;
+  if (!Number.isFinite(days)) return "rgba(255,255,255,0.4)";
+  if (days < 0) return "#7be38b";
+  if (days <= threshold / 2) return "#7be38b";
+  if (days <= threshold) return "#ffd166";
+  return "#ff8a8a";
 }
 
 function restaurantUiStatus(r: FounderRestaurantRow): UiStatus {
@@ -65,7 +103,7 @@ function statusPillStyle(status: UiStatus): CSSProperties {
   if (status === "live")
     return { background: "rgba(52,232,158,0.14)", color: "#34e89e", border: "1px solid rgba(52,232,158,0.35)" };
   if (status === "setup")
-    return { background: "rgba(255,92,26,0.12)", color: ORANGE, border: "1px solid rgba(255,92,26,0.35)" };
+    return { background: "rgba(147,51,234,0.12)", color: ORANGE, border: "1px solid rgba(147,51,234,0.35)" };
   return { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.12)" };
 }
 
@@ -472,6 +510,8 @@ export function RestaurantsTab({
   isMobile,
   onRefresh,
   sessionsWeekOverride,
+  lastLoginByUserId,
+  lastMenuUpdateByRestaurantId,
 }: Props) {
   const router = useRouter();
   const [restaurantItems, setRestaurantItems] = useState<FounderRestaurantRow[]>(restaurants);
@@ -629,6 +669,12 @@ export function RestaurantsTab({
           expanded={expandedId === r.id}
           isMobile={isMobile}
           pending={pending}
+          lastLogin={(() => {
+            const authId = (r as unknown as { auth_user_id?: string | null }).auth_user_id;
+            if (!authId) return null;
+            return lastLoginByUserId?.[authId] ?? null;
+          })()}
+          lastMenuUpdate={lastMenuUpdateByRestaurantId?.[r.id] ?? null}
           onToggleExpand={() => setExpandedId((cur) => (cur === r.id ? null : r.id))}
           onOpenAnalytics={() => {
             const { fromYmd, toYmd } = defaultLast7Ymd();
@@ -797,7 +843,7 @@ function FilterChip({
       className="shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold"
       style={{
         border: active ? `1px solid ${ORANGE}` : "1px solid rgba(255,255,255,0.12)",
-        background: active ? "rgba(255,92,26,0.15)" : "rgba(255,255,255,0.05)",
+        background: active ? "rgba(147,51,234,0.15)" : "rgba(255,255,255,0.05)",
         color: active ? "#fff" : "rgba(255,255,255,0.55)",
         cursor: "pointer",
       }}
@@ -823,7 +869,7 @@ function SortChip({
       className="rounded-full px-3 py-1.5 text-xs font-bold"
       style={{
         border: active ? `1px solid ${ORANGE}` : "1px solid rgba(255,255,255,0.1)",
-        background: active ? "rgba(255,92,26,0.12)" : "transparent",
+        background: active ? "rgba(147,51,234,0.12)" : "transparent",
         color: active ? "#fff" : "rgba(255,255,255,0.45)",
         cursor: "pointer",
       }}
@@ -847,6 +893,8 @@ function RestaurantCard({
   onOpenStickerModal,
   onDeleteRestaurant,
   onLogoUpload,
+  lastLogin,
+  lastMenuUpdate,
 }: {
   restaurant: FounderRestaurantRow;
   ext: FounderRestaurantExtRow | undefined;
@@ -861,6 +909,8 @@ function RestaurantCard({
   onOpenStickerModal: () => void;
   onDeleteRestaurant: () => void;
   onLogoUpload: (file: File) => Promise<string | null>;
+  lastLogin: string | null;
+  lastMenuUpdate: string | null;
 }) {
   const st = restaurantUiStatus(r);
   const pill = statusPillStyle(st);
@@ -961,6 +1011,24 @@ function RestaurantCard({
               }}
             >
               {sessionsWeek}
+            </span>
+          </div>
+        </div>
+
+        <div
+          className="mb-3 flex flex-col gap-1 rounded-xl px-3 py-2 text-[12px]"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.65)" }}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ color: "rgba(255,255,255,0.45)" }}>Letzter Login</span>
+            <span style={{ color: stalenessColor(lastLogin, 14), fontVariantNumeric: "tabular-nums" }}>
+              {formatRelativeDe(lastLogin)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ color: "rgba(255,255,255,0.45)" }}>Karte aktualisiert</span>
+            <span style={{ color: stalenessColor(lastMenuUpdate, 30), fontVariantNumeric: "tabular-nums" }}>
+              {formatRelativeDe(lastMenuUpdate)}
             </span>
           </div>
         </div>
@@ -1140,7 +1208,7 @@ function RestaurantCard({
             className="mb-5 rounded-2xl p-4"
             style={{
               borderLeft: `3px solid ${ORANGE}`,
-              background: "rgba(255,92,26,0.06)",
+              background: "rgba(147,51,234,0.06)",
               borderTop: "0.5px solid rgba(255,255,255,0.08)",
               borderRight: "0.5px solid rgba(255,255,255,0.08)",
               borderBottom: "0.5px solid rgba(255,255,255,0.08)",
@@ -1515,7 +1583,7 @@ function StickerModal({
                 padding: "10px 16px",
                 borderRadius: 12,
                 border: tier === t.key ? `1px solid ${ORANGE}` : "1px solid rgba(255,255,255,0.12)",
-                background: tier === t.key ? "rgba(255,92,26,0.15)" : "rgba(255,255,255,0.05)",
+                background: tier === t.key ? "rgba(147,51,234,0.15)" : "rgba(255,255,255,0.05)",
                 color: "#fff",
                 fontWeight: 700,
                 fontSize: 13,

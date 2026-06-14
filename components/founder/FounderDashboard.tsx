@@ -54,8 +54,8 @@ const dmSans = DM_Sans({
 });
 
 const C = {
-  teal: "#00c8a0",
-  orange: "#ff5c1a",
+  teal: "#9333ea",
+  orange: "#9333ea",
   blue: "#5b9bff",
   yellow: "#ffd426",
   green: "#34e89e",
@@ -397,10 +397,10 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
           fill: true,
           backgroundColor: (ctx) => {
             const area = ctx.chart.chartArea;
-            if (!area) return "rgba(0,200,160,0.2)";
+            if (!area) return "rgba(147,51,234,0.2)";
             const g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-            g.addColorStop(0, "rgba(0,200,160,0.35)");
-            g.addColorStop(1, "rgba(0,200,160,0)");
+            g.addColorStop(0, "rgba(147,51,234,0.35)");
+            g.addColorStop(1, "rgba(147,51,234,0)");
             return g;
           },
         },
@@ -511,7 +511,7 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
           borderWidth: 2,
           tension: 0.33,
           fill: true,
-          backgroundColor: "rgba(255,92,26,0.2)",
+          backgroundColor: "rgba(147,51,234,0.2)",
         },
       ],
     }),
@@ -942,7 +942,7 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
                                       fontSize: 12,
                                       cursor: future ? "not-allowed" : "pointer",
                                       color: selected ? "#fff" : future ? "rgba(255,255,255,0.25)" : "#fff",
-                                      background: selected ? C.teal : inRange ? "rgba(0,200,160,0.15)" : "transparent",
+                                      background: selected ? C.teal : inRange ? "rgba(147,51,234,0.15)" : "transparent",
                                       position: "relative",
                                     }}
                                   >
@@ -972,7 +972,7 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
                             tension: 0.34,
                             borderWidth: 2,
                             fill: true,
-                            backgroundColor: "rgba(0,200,160,0.25)",
+                            backgroundColor: "rgba(147,51,234,0.25)",
                           },
                         ],
                       }}
@@ -1042,7 +1042,7 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
                   </article>
                 </section>
 
-                <section className="founder-card" style={{ padding: 10, display: "inline-flex", gap: 8, alignItems: "center", borderColor: "rgba(0,200,160,0.4)", marginBottom: 14 }}>
+                <section className="founder-card" style={{ padding: 10, display: "inline-flex", gap: 8, alignItems: "center", borderColor: "rgba(147,51,234,0.4)", marginBottom: 14 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 999, background: C.teal, boxShadow: `0 0 8px ${C.teal}` }} />
                   <span style={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>
                     Phase 1 — Frankfurt {data.restaurants.filter((r) => r.aktiv).length}/50
@@ -1161,6 +1161,8 @@ export function FounderDashboard({ data: initialData, initialLoadError = null }:
                   restaurantTables={data.restaurantTables}
                   isMobile={Boolean(isMobile)}
                   onRefresh={refreshAll}
+                  lastLoginByUserId={data.lastLoginByUserId}
+                  lastMenuUpdateByRestaurantId={data.lastMenuUpdateByRestaurantId}
                 />
               </section>
             ) : null}

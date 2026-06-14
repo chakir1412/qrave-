@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { t } from "@/lib/i18n-menu";
 
 type ConsentValue = "accepted" | "declined";
 
-type ConsentTheme = "default" | "warm";
+type ConsentTheme = "default" | "warm" | "dark";
 
 type ConsentBannerProps = {
   onConsent: (value: ConsentValue) => void;
-  /** "warm" passt sich dem FrankfurterWirtshaus-Look an
-   *  (cremeweiß #F5F0E8, Kupfer #C8894E). Default ist neutrales Weiß. */
+  /** "warm" für Heritage/Clean/Blossom/Trattoria/Mediterranean (creme/sand),
+   *  "dark" für Noir/AsianDark/StreetFood (dunkles Card-BG),
+   *  "default" = neutrales Hell. */
   theme?: ConsentTheme;
+  /** Gast-Sprache (von der Speisekarte runtergereicht). Default `"de"`. */
+  locale?: string;
 };
 
 const STORAGE_KEY = "qrave_consent";
@@ -18,19 +22,16 @@ const ANIM_MS = 400;
 
 const THEMES = {
   default: {
-    panel: "#ffffff",
-    panelBorder: "transparent",
+    panel: "#fdfcfa",
+    panelBorder: "rgba(0,0,0,0.06)",
     headline: "#111111",
     subText: "#555555",
-    cardBg: "#f7f6f2",
-    cardBorder: "#e8e4dc",
-    cardTitle: "#111111",
-    cardSub: "#8a8378",
-    accent: "#111111",
     linkColor: "#111111",
     footerLink: "#777777",
-    btnBorder: "#cccccc",
-    btnText: "#333333",
+    btnBg: "#f5f2ee",
+    btnBgHover: "#ece8e1",
+    btnBorder: "rgba(0,0,0,0.06)",
+    btnText: "#111111",
     headlineFontFamily: "inherit",
   },
   warm: {
@@ -38,21 +39,35 @@ const THEMES = {
     panelBorder: "rgba(200,137,78,0.25)",
     headline: "#1A1209",
     subText: "#6E665C",
-    cardBg: "rgba(200,137,78,0.08)",
-    cardBorder: "rgba(200,137,78,0.2)",
-    cardTitle: "#1A1209",
-    cardSub: "#8B7355",
-    accent: "#C8894E",
     linkColor: "#1A1209",
     footerLink: "#8B7355",
-    btnBorder: "rgba(200,137,78,0.4)",
+    btnBg: "rgba(200,137,78,0.1)",
+    btnBgHover: "rgba(200,137,78,0.18)",
+    btnBorder: "rgba(200,137,78,0.3)",
     btnText: "#1A1209",
     headlineFontFamily: 'Georgia, "Times New Roman", ui-serif, serif',
   },
+  dark: {
+    panel: "#1a1a1d",
+    panelBorder: "rgba(255,255,255,0.08)",
+    headline: "#f5f5f5",
+    subText: "rgba(245,245,245,0.65)",
+    linkColor: "#f5f5f5",
+    footerLink: "rgba(245,245,245,0.55)",
+    btnBg: "rgba(255,255,255,0.08)",
+    btnBgHover: "rgba(255,255,255,0.13)",
+    btnBorder: "rgba(255,255,255,0.1)",
+    btnText: "#f5f5f5",
+    headlineFontFamily: "inherit",
+  },
 } as const;
 
-export default function ConsentBanner({ onConsent, theme = "default" }: ConsentBannerProps) {
-  const t = THEMES[theme];
+export default function ConsentBanner({
+  onConsent,
+  theme = "default",
+  locale = "de",
+}: ConsentBannerProps) {
+  const tokens = THEMES[theme];
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -66,10 +81,10 @@ export default function ConsentBanner({ onConsent, theme = "default" }: ConsentB
   useEffect(() => {
     if (hasChoice) return;
     setOpen(true);
-    const t = requestAnimationFrame(() => {
+    const raf = requestAnimationFrame(() => {
       requestAnimationFrame(() => setVisible(true));
     });
-    return () => cancelAnimationFrame(t);
+    return () => cancelAnimationFrame(raf);
   }, [hasChoice]);
 
   useEffect(() => {
@@ -93,15 +108,31 @@ export default function ConsentBanner({ onConsent, theme = "default" }: ConsentB
     setVisible(false);
     window.setTimeout(() => setOpen(false), ANIM_MS);
     onConsent(value);
-    showToast(value === "accepted" ? "✓ Danke — nie wieder gefragt" : "Verstanden · Kein Tracking aktiv");
+    showToast(
+      value === "accepted"
+        ? t("consent_toast_accepted", locale)
+        : t("consent_toast_declined", locale),
+    );
   };
 
   if (!open) return null;
 
+  const buttonStyle: React.CSSProperties = {
+    padding: "14px 0",
+    borderRadius: 10,
+    fontSize: 15,
+    fontWeight: 600,
+    border: `1px solid ${tokens.btnBorder}`,
+    background: tokens.btnBg,
+    color: tokens.btnText,
+    cursor: "pointer",
+    transition: "background 0.15s ease",
+  };
+
   return (
     <>
       <div
-        className="fixed inset-0 z-[950] flex items-end justify-center"
+        className="fixed inset-0 z-[950]"
         onClick={() => decide("declined")}
         style={{
           backgroundColor: "rgba(0,0,0,0.5)",
@@ -118,130 +149,87 @@ export default function ConsentBanner({ onConsent, theme = "default" }: ConsentB
         }}
       >
         <div
-          className="mx-auto w-full max-w-[560px] rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.35)] overflow-hidden"
+          className="mx-auto w-full max-w-[480px] rounded-3xl shadow-[0_18px_60px_rgba(0,0,0,0.35)] overflow-hidden"
           style={{
-            backgroundColor: t.panel,
-            border: `1px solid ${t.panelBorder}`,
+            backgroundColor: tokens.panel,
+            border: `1px solid ${tokens.panelBorder}`,
           }}
         >
-          <div className="p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 py-7" onClick={(e) => e.stopPropagation()}>
             <div
-              className="text-[1.1rem] font-extrabold leading-snug"
-              style={{ color: t.headline, fontFamily: t.headlineFontFamily }}
+              className="text-[1.25rem] font-extrabold leading-snug"
+              style={{ color: tokens.headline, fontFamily: tokens.headlineFontFamily }}
             >
-              Hilf uns die Karte besser zu machen. 🙌
+              {t("help_improve", locale)}
             </div>
             <div
-              className="mt-2 text-[0.82rem] leading-relaxed"
-              style={{ color: t.subText }}
+              className="mt-2.5 text-[0.92rem] leading-relaxed"
+              style={{ color: tokens.subText }}
             >
-              Wir speichern anonym wie du die Karte nutzt — kein Name, kein Profil, kein Standort. 🤝 Einmalig gefragt, nie wieder.
+              {t("help_improve_sub", locale)}
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {[
-                { emoji: "🙈", title: "Kein Name", sub: "Wir wissen nicht wer du bist" },
-                { emoji: "📵", title: "Kein Standort", sub: "Kein GPS, keine Adresse" },
-                { emoji: "🔥", title: "Nur Beliebtheit", sub: "Welche Gerichte gerade gefragt sind" },
-              ].map((c) => (
-                <div
-                  key={c.title}
-                  className="rounded-2xl border px-3 py-3 text-center"
-                  style={{ borderColor: t.cardBorder, backgroundColor: t.cardBg }}
-                >
-                  {theme === "warm" ? null : (
-                    <div className="text-[1.4rem]">{c.emoji}</div>
-                  )}
-                  <div
-                    className={
-                      theme === "warm"
-                        ? "text-[0.74rem] font-bold"
-                        : "mt-1 text-[0.74rem] font-bold"
-                    }
-                    style={{ color: t.cardTitle }}
-                  >
-                    {c.title}
-                  </div>
-                  <div
-                    className="mt-0.5 text-[0.7rem] leading-snug"
-                    style={{ color: t.cardSub }}
-                  >
-                    {c.sub}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              className="mt-4 text-[0.78rem] font-semibold underline underline-offset-4"
-              style={{ color: t.linkColor }}
-              onClick={() => window.open("/datenschutz", "_blank")}
+            <a
+              href="/datenschutz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block text-[0.85rem] font-semibold"
+              style={{ color: tokens.linkColor }}
             >
-              {theme === "warm" ? "Volle Transparenz →" : "🔍 Volle Transparenz →"}
-            </button>
+              {t("consent_more", locale)} →
+            </a>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
+            <div className="mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => decide("declined")}
-                className="w-full"
-                style={{
-                  padding: "12px 0",
-                  flex: 1,
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  border: `1.5px solid ${t.btnBorder}`,
-                  background: "transparent",
-                  color: t.btnText,
-                  cursor: "pointer",
+                style={buttonStyle}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = tokens.btnBgHover;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = tokens.btnBg;
                 }}
               >
-                Lieber nicht
+                {t("consent_decline", locale)}
               </button>
               <button
                 type="button"
                 onClick={() => decide("accepted")}
-                className="w-full"
-                style={{
-                  padding: "12px 0",
-                  flex: 1,
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  border: `1.5px solid ${t.btnBorder}`,
-                  background: "transparent",
-                  color: t.btnText,
-                  cursor: "pointer",
+                style={buttonStyle}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = tokens.btnBgHover;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = tokens.btnBg;
                 }}
               >
-                {theme === "warm" ? "Ja, ich helfe gerne" : "Ja, ich helfe gerne 🙌"}
+                {t("consent_accept", locale)}
               </button>
             </div>
 
             <div
-              className="mt-4 flex items-center justify-center gap-4 text-[0.72rem]"
-              style={{ color: t.footerLink }}
+              className="mt-5 flex items-center justify-center gap-4 text-[0.72rem]"
+              style={{ color: tokens.footerLink }}
             >
               <a
                 className="underline underline-offset-4"
                 href="/datenschutz"
                 target="_blank"
-                rel="noreferrer"
-                style={{ color: t.footerLink }}
+                rel="noopener noreferrer"
+                style={{ color: tokens.footerLink }}
               >
-                Datenschutzerklärung
+                {t("privacy_policy_link", locale)}
               </a>
               <span>·</span>
               <a
                 className="underline underline-offset-4"
                 href="/impressum"
                 target="_blank"
-                rel="noreferrer"
-                style={{ color: t.footerLink }}
+                rel="noopener noreferrer"
+                style={{ color: tokens.footerLink }}
               >
-                Impressum
+                {t("imprint", locale)}
               </a>
             </div>
           </div>
@@ -264,4 +252,3 @@ export default function ConsentBanner({ onConsent, theme = "default" }: ConsentB
     </>
   );
 }
-

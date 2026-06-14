@@ -42,9 +42,9 @@ const HEATS: Heat[] = ["Hot", "Warm", "Kalt"];
 
 function stageColor(stage: Stage | null): string {
   const s = (stage ?? "Kontaktiert").toLowerCase();
-  if (s.includes("demo")) return "#ff5c1a";
+  if (s.includes("demo")) return "#9333ea";
   if (s.includes("follow")) return "#5b9bff";
-  if (s.includes("gew")) return "#00c8a0";
+  if (s.includes("gew")) return "#9333ea";
   if (s.includes("verl")) return "#ff4b6e";
   return "#ffd426";
 }
@@ -72,6 +72,7 @@ function emptyForm(): FormState {
 export function KontakteTab({ isMobile, onRefresh }: Props) {
   const [items, setItems] = useState<PipelineItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,12 +80,15 @@ export function KontakteTab({ isMobile, onRefresh }: Props) {
 
   async function loadItems(): Promise<void> {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("pipeline")
-      .select("id,name,inhaber,bezirk,telefon,waerme,stage,next_action,notizen,created_at")
-      .order("created_at", { ascending: false });
-    if (!error) setItems((data ?? []) as PipelineItem[]);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from("pipeline")
+        .select("id,name,inhaber,bezirk,telefon,waerme,stage,next_action,notizen,created_at")
+        .order("created_at", { ascending: false });
+      if (!error) setItems((data ?? []) as PipelineItem[]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -118,53 +122,58 @@ export function KontakteTab({ isMobile, onRefresh }: Props) {
   }
 
   async function save(): Promise<void> {
-    if (!form.name.trim()) return;
+    if (saving || !form.name.trim()) return;
+    setSaving(true);
     setSaveError(null);
-    const payload = {
-      name: form.name.trim(),
-      inhaber: form.inhaber.trim() || null,
-      bezirk: form.bezirk.trim() || null,
-      telefon: form.telefon.trim() || null,
-      waerme: form.waerme,
-      stage: form.stage,
-      next_action: form.next_action.trim() || null,
-      notizen: form.notizen.trim() || null,
-      status: form.stage,
-    };
-    if (editingId) {
-      const { data, error } = await supabase
-        .from("pipeline")
-        .update(payload)
-        .eq("id", editingId)
-        .select("id,name,inhaber,bezirk,telefon,waerme,stage,next_action,notizen,created_at")
-        .single();
-      if (error) {
-        console.error("Pipeline UPDATE Fehler:", error);
-        setSaveError(`Fehler beim Speichern: ${error.message}`);
-        return;
+    try {
+      const payload = {
+        name: form.name.trim(),
+        inhaber: form.inhaber.trim() || null,
+        bezirk: form.bezirk.trim() || null,
+        telefon: form.telefon.trim() || null,
+        waerme: form.waerme,
+        stage: form.stage,
+        next_action: form.next_action.trim() || null,
+        notizen: form.notizen.trim() || null,
+        status: form.stage,
+      };
+      if (editingId) {
+        const { data, error } = await supabase
+          .from("pipeline")
+          .update(payload)
+          .eq("id", editingId)
+          .select("id,name,inhaber,bezirk,telefon,waerme,stage,next_action,notizen,created_at")
+          .single();
+        if (error) {
+          console.error("Pipeline UPDATE Fehler:", error);
+          setSaveError(`Fehler beim Speichern: ${error.message}`);
+          return;
+        }
+        setItems((prev) =>
+          prev.map((p) =>
+            p.id === editingId ? ({ ...(data as PipelineItem) } as PipelineItem) : p,
+          ),
+        );
+      } else {
+        const { data, error } = await supabase
+          .from("pipeline")
+          .insert(payload)
+          .select("id,name,inhaber,bezirk,telefon,waerme,stage,next_action,notizen,created_at")
+          .single();
+        if (error) {
+          console.error("Pipeline INSERT Fehler:", error);
+          setSaveError(`Fehler beim Speichern: ${error.message}`);
+          return;
+        }
+        setItems((prev) => [{ ...(data as PipelineItem) } as PipelineItem, ...prev]);
       }
-      setItems((prev) =>
-        prev.map((p) =>
-          p.id === editingId ? ({ ...(data as PipelineItem) } as PipelineItem) : p,
-        ),
-      );
-    } else {
-      const { data, error } = await supabase
-        .from("pipeline")
-        .insert(payload)
-        .select("id,name,inhaber,bezirk,telefon,waerme,stage,next_action,notizen,created_at")
-        .single();
-      if (error) {
-        console.error("Pipeline INSERT Fehler:", error);
-        setSaveError(`Fehler beim Speichern: ${error.message}`);
-        return;
-      }
-      setItems((prev) => [{ ...(data as PipelineItem) } as PipelineItem, ...prev]);
+      setModalOpen(false);
+      setEditingId(null);
+      setForm(emptyForm());
+      void onRefresh();
+    } finally {
+      setSaving(false);
     }
-    setModalOpen(false);
-    setEditingId(null);
-    setForm(emptyForm());
-    void onRefresh();
   }
 
   const sorted = useMemo(() => items, [items]);
@@ -179,9 +188,9 @@ export function KontakteTab({ isMobile, onRefresh }: Props) {
           style={{
             padding: "10px 14px",
             borderRadius: 10,
-            border: "1px solid rgba(255,92,26,0.4)",
-            background: "rgba(255,92,26,0.12)",
-            color: "#ff5c1a",
+            border: "1px solid rgba(147,51,234,0.4)",
+            background: "rgba(147,51,234,0.12)",
+            color: "#9333ea",
             fontWeight: 700,
             fontSize: 12,
             cursor: "pointer",
@@ -407,18 +416,20 @@ export function KontakteTab({ isMobile, onRefresh }: Props) {
               <button
                 type="button"
                 onClick={() => void save()}
+                disabled={saving || !form.name.trim()}
                 style={{
                   border: "none",
-                  background: "linear-gradient(135deg,#ff5c1a,#ff8c4a)",
+                  background: "linear-gradient(135deg,#9333ea,#7c3aed)",
                   color: "#fff",
                   borderRadius: 8,
                   padding: "9px 14px",
                   fontSize: 12,
                   fontWeight: 700,
-                  cursor: "pointer",
+                  cursor: saving ? "wait" : "pointer",
+                  opacity: saving || !form.name.trim() ? 0.55 : 1,
                 }}
               >
-                Speichern
+                {saving ? "Speichert …" : "Speichern"}
               </button>
             </div>
           </div>

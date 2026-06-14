@@ -47,7 +47,7 @@ type AddDraft = {
 const COLS: Array<{ key: TodoStatus; title: string; accent: string }> = [
   { key: "todo", title: "Zu erledigen", accent: "#ffd426" },
   { key: "in_progress", title: "In Arbeit", accent: "#5b9bff" },
-  { key: "done", title: "Erledigt", accent: "#00c8a0" },
+  { key: "done", title: "Erledigt", accent: "#9333ea" },
 ];
 
 function normalizeStatus(x: unknown, done: boolean): TodoStatus {
@@ -499,7 +499,7 @@ export function TodoTab({ isMobile, onRefresh }: Props) {
                               e.stopPropagation();
                               void move(t, "done");
                             }}
-                            style={miniBtn("rgba(0,200,160,0.18)")}
+                            style={miniBtn("rgba(147,51,234,0.18)")}
                           >
                             → Erledigt
                           </button>
@@ -664,8 +664,8 @@ export function TodoTab({ isMobile, onRefresh }: Props) {
                 disabled={pending || !addDraft.text.trim()}
                 style={{
                   border: "none",
-                  background: "#00c8a0",
-                  color: "#000",
+                  background: "#9333ea",
+                  color: "#fff",
                   borderRadius: 8,
                   padding: "10px 14px",
                   fontSize: 12,

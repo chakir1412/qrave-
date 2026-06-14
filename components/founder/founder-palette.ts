@@ -3,7 +3,7 @@ export const fp = {
   bg: "#0c0c0f",
   card: "linear-gradient(145deg,#17171f,#141420)",
   sidebar: "linear-gradient(180deg,#111118,#0e0e15)",
-  or: "#FF5C1A",
+  or: "#9333ea",
   blue: "#5B9BFF",
   green: "#34E89E",
   yellow: "#FFD426",
