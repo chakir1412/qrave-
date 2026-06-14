@@ -1,5 +1,7 @@
 "use client";
+import { tCategory } from "@/lib/i18n-menu";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SpeisekarteProps } from "@/components/speisekarte";
 import type { MenuItem } from "@/lib/supabase";
@@ -14,7 +16,7 @@ import { dailyPushToMenuItem } from "@/components/speisekarte/DailyPush";
 import { deriveCategoryTabsFromItems, buildSectionsForCategoryTab, categoryTabLabel, CATEGORY_TAB_ALLE_KEY } from "@/components/speisekarte/menu-layout";
 import { activeLunchOffers } from "@/lib/lunch";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
-import { type FilterKey } from "@/components/speisekarte/constants";
+import { type FilterKey, IMG_BLUR_DATA_URL } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
@@ -27,9 +29,11 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 };
 
 export default function PlayfulTemplate(props: SpeisekarteProps) {
-  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
-  const bgTheme = resolveBackground("playful", backgroundMode as BackgroundMode | null);
-  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted };
+  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null , locale = "de" } = props;
+  // Playful ignoriert custom_bg_color/custom_text_color — die Pink-CI ist
+  // konstitutiv für das Template.
+  const bgTheme = resolveBackground("playful", backgroundMode as BackgroundMode | null, null, null);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted, card: bgTheme.card };
   const [splashOpen, setSplashOpen] = useState(true);
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -46,6 +50,20 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
   const [hasActiveLunch, setHasActiveLunch] = useState(false);
   useEffect(() => { const u = () => setHasActiveLunch(activeLunchOffers(lunchOffers).length > 0); u(); const t = window.setInterval(u, 60_000); return () => window.clearInterval(t); }, [lunchOffers]);
   useMemo(() => { track("view_menu", { restaurantName, hasDailyPush: dailyPushes.length > 0, itemCount: menuItems.length, template: "playful" }); return undefined; }, [track, restaurantName, dailyPushes.length, menuItems.length]);
+/** Sichtbare Diät-Filter-Pills: nur die mit mindestens einem matching-Tag. */
+  const visibleFilterKeys = useMemo<ReadonlyArray<FilterKey>>(() => {
+    const has = (aliases: ReadonlyArray<string>) =>
+      menuItems.some((it) =>
+        (it.tags ?? []).some((tag) => aliases.includes(tag.trim().toLowerCase())),
+      );
+    const out: FilterKey[] = ["all"];
+    if (has(["vegan", "v"])) out.push("vegan");
+    if (has(["vegetarisch", "veg", "vegetarian"])) out.push("veg");
+    if (has(["glutenfrei", "gf", "gluten-free"])) out.push("gf");
+    if (has(["scharf", "spicy"])) out.push("spicy");
+    return out;
+  }, [menuItems]);
+
   const derivedTabs = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
   const splashCategories = derivedTabs;
   const mainTabs = useMemo(() => hasActiveLunch ? [{ key: LUNCH_TAB_KEY, label: "Mittagsangebot" }, ...derivedTabs] : derivedTabs, [derivedTabs, hasActiveLunch]);
@@ -64,8 +82,7 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
   const toggleAllergen = useCallback((id: string) => setActiveAllergens((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }), []);
   const filterItems = useCallback((items: MenuItem[]) => {
     let list = items;
-    if (filter !== "all") { const aliases = FILTER_TAG_ALIASES[filter]; list = list.filter((it) => (it.tags ?? []).map((t) => t.trim().toLowerCase()).some((t) => aliases.includes(t))); }
-    if (activeAllergens.size > 0) list = list.filter((it) => !((it.allergen_ids ?? []) as string[]).some((a) => activeAllergens.has(a)));
+    if (filter !== "all") { const aliases = FILTER_TAG_ALIASES[filter]; list = list.filter((it) => (it.tags ?? []).map((t) => t.trim().toLowerCase()).some((t) => aliases.includes(t))); if (filter === "vegan" || filter === "veg") list = list.filter((it) => (it.main_tab ?? "").toLowerCase() !== "getraenke"); }
     return list;
   }, [filter, activeAllergens]);
   const handleDailyPushClick = useCallback((dpId: string) => {
@@ -85,7 +102,7 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
   const featured = dailyPushes[0] ?? null;
 
   return (
-    <div className="speisekarte-template" style={{ background: bgTheme.bg, color: bgTheme.text, minHeight: "100vh", overflowX: "hidden" }}>
+    <div className="speisekarte-template" style={{ background: bgTheme.bg, color: bgTheme.text, minHeight: "100dvh", overflowX: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap');
         .play-template { font-family: 'DM Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -105,11 +122,11 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
         @keyframes playSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes playFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-      {!consentGiven && <ConsentBanner onConsent={() => setConsentGiven(true)} />}
+      {!consentGiven && <ConsentBanner locale={locale} onConsent={() => setConsentGiven(true)} />}
 
       <div className="play-template" style={{ maxWidth: 430, margin: "0 auto", width: "100%", paddingBottom: 100 }}>
         {splashOpen ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "40px 24px", textAlign: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100dvh", padding: "40px 24px", textAlign: "center" }}>
             <div className="play-blob" style={{ width: 200, height: 200, background: "rgba(255,61,127,0.15)", marginBottom: -60 }} />
             <div style={{ overflow: "hidden", padding: "0 20px", width: "100%", maxWidth: "100%" }}>
               <h1
@@ -173,10 +190,11 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
                   <button
                     key={tab.key}
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
                       setPickedMainTab(tab.key);
                       setFilter("all");
                       if (tab.key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(tab.key));
+                      (e.currentTarget as HTMLButtonElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
                     }}
                     style={{
                       flexShrink: 0,
@@ -186,30 +204,33 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
                       fontWeight: 700,
                       letterSpacing: "0.04em",
                       textTransform: "uppercase",
-                      color: active ? COL.accent : COL.text,
+                      color: active ? COL.accent : COL.muted,
                       background: "transparent",
                       border: "none",
                       borderBottomWidth: 3,
                       borderBottomStyle: "solid",
                       borderBottomColor: active ? COL.accent : "transparent",
+                      opacity: active ? 1 : 0.85,
                       cursor: "pointer",
                       whiteSpace: "nowrap",
                       marginBottom: -2,
                     }}
                   >
-                    {tab.label}
+                    {tab.key === LUNCH_TAB_KEY ? tab.label : tCategory(tab.label, locale)}
                   </button>
                 );
               })}
             </nav>
 
-            <div className="play-scrollbar-hide" style={{ display: "flex", gap: 8, padding: "8px 16px 12px", overflowX: "auto" }}>
-              {(["all", "vegan", "veg", "gf"] as FilterKey[]).map((k) => {
-                const active = filter === k;
-                const label = k === "all" ? "Alle" : k === "vegan" ? "Vegan" : k === "veg" ? "Vegetarisch" : "GF";
-                return (<button key={k} type="button" onClick={() => setFilter(k)} style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, padding: "6px 16px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", border: `2px solid ${COL.text}`, background: active ? COL.text : "transparent", color: active ? "#fff" : COL.text }}>{label}</button>);
-              })}
-            </div>
+            {visibleFilterKeys.length > 1 ? (
+              <div className="play-scrollbar-hide" style={{ display: "flex", gap: 8, padding: "8px 16px 12px", overflowX: "auto" }}>
+                {visibleFilterKeys.map((k) => {
+                  const active = filter === k;
+                  const label = k === "all" ? "Alle" : k === "vegan" ? "Vegan" : k === "veg" ? "Vegetarisch" : "GF";
+                  return (<button key={k} type="button" onClick={() => setFilter(k)} style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, padding: "6px 16px", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap", border: `2px solid ${COL.text}`, background: active ? COL.text : "transparent", color: active ? "#fff" : COL.text }}>{label}</button>);
+                })}
+              </div>
+            ) : null}
 
             {guestNote && guestNote.trim() ? <div style={{ padding: "0 16px 8px" }}><GuestNoteBanner note={guestNote} /></div> : null}
 
@@ -233,7 +254,7 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
                     if (items.length === 0) return null;
                     return (
                       <section key={sec.kategorie} ref={(el) => onCategorySectionRef(sec.kategorie, el)} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        {items.map((item) => {
+                        {items.map((item, i) => {
                           const soldOut = item.sold_out === true;
                           const hasImg = Boolean(item.bild_url);
                           const tags = (item.tags ?? []).map((t) => t.trim().toLowerCase());
@@ -241,10 +262,10 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
                           const isSpicy = tags.includes("scharf") || tags.includes("spicy");
                           return (
                             <button key={item.id} type="button" ref={(el) => onItemCardRef?.(item, el as HTMLElement | null)} onClick={() => pushModal(item)} className="play-item" style={{ background: COL.white, borderRadius: 20, padding: 16, display: "flex", gap: 14, alignItems: "center", cursor: "pointer", border: `2px solid ${COL.text}`, boxShadow: `4px 4px 0 ${COL.text}`, transition: "transform 0.15s, box-shadow 0.15s", textAlign: "left", opacity: soldOut ? 0.5 : 1, color: "inherit" }}>
-                              <div style={{ width: 80, minWidth: 80, height: 80, borderRadius: 14, background: COL.bg, border: `2px solid ${COL.text}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, flexShrink: 0, overflow: "hidden" }}>
+                              <div style={{ width: 72, minWidth: 72, height: 72, borderRadius: 14, background: COL.bg, border: `2px solid ${COL.text}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, flexShrink: 0, overflow: "hidden" }}>
                                 {hasImg ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={item.bild_url as string} alt={item.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
+                                  <Image src={item.bild_url as string} alt={item.name} width={72} height={72} priority={i < 4} placeholder="blur" blurDataURL={IMG_BLUR_DATA_URL} sizes="72px" style={{ width: "100%", height: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
                                 ) : (<span aria-hidden>{item.emoji || "🍽"}</span>)}
                               </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
@@ -289,16 +310,11 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
             <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.text, fontWeight: 700 }}>Merkliste</span>
             {cartCount > 0 ? (<span style={{ position: "absolute", top: -4, right: 8, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: COL.accent, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{cartCount}</span>) : null}
           </button>
-          <button type="button" onClick={() => setAllergenOpen(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", opacity: 0.35, background: "transparent", border: "none" }}>
-            <span style={{ fontSize: 20 }} aria-hidden>⚠</span>
-            <span style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: COL.text, fontWeight: 700 }}>Allergene</span>
-          </button>
         </nav>
       ) : null}
 
       {modalItem && (<HeritageItemModal item={modalItem} menuItems={menuItems} sponsoredItems={sponsoredItems} restaurantId={restaurantId} onClose={popModal} onSelectItem={pushModal} onAddToWishlist={handleAddToWishlist} isInWishlist={isInWishlist} onToggleWishlist={handleToggleWishlist} theme="playful" />)}
-      <Wishlist open={wishlistOpen} onClose={closeWishlist} overlayZIndex={999} cart={entries} onUpdateQty={updateQty} onRemove={handleRemoveFromWishlist} cartTotal={cartTotal} onClear={clearWishlist} restaurantName={restaurantName} />
-      <AllergenSheet open={allergenOpen} onClose={() => setAllergenOpen(false)} activeAllergens={activeAllergens} onToggleAllergen={toggleAllergen} onApply={() => setAllergenOpen(false)} onClearAll={() => setActiveAllergens(new Set())} theme="playful" />
+      <Wishlist open={wishlistOpen} onClose={closeWishlist} overlayZIndex={999} cart={entries} onUpdateQty={updateQty} onRemove={handleRemoveFromWishlist} cartTotal={cartTotal} onClear={clearWishlist} restaurantName={restaurantName} locale={locale} />
     </div>
   );
 }

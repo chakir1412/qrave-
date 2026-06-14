@@ -1,5 +1,7 @@
 "use client";
+import { tCategory } from "@/lib/i18n-menu";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SpeisekarteProps } from "@/components/speisekarte";
 import type { MenuItem } from "@/lib/supabase";
@@ -14,7 +16,7 @@ import { dailyPushToMenuItem } from "@/components/speisekarte/DailyPush";
 import { deriveCategoryTabsFromItems, buildSectionsForCategoryTab, categoryTabLabel, CATEGORY_TAB_ALLE_KEY } from "@/components/speisekarte/menu-layout";
 import { activeLunchOffers } from "@/lib/lunch";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
-import { type FilterKey } from "@/components/speisekarte/constants";
+import { type FilterKey, IMG_BLUR_DATA_URL } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
@@ -26,9 +28,9 @@ const FILTER_TAG_ALIASES: Record<FilterKey, ReadonlyArray<string>> = {
 };
 
 export default function MediterraneanTemplate(props: SpeisekarteProps) {
-  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null } = props;
-  const bgTheme = resolveBackground("mediterranean", backgroundMode as BackgroundMode | null);
-  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted };
+  const { menuItems, restaurantName, dailyPushes = [], restaurantId, tischNummer, sponsoredItems = [], guestNote = null, lunchOffers = [], backgroundMode = null, customBgColor = null, customTextColor = null , locale = "de" } = props;
+  const bgTheme = resolveBackground("mediterranean", backgroundMode as BackgroundMode | null, customBgColor, customTextColor);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted, card: bgTheme.card, accent: props.accentColor || COL_DEFAULT.accent };
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [activeAllergens, setActiveAllergens] = useState<Set<string>>(new Set());
@@ -44,6 +46,20 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
   const [hasActiveLunch, setHasActiveLunch] = useState(false);
   useEffect(() => { const u = () => setHasActiveLunch(activeLunchOffers(lunchOffers).length > 0); u(); const t = window.setInterval(u, 60_000); return () => window.clearInterval(t); }, [lunchOffers]);
   useMemo(() => { track("view_menu", { restaurantName, hasDailyPush: dailyPushes.length > 0, itemCount: menuItems.length, template: "mediterranean" }); return undefined; }, [track, restaurantName, dailyPushes.length, menuItems.length]);
+/** Sichtbare Diät-Filter-Pills: nur die mit mindestens einem matching-Tag. */
+  const visibleFilterKeys = useMemo<ReadonlyArray<FilterKey>>(() => {
+    const has = (aliases: ReadonlyArray<string>) =>
+      menuItems.some((it) =>
+        (it.tags ?? []).some((tag) => aliases.includes(tag.trim().toLowerCase())),
+      );
+    const out: FilterKey[] = ["all"];
+    if (has(["vegan", "v"])) out.push("vegan");
+    if (has(["vegetarisch", "veg", "vegetarian"])) out.push("veg");
+    if (has(["glutenfrei", "gf", "gluten-free"])) out.push("gf");
+    if (has(["scharf", "spicy"])) out.push("spicy");
+    return out;
+  }, [menuItems]);
+
   const derivedTabs = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
   const mainTabs = useMemo(() => hasActiveLunch ? [{ key: LUNCH_TAB_KEY, label: "Mittagsangebot" }, ...derivedTabs] : derivedTabs, [derivedTabs, hasActiveLunch]);
   const mainTab = useMemo(() => (pickedMainTab && mainTabs.some((t) => t.key === pickedMainTab)) ? pickedMainTab : (mainTabs[0]?.key ?? CATEGORY_TAB_ALLE_KEY), [pickedMainTab, mainTabs]);
@@ -61,8 +77,7 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
   const toggleAllergen = useCallback((id: string) => setActiveAllergens((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }), []);
   const filterItems = useCallback((items: MenuItem[]) => {
     let list = items;
-    if (filter !== "all") { const aliases = FILTER_TAG_ALIASES[filter]; list = list.filter((it) => (it.tags ?? []).map((t) => t.trim().toLowerCase()).some((t) => aliases.includes(t))); }
-    if (activeAllergens.size > 0) list = list.filter((it) => !((it.allergen_ids ?? []) as string[]).some((a) => activeAllergens.has(a)));
+    if (filter !== "all") { const aliases = FILTER_TAG_ALIASES[filter]; list = list.filter((it) => (it.tags ?? []).map((t) => t.trim().toLowerCase()).some((t) => aliases.includes(t))); if (filter === "vegan" || filter === "veg") list = list.filter((it) => (it.main_tab ?? "").toLowerCase() !== "getraenke"); }
     return list;
   }, [filter, activeAllergens]);
   const handleDailyPushClick = useCallback((dpId: string) => {
@@ -75,7 +90,7 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
   const featured = dailyPushes[0] ?? null;
 
   return (
-    <div className="speisekarte-template" style={{ background: bgTheme.bg, color: bgTheme.text, minHeight: "100vh" }}>
+    <div className="speisekarte-template" style={{ background: bgTheme.bg, color: bgTheme.text, minHeight: "100dvh" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
         .med-template { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
@@ -89,7 +104,7 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
         .med-template .med-item:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(44,26,14,0.1) !important; }
         @keyframes medFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-      {!consentGiven && <ConsentBanner theme="warm" onConsent={() => setConsentGiven(true)} />}
+      {!consentGiven && <ConsentBanner locale={locale} theme="warm" onConsent={() => setConsentGiven(true)} />}
 
       {/* Ornamental top stripe */}
       <div aria-hidden style={{ height: 6, background: `repeating-linear-gradient(90deg, ${COL.terracotta} 0px, ${COL.terracotta} 12px, ${COL.gold} 12px, ${COL.gold} 24px, ${COL.accent2} 24px, ${COL.accent2} 36px, ${COL.gold} 36px, ${COL.gold} 48px)` }} />
@@ -108,25 +123,26 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
           {mainTabs.map((tab) => {
             const active = effectiveMainTab === tab.key;
             return (
-              <button key={tab.key} type="button" onClick={() => { setPickedMainTab(tab.key); setFilter("all"); if (tab.key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(tab.key)); }} style={{
+              <button key={tab.key} type="button" onClick={(e) => { setPickedMainTab(tab.key); setFilter("all"); if (tab.key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(tab.key)); (e.currentTarget as HTMLButtonElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); }} style={{
                 fontSize: 12, fontWeight: active ? 600 : 500, color: active ? COL.accent : COL.muted,
                 padding: "13px 14px", cursor: "pointer", borderBottom: `2px solid ${active ? COL.accent : "transparent"}`,
                 marginBottom: -1, whiteSpace: "nowrap", background: "transparent", border: "none", borderBottomWidth: 2,
                 borderBottomStyle: "solid", borderBottomColor: active ? COL.accent : "transparent", flexShrink: 0,
                 transition: "color 0.2s, border-color 0.2s",
-              }}>{tab.label}</button>
+              }}>{tab.key === LUNCH_TAB_KEY ? tab.label : tCategory(tab.label, locale)}</button>
             );
           })}
         </nav>
 
-        <div className="med-scrollbar-hide" style={{ display: "flex", gap: 8, padding: "10px 16px", overflowX: "auto" }}>
-          {(["all", "vegan", "veg", "gf"] as FilterKey[]).map((k) => {
-            const active = filter === k;
-            const label = k === "all" ? "Alle" : k === "vegan" ? "Vegan" : k === "veg" ? "Vegetarisch" : "GF";
-            return (<button key={k} type="button" onClick={() => setFilter(k)} style={{ flexShrink: 0, fontSize: 11, fontWeight: 500, padding: "5px 12px", borderRadius: 999, border: `1px solid ${active ? COL.accent : COL.border}`, background: active ? "rgba(192,88,10,0.08)" : "transparent", color: active ? COL.accent : COL.muted, cursor: "pointer", whiteSpace: "nowrap" }}>{label}</button>);
-          })}
-          <button type="button" onClick={() => setAllergenOpen(true)} style={{ flexShrink: 0, fontSize: 11, fontWeight: 500, padding: "5px 12px", borderRadius: 999, border: `1px solid ${activeAllergens.size > 0 ? COL.terracotta : COL.border}`, background: "transparent", color: activeAllergens.size > 0 ? COL.terracotta : COL.muted, cursor: "pointer", whiteSpace: "nowrap" }}>{activeAllergens.size > 0 ? `Allergene (${activeAllergens.size})` : "Allergene"}</button>
-        </div>
+        {visibleFilterKeys.length > 1 ? (
+          <div className="med-scrollbar-hide" style={{ display: "flex", gap: 8, padding: "10px 16px", overflowX: "auto" }}>
+            {visibleFilterKeys.map((k) => {
+              const active = filter === k;
+              const label = k === "all" ? "Alle" : k === "vegan" ? "Vegan" : k === "veg" ? "Vegetarisch" : "GF";
+              return (<button key={k} type="button" onClick={() => setFilter(k)} style={{ flexShrink: 0, fontSize: 11, fontWeight: 500, padding: "5px 12px", borderRadius: 999, border: `1px solid ${active ? COL.accent : COL.border}`, background: active ? "rgba(192,88,10,0.08)" : "transparent", color: active ? COL.accent : COL.muted, cursor: "pointer", whiteSpace: "nowrap" }}>{label}</button>);
+            })}
+          </div>
+        ) : null}
 
         {guestNote && guestNote.trim() ? <div style={{ padding: "0 16px" }}><GuestNoteBanner note={guestNote} /></div> : null}
 
@@ -155,7 +171,7 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
                 if (items.length === 0) return null;
                 return (
                   <section key={sec.kategorie} ref={(el) => onCategorySectionRef(sec.kategorie, el)} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {items.map((item) => {
+                    {items.map((item, i) => {
                       const soldOut = item.sold_out === true;
                       const hasImg = Boolean(item.bild_url);
                       const tags = (item.tags ?? []).map((t) => t.trim().toLowerCase());
@@ -167,7 +183,7 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
                           <div style={{ width: "100%", height: 170, background: "linear-gradient(135deg, #f0e6d8, #e8d8c4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 72, position: "relative", overflow: "hidden" }}>
                             {hasImg ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={item.bild_url as string} alt={item.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} style={{ width: "100%", height: "100%", objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
+                              <Image src={item.bild_url as string} alt={item.name} fill priority={i < 4} placeholder="blur" blurDataURL={IMG_BLUR_DATA_URL} sizes="(max-width: 430px) 100vw, 430px" style={{ objectFit: "cover", filter: soldOut ? "grayscale(1)" : undefined }} />
                             ) : (<span aria-hidden>{item.emoji || "🍽"}</span>)}
                             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 60, background: `linear-gradient(transparent, ${COL.card})`, pointerEvents: "none" }} />
                           </div>
@@ -215,9 +231,13 @@ export default function MediterraneanTemplate(props: SpeisekarteProps) {
         </button>
       </nav>
 
-      {modalItem && (<HeritageItemModal item={modalItem} menuItems={menuItems} sponsoredItems={sponsoredItems} restaurantId={restaurantId} onClose={popModal} onSelectItem={pushModal} onAddToWishlist={handleAddToWishlist} isInWishlist={isInWishlist} onToggleWishlist={handleToggleWishlist} />)}
-      <Wishlist open={wishlistOpen} onClose={closeWishlist} overlayZIndex={999} cart={entries} onUpdateQty={updateQty} onRemove={handleRemoveFromWishlist} cartTotal={cartTotal} onClear={clearWishlist} restaurantName={restaurantName} />
-      <AllergenSheet open={allergenOpen} onClose={() => setAllergenOpen(false)} activeAllergens={activeAllergens} onToggleAllergen={toggleAllergen} onApply={() => setAllergenOpen(false)} onClearAll={() => setActiveAllergens(new Set())} />
+      {modalItem && (() => {
+        const modalThemeProps = customBgColor && customTextColor
+          ? { theme: "custom" as const, customBg: customBgColor, customText: customTextColor, customAccent: props.accentColor ?? COL.accent }
+          : {};
+        return <HeritageItemModal item={modalItem} menuItems={menuItems} sponsoredItems={sponsoredItems} restaurantId={restaurantId} onClose={popModal} onSelectItem={pushModal} onAddToWishlist={handleAddToWishlist} isInWishlist={isInWishlist} onToggleWishlist={handleToggleWishlist} {...modalThemeProps} />;
+      })()}
+      <Wishlist open={wishlistOpen} onClose={closeWishlist} overlayZIndex={999} cart={entries} onUpdateQty={updateQty} onRemove={handleRemoveFromWishlist} cartTotal={cartTotal} onClear={clearWishlist} restaurantName={restaurantName} locale={locale} />
     </div>
   );
 }

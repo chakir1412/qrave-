@@ -1,5 +1,7 @@
 "use client";
+import { tCategory } from "@/lib/i18n-menu";
 
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -25,7 +27,7 @@ import {
 } from "@/components/speisekarte/menu-layout";
 import { activeLunchOffers } from "@/lib/lunch";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
-import { type FilterKey } from "@/components/speisekarte/constants";
+import { type FilterKey, IMG_BLUR_DATA_URL } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
@@ -70,9 +72,12 @@ export default function CleanTemplate(props: SpeisekarteProps) {
     guestNote = null,
     lunchOffers = [],
     backgroundMode = null,
+    customBgColor = null,
+    customTextColor = null,
+    locale = "de",
   } = props;
-  const bgTheme = resolveBackground("clean", backgroundMode as BackgroundMode | null);
-  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted };
+  const bgTheme = resolveBackground("clean", backgroundMode as BackgroundMode | null, customBgColor, customTextColor);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, text: bgTheme.text, muted: bgTheme.textMuted, card: bgTheme.card, accent: props.accentColor || COL_DEFAULT.accent };
 
   /** Splash-Flow: initial true → Kategorie-Grid sichtbar. Klick auf eine
    *  Kategorie setzt sie + verlässt Splash. Back-Button kehrt zurück. */
@@ -129,7 +134,20 @@ export default function CleanTemplate(props: SpeisekarteProps) {
       template: "clean",
     });
     return undefined;
-  }, [track, restaurantName, dailyPushes.length, menuItems.length]);
+  }, [track, restaurantName, dailyPushes.length, menuItems.length]);/** Sichtbare Diät-Filter-Pills: nur die mit mindestens einem matching-Tag. */
+  const visibleFilterKeys = useMemo<ReadonlyArray<FilterKey>>(() => {
+    const has = (aliases: ReadonlyArray<string>) =>
+      menuItems.some((it) =>
+        (it.tags ?? []).some((tag) => aliases.includes(tag.trim().toLowerCase())),
+      );
+    const out: FilterKey[] = ["all"];
+    if (has(["vegan", "v"])) out.push("vegan");
+    if (has(["vegetarisch", "veg", "vegetarian"])) out.push("veg");
+    if (has(["glutenfrei", "gf", "gluten-free"])) out.push("gf");
+    if (has(["scharf", "spicy"])) out.push("spicy");
+    return out;
+  }, [menuItems]);
+
 
   const derivedTabs = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
 
@@ -224,16 +242,13 @@ export default function CleanTemplate(props: SpeisekarteProps) {
           const tags = (item.tags ?? []).map((t) => t.trim().toLowerCase());
           return aliases.some((a) => tags.includes(a));
         });
-      }
-      if (activeAllergens.size > 0) {
-        list = list.filter((item) => {
-          const ids = (item.allergen_ids ?? []) as string[];
-          return !ids.some((a) => activeAllergens.has(a));
-        });
+        if (filter === "vegan" || filter === "veg") {
+          list = list.filter((item) => (item.main_tab ?? "").toLowerCase() !== "getraenke");
+        }
       }
       return list;
     },
-    [filter, activeAllergens],
+    [filter],
   );
 
   const handleDailyPushClick = useCallback(
@@ -296,7 +311,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
       style={{
         background: bgTheme.bg,
         color: bgTheme.text,
-        minHeight: "100vh",
+        minHeight: "100dvh",
       }}
     >
       <style>{`
@@ -315,7 +330,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
       `}</style>
 
       {!consentGiven && (
-        <ConsentBanner theme="warm" onConsent={() => setConsentGiven(true)} />
+        <ConsentBanner locale={locale} theme="warm" onConsent={() => setConsentGiven(true)} />
       )}
 
       <div
@@ -386,6 +401,9 @@ export default function CleanTemplate(props: SpeisekarteProps) {
                 padding: "0 12px",
                 background: COL.white,
                 borderBottom: `1px solid ${COL.border}`,
+                position: "sticky",
+                top: 0,
+                zIndex: 10,
               }}
             >
               {mainTabs.map((tab) => {
@@ -394,10 +412,11 @@ export default function CleanTemplate(props: SpeisekarteProps) {
                   <button
                     key={tab.key}
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
                       setPickedMainTab(tab.key);
                       setFilter("all");
                       if (tab.key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(tab.key));
+                      (e.currentTarget as HTMLButtonElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
                     }}
                     style={{
                       flexShrink: 0,
@@ -418,42 +437,32 @@ export default function CleanTemplate(props: SpeisekarteProps) {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {tab.label}
+                    {tab.key === LUNCH_TAB_KEY ? tab.label : tCategory(tab.label, locale)}
                   </button>
                 );
               })}
             </nav>
 
             {/* Filter-Row */}
-            <div
-              className="clean-scrollbar-hide"
-              style={{
-                display: "flex",
-                gap: 8,
-                padding: "12px 16px",
-                overflowX: "auto",
-                background: COL.white,
-                borderBottom: `1px solid ${COL.border}`,
-              }}
-            >
-              {FILTER_OPTIONS.map((f) => (
-                <button key={f.key} type="button" onClick={() => setFilter(f.key)} style={filterPillStyle(filter === f.key)}>
-                  {f.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setAllergenOpen(true)}
+            {visibleFilterKeys.length > 1 ? (
+              <div
+                className="clean-scrollbar-hide"
                 style={{
-                  ...filterPillStyle(activeAllergens.size > 0),
-                  borderColor: activeAllergens.size > 0 ? "#c84030" : COL.border,
-                  color: activeAllergens.size > 0 ? "#c84030" : COL.muted,
-                  background: activeAllergens.size > 0 ? "rgba(200,64,48,0.07)" : "transparent",
+                  display: "flex",
+                  gap: 8,
+                  padding: "12px 16px",
+                  overflowX: "auto",
+                  background: COL.white,
+                  borderBottom: `1px solid ${COL.border}`,
                 }}
               >
-                {activeAllergens.size > 0 ? `Allergene (${activeAllergens.size})` : "Allergene"}
-              </button>
-            </div>
+                {FILTER_OPTIONS.filter((f) => visibleFilterKeys.includes(f.key)).map((f) => (
+                  <button key={f.key} type="button" onClick={() => setFilter(f.key)} style={filterPillStyle(filter === f.key)}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
             {/* Special Banner */}
             {featuredDailyPush ? (
@@ -604,19 +613,25 @@ export default function CleanTemplate(props: SpeisekarteProps) {
       </nav>
 
       {/* Item Modal — reuse Heritage's Modal */}
-      {modalItem && (
-        <HeritageItemModal
-          item={modalItem}
-          menuItems={menuItems}
-          sponsoredItems={sponsoredItems}
-          restaurantId={restaurantId}
-          onClose={popModal}
-          onSelectItem={pushModal}
-          onAddToWishlist={handleAddToWishlist}
-          isInWishlist={isInWishlist}
-          onToggleWishlist={handleToggleWishlist}
-        />
-      )}
+      {modalItem && (() => {
+        const modalThemeProps = customBgColor && customTextColor
+          ? { theme: "custom" as const, customBg: customBgColor, customText: customTextColor, customAccent: props.accentColor ?? COL.accent }
+          : {};
+        return (
+          <HeritageItemModal
+            item={modalItem}
+            menuItems={menuItems}
+            sponsoredItems={sponsoredItems}
+            restaurantId={restaurantId}
+            onClose={popModal}
+            onSelectItem={pushModal}
+            onAddToWishlist={handleAddToWishlist}
+            isInWishlist={isInWishlist}
+            onToggleWishlist={handleToggleWishlist}
+            {...modalThemeProps}
+          />
+        );
+      })()}
 
       <Wishlist
         open={wishlistOpen}
@@ -628,17 +643,8 @@ export default function CleanTemplate(props: SpeisekarteProps) {
         cartTotal={cartTotal}
         onClear={clearWishlist}
         restaurantName={restaurantName}
-      />
-
-      <AllergenSheet
-        open={allergenOpen}
-        onClose={() => setAllergenOpen(false)}
-        activeAllergens={activeAllergens}
-        onToggleAllergen={toggleAllergen}
-        onApply={() => setAllergenOpen(false)}
-        onClearAll={() => setActiveAllergens(new Set())}
-      />
-    </div>
+        locale={locale}
+      />    </div>
   );
 }
 
@@ -776,10 +782,11 @@ function CleanItemList({
             ref={(el) => onCategorySectionRef(sec.kategorie, el)}
             style={{ display: "flex", flexDirection: "column", gap: 20 }}
           >
-            {items.map((item) => (
+            {items.map((item, i) => (
               <CleanItemCard
                 key={item.id}
                 item={item}
+                index={i}
                 onClick={() => onItemClick(item)}
                 cardRef={(el) => onItemCardRef?.(item, el)}
                 COL={COL}
@@ -794,11 +801,13 @@ function CleanItemList({
 
 function CleanItemCard({
   item,
+  index,
   onClick,
   cardRef,
   COL,
 }: {
   item: MenuItem;
+  index: number;
   onClick: () => void;
   cardRef: (el: HTMLElement | null) => void;
   COL: typeof COL_DEFAULT;
@@ -836,8 +845,8 @@ function CleanItemCard({
           position: "absolute",
           top: -24,
           left: 16,
-          width: 76,
-          height: 76,
+          width: 72,
+          height: 72,
           borderRadius: 14,
           background: "linear-gradient(135deg, #f5f2ee, #e8e4dd)",
           display: "flex",
@@ -849,11 +858,15 @@ function CleanItemCard({
         }}
       >
         {hasImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={item.bild_url as string}
             alt={item.name}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            width={72}
+            height={72}
+            priority={index < 4}
+            placeholder="blur"
+            blurDataURL={IMG_BLUR_DATA_URL}
+            sizes="72px"
             style={{
               width: "100%",
               height: "100%",

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -26,9 +27,10 @@ import {
 import { activeLunchOffers } from "@/lib/lunch";
 import { DRINK_CATEGORIES } from "@/lib/category-types";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
-import { type FilterKey } from "@/components/speisekarte/constants";
+import { type FilterKey, IMG_BLUR_DATA_URL } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
+import { t, tCategory, translateAllergenText } from "@/lib/i18n-menu";
 import HeritageItemModal from "./HeritageItemModal";
 
 const COL_DEFAULT = {
@@ -47,13 +49,21 @@ const COL_DEFAULT = {
 const SERIF = 'Georgia, "Times New Roman", ui-serif, serif';
 const LUNCH_TAB_KEY = "__wirtshaus_lunch__";
 
-const FILTER_OPTIONS: ReadonlyArray<{ key: FilterKey; label: string }> = [
-  { key: "all", label: "Alle" },
-  { key: "vegan", label: "🌱 Vegan" },
-  { key: "veg", label: "🌿 Vegetarisch" },
-  { key: "gf", label: "🚫 Glutenfrei" },
-  { key: "spicy", label: "🌶 Scharf" },
-];
+const FILTER_KEYS: ReadonlyArray<FilterKey> = ["all", "vegan", "veg", "gf", "spicy"];
+const FILTER_EMOJI: Record<FilterKey, string> = {
+  all: "",
+  vegan: "🌱",
+  veg: "🌿",
+  gf: "🚫",
+  spicy: "🌶",
+};
+const FILTER_STRING_KEY = {
+  all: "all",
+  vegan: "vegan",
+  veg: "vegetarian",
+  gf: "glutenfree",
+  spicy: "spicy",
+} as const;
 
 /** Filter-Key → akzeptierte Tag-Werte. Im Repo existieren historisch zwei
  *  Schreibweisen (Kurz: "veg"/"gf"/"spicy" aus dem EditItemOverlay; Lang:
@@ -81,8 +91,11 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
     guestNote = null,
     lunchOffers = [],
     backgroundMode = null,
+    customBgColor = null,
+    customTextColor = null,
+    locale = "de",
   } = props;
-  const bgTheme = resolveBackground("heritage", backgroundMode as BackgroundMode | null);
+  const bgTheme = resolveBackground("heritage", backgroundMode as BackgroundMode | null, customBgColor, customTextColor);
   // Lokales COL überschattet das Modul-Default: bg/text/textMuted folgen
   // dem Hintergrund-Mode, alle anderen Tokens (Akzent, Divider, etc.)
   // bleiben Template-CI.
@@ -92,6 +105,8 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
     text: bgTheme.text,
     textMuted: bgTheme.textMuted,
     textSubtle: bgTheme.textMuted,
+    card: bgTheme.card,
+    accent: props.accentColor || COL_DEFAULT.accent,
   };
 
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
@@ -148,17 +163,33 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
     return undefined;
   }, [track, restaurantName, dailyPushes.length, menuItems.length]);
 
+  /** Sichtbare Diät-Filter-Pills: nur die, für die mindestens ein Item ein
+   *  passendes Tag trägt. "all" ist immer dabei. Wenn nur "all" übrig → die
+   *  ganze Filter-Leiste wird ausgeblendet (siehe Render). */
+  const visibleFilterKeys = useMemo<ReadonlyArray<FilterKey>>(() => {
+    const has = (aliases: ReadonlyArray<string>) =>
+      menuItems.some((it) =>
+        (it.tags ?? []).some((tag) => aliases.includes(tag.trim().toLowerCase())),
+      );
+    const out: FilterKey[] = ["all"];
+    if (has(["vegan", "v"])) out.push("vegan");
+    if (has(["vegetarisch", "veg", "vegetarian"])) out.push("veg");
+    if (has(["glutenfrei", "gf", "gluten-free"])) out.push("gf");
+    if (has(["scharf", "spicy"])) out.push("spicy");
+    return out;
+  }, [menuItems]);
+
   const derivedTabs = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
 
   const mainTabs = useMemo(() => {
     if (hasActiveLunch) {
-      return [{ key: LUNCH_TAB_KEY, label: "🍽 Mittagsangebot" }, ...derivedTabs];
+      return [{ key: LUNCH_TAB_KEY, label: `🍽 ${t("lunch_offer", locale)}` }, ...derivedTabs];
     }
     return derivedTabs;
-  }, [derivedTabs, hasActiveLunch]);
+  }, [derivedTabs, hasActiveLunch, locale]);
 
   const mainTab = useMemo(() => {
-    if (pickedMainTab && mainTabs.some((t) => t.key === pickedMainTab)) return pickedMainTab;
+    if (pickedMainTab && mainTabs.some((tab) => tab.key === pickedMainTab)) return pickedMainTab;
     return mainTabs[0]?.key ?? CATEGORY_TAB_ALLE_KEY;
   }, [pickedMainTab, mainTabs]);
 
@@ -181,9 +212,9 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
   const activeCategoryLabel = useMemo(
     () =>
       effectiveMainTab === LUNCH_TAB_KEY
-        ? "Mittagsangebot"
-        : categoryTabLabel(effectiveMainTab),
-    [effectiveMainTab],
+        ? t("lunch_offer", locale)
+        : tCategory(categoryTabLabel(effectiveMainTab), locale),
+    [effectiveMainTab, locale],
   );
 
   const { onCategorySectionRef, onItemCardRef, trackWishlistAdd, trackWishlistRemove, trackCategoryTabSelect } =
@@ -245,19 +276,16 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
       if (filter !== "all") {
         const aliases = FILTER_TAG_ALIASES[filter];
         list = list.filter((item) => {
-          const tags = (item.tags ?? []).map((t) => t.trim().toLowerCase());
+          const tags = (item.tags ?? []).map((tag) => tag.trim().toLowerCase());
           return aliases.some((a) => tags.includes(a));
         });
-      }
-      if (activeAllergens.size > 0) {
-        list = list.filter((item) => {
-          const ids = (item.allergen_ids ?? []) as string[];
-          return !ids.some((a) => activeAllergens.has(a));
-        });
+        if (filter === "vegan" || filter === "veg") {
+          list = list.filter((item) => (item.main_tab ?? "").toLowerCase() !== "getraenke");
+        }
       }
       return list;
     },
-    [filter, activeAllergens],
+    [filter],
   );
 
   const taglineCategories = useMemo(() => {
@@ -324,7 +352,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
       style={{ backgroundColor: bgTheme.bg, color: bgTheme.text }}
     >
       {!consentGiven && (
-        <ConsentBanner theme="warm" onConsent={() => setConsentGiven(true)} />
+        <ConsentBanner locale={locale} theme="warm" onConsent={() => setConsentGiven(true)} />
       )}
 
       {/* Header — gedruckte Speisekarte */}
@@ -449,56 +477,45 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
                     setPickedMainTab(tab.key);
                     setFilter("all");
                     if (tab.key !== LUNCH_TAB_KEY) {
                       trackCategoryTabSelect(categoryTabLabel(tab.key));
                     }
+                    (e.currentTarget as HTMLButtonElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
                   }}
                   style={tabButtonStyle(active)}
                 >
-                  {tab.label}
+                  {tab.key === LUNCH_TAB_KEY ? tab.label : tCategory(tab.label, locale)}
                 </button>
               );
             })}
           </div>
           {/* Filter + Allergene */}
-          <div
-            className="flex items-center gap-2 px-5 pb-3 pt-2"
-            style={{ borderTop: `1px solid ${COL.dividerSoft}` }}
-          >
-            <div className="scrollbar-hide flex flex-1 gap-1 overflow-x-auto">
-              {FILTER_OPTIONS.map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  onClick={() => setFilter(f.key)}
-                  style={filterPillStyle(filter === f.key)}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setAllergenOpen(true)}
-              style={{
-                flexShrink: 0,
-                padding: "5px 12px",
-                fontSize: 11,
-                fontWeight: 600,
-                color: activeAllergens.size > 0 ? "#c84030" : COL.textMuted,
-                border: `1px solid ${activeAllergens.size > 0 ? "#c84030" : COL.dividerSoft}`,
-                borderRadius: 999,
-                background:
-                  activeAllergens.size > 0 ? "rgba(200,64,48,0.06)" : "transparent",
-                cursor: "pointer",
-              }}
+          {visibleFilterKeys.length > 1 ? (
+            <div
+              className="flex items-center gap-2 px-5 pb-3 pt-2"
+              style={{ borderTop: `1px solid ${COL.dividerSoft}` }}
             >
-              ⚠️ {activeAllergens.size > 0 ? `Filter (${activeAllergens.size})` : "Allergene"}
-            </button>
-          </div>
+              <div className="scrollbar-hide flex flex-1 gap-1 overflow-x-auto">
+                {visibleFilterKeys.map((k) => {
+                  const emoji = FILTER_EMOJI[k];
+                  const label = t(FILTER_STRING_KEY[k], locale);
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setFilter(k)}
+                      style={filterPillStyle(filter === k)}
+                    >
+                      {emoji ? `${emoji} ${label}` : label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
       </nav>
 
@@ -515,24 +532,32 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
             onItemCardRef={onItemCardRef}
             hideCategories={filter !== "all" ? DRINK_CATEGORIES : null}
             COL={COL}
+            locale={locale}
           />
         )}
       </main>
 
       {/* Item Modal */}
-      {modalItem && (
-        <HeritageItemModal
-          item={modalItem}
-          menuItems={menuItems}
-          sponsoredItems={sponsoredItems}
-          restaurantId={restaurantId}
-          onClose={popModal}
-          onSelectItem={pushModal}
-          onAddToWishlist={handleAddToWishlist}
-          isInWishlist={isInWishlist}
-          onToggleWishlist={handleToggleWishlist}
-        />
-      )}
+      {modalItem && (() => {
+        const modalThemeProps = customBgColor && customTextColor
+          ? { theme: "custom" as const, customBg: customBgColor, customText: customTextColor, customAccent: props.accentColor ?? COL.accent }
+          : {};
+        return (
+          <HeritageItemModal
+            item={modalItem}
+            menuItems={menuItems}
+            sponsoredItems={sponsoredItems}
+            restaurantId={restaurantId}
+            onClose={popModal}
+            onSelectItem={pushModal}
+            onAddToWishlist={handleAddToWishlist}
+            isInWishlist={isInWishlist}
+            onToggleWishlist={handleToggleWishlist}
+            locale={locale}
+            {...modalThemeProps}
+          />
+        );
+      })()}
 
       <Wishlist
         open={wishlistOpen}
@@ -544,17 +569,8 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
         cartTotal={cartTotal}
         onClear={clearWishlist}
         restaurantName={restaurantName}
+        locale={locale}
       />
-
-      <AllergenSheet
-        open={allergenOpen}
-        onClose={() => setAllergenOpen(false)}
-        activeAllergens={activeAllergens}
-        onToggleAllergen={toggleAllergen}
-        onApply={() => setAllergenOpen(false)}
-        onClearAll={() => setActiveAllergens(new Set())}
-      />
-
       {/* Bottom-Bar — Karte / Merkliste */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-[140] border-t"
@@ -587,7 +603,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
             <span style={{ fontSize: 18 }} aria-hidden>
               📖
             </span>
-            Karte
+            {t("menu_tab", locale)}
           </button>
           <button
             type="button"
@@ -607,7 +623,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
             <span style={{ fontSize: 18 }} aria-hidden>
               🔖
             </span>
-            Merkliste
+            {t("wishlist", locale)}
             <span
               className="absolute"
               style={{
@@ -663,14 +679,14 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
             href="/impressum"
             style={{ color: COL.textSubtle, textDecoration: "none" }}
           >
-            Impressum
+            {t("imprint", locale)}
           </a>
           {" · "}
           <a
             href="/datenschutz"
             style={{ color: COL.textSubtle, textDecoration: "none" }}
           >
-            Datenschutz
+            {t("privacy", locale)}
           </a>
         </p>
       </footer>
@@ -691,6 +707,8 @@ type ItemListProps = {
   /** Dynamisches Color-Set (vom main HeritageTemplate basierend auf
    *  bgTheme zusammengestellt). */
   COL: typeof COL_DEFAULT;
+  /** UI-Sprache für Kategorie-Header und Sold-out-Badge. */
+  locale: string;
 };
 
 function ItemList({
@@ -701,6 +719,7 @@ function ItemList({
   onItemCardRef,
   hideCategories,
   COL,
+  locale,
 }: ItemListProps) {
   const visibleSections =
     hideCategories === null
@@ -717,7 +736,7 @@ function ItemList({
           fontSize: 13,
         }}
       >
-        Keine Gerichte mit den aktuellen Filtern.
+        {t("no_items_in_category", locale)}
       </div>
     );
   }
@@ -748,10 +767,10 @@ function ItemList({
                 textAlign: "center",
               }}
             >
-              {sec.kategorie}
+              {tCategory(sec.kategorie, locale)}
             </h2>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {items.map((item) => {
+              {items.map((item, i) => {
                 const hasImage = Boolean(item.bild_url);
                 const soldOut = item.sold_out === true;
                 return (
@@ -777,20 +796,30 @@ function ItemList({
                       }}
                     >
                       {hasImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.bild_url as string}
-                          alt={item.name}
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        <div
                           style={{
-                            width: 64,
-                            height: 64,
-                            borderRadius: 8,
-                            objectFit: "cover",
+                            position: "relative",
+                            width: 72,
+                            height: 72,
                             flexShrink: 0,
-                            filter: soldOut ? "grayscale(1)" : undefined,
+                            borderRadius: 8,
+                            overflow: "hidden",
                           }}
-                        />
+                        >
+                          <Image
+                            src={item.bild_url as string}
+                            alt={item.name}
+                            fill
+                            priority={i < 4}
+                            placeholder="blur"
+                            blurDataURL={IMG_BLUR_DATA_URL}
+                            sizes="72px"
+                            style={{
+                              objectFit: "cover",
+                              filter: soldOut ? "grayscale(1)" : undefined,
+                            }}
+                          />
+                        </div>
                       ) : null}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
@@ -830,7 +859,7 @@ function ItemList({
                                   textDecoration: "none",
                                 }}
                               >
-                                Ausverkauft
+                                {t("sold_out", locale)}
                               </span>
                             ) : null}
                           </span>
@@ -870,7 +899,7 @@ function ItemList({
                               fontStyle: "italic",
                             }}
                           >
-                            {item.allergens_text}
+                            {translateAllergenText(item.allergens_text, locale)}
                           </p>
                         ) : null}
                       </div>

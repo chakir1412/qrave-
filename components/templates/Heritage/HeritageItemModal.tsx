@@ -10,6 +10,8 @@ import {
   type SponsoredSuggestion,
 } from "@/lib/speisekarte-logic";
 import { getItemEmoji, getDisplayPrice } from "@/components/speisekarte/utils";
+import { isDarkHex } from "@/lib/template-background";
+import { t, translateAllergenText } from "@/lib/i18n-menu";
 
 const JUST_ADDED_DURATION_MS = 300;
 
@@ -81,7 +83,35 @@ const PLAYFUL_THEME: ColorTokens = {
 };
 
 const THEMES = { light: LIGHT_THEME, dark: DARK_THEME, playful: PLAYFUL_THEME } as const;
-export type ModalTheme = keyof typeof THEMES;
+export type ModalTheme = keyof typeof THEMES | "custom";
+
+/** Wandelt #rrggbb + Alpha in rgba(). Fallback auf "rgba(0,0,0,a)". */
+function hexToRgba(hex: string, alpha: number): string {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex.trim());
+  if (!m) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${alpha})`;
+}
+
+/** Baut ColorTokens aus Custom-Werten — Tokens (muted, divider, pillBg etc.)
+ *  werden aus der Helligkeit des Hintergrunds abgeleitet. */
+function buildCustomTheme(bg: string, text: string, accent: string): ColorTokens {
+  const dark = isDarkHex(bg);
+  return {
+    bg,
+    text,
+    textMuted: dark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.6)",
+    textSubtle: dark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)",
+    accent,
+    accentSoft: hexToRgba(accent, 0.08),
+    accentBorder: hexToRgba(accent, 0.35),
+    divider: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+    cream: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+    pillBg: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+    pillBorder: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+    pillText: text,
+    overlay: dark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.4)",
+  };
+}
 
 export type HeritageItemModalProps = {
   item: MenuItem;
@@ -95,8 +125,15 @@ export type HeritageItemModalProps = {
   onAddToWishlist?: (item: MenuItem, qty: number) => void;
   /** Visuelle Variante. Default "light" (Heritage/Clean/Trattoria/Minimal/
    *  Mediterranean). "dark" für Noir/AsianDark/StreetFood. "playful" für
-   *  Pink-Akzent (Playful-Template). */
+   *  Pink-Akzent. "custom" wenn der Wirt eigene Farben gewählt hat — dann
+   *  müssen customBg/customText/customAccent gesetzt sein. */
   theme?: ModalTheme;
+  /** Nur relevant bei theme="custom". */
+  customBg?: string;
+  customText?: string;
+  customAccent?: string;
+  /** Aktive Sprache für UI-Strings (z.B. "Oft zusammen bestellt"). Default "de". */
+  locale?: string;
 };
 
 function isSponsoredCard(s: MenuItem | SponsoredSuggestion): s is SponsoredSuggestion {
@@ -204,8 +241,15 @@ export default function HeritageItemModal({
   onToggleWishlist,
   onAddToWishlist,
   theme = "light",
+  customBg,
+  customText,
+  customAccent,
+  locale = "de",
 }: HeritageItemModalProps) {
-  const COL = THEMES[theme];
+  const COL: ColorTokens =
+    theme === "custom" && customBg && customText && customAccent
+      ? buildCustomTheme(customBg, customText, customAccent)
+      : THEMES[(theme === "custom" ? "light" : theme) as keyof typeof THEMES];
   const tagPillStyle = makeTagPillStyle(COL);
   const [justAdded, setJustAdded] = useState(false);
   const [qty, setQty] = useState(1);
@@ -254,7 +298,7 @@ export default function HeritageItemModal({
 
   const isCurrentItemDrink = isDrinkItem(item);
   const suggestions = useMemo<(MenuItem | SponsoredSuggestion)[]>(() => {
-    const companions = getCompanionSuggestions(menuItems, item, 3);
+    const companions = getCompanionSuggestions(menuItems, item, 5);
     if (companions.length > 0) return companions;
     if (isCurrentItemDrink) return [];
     return getDrinkSuggestions(menuItems, item, sponsoredItems ?? []);
@@ -286,7 +330,7 @@ export default function HeritageItemModal({
 
   return (
     <div
-      className="fixed inset-0 z-[500] flex items-stretch justify-center sm:items-end animate-[fadeIn_0.2s_ease]"
+      className="fixed inset-0 z-[500] animate-[fadeIn_0.2s_ease]"
       style={{
         background: COL.overlay,
         backdropFilter: "blur(4px)",
@@ -295,11 +339,12 @@ export default function HeritageItemModal({
       onClick={onClose}
     >
       <div
-        className="relative flex h-[100dvh] w-full flex-col overflow-hidden animate-[slideUp_0.35s_cubic-bezier(0.34,1.56,0.64,1)] sm:h-auto sm:max-h-[88vh] sm:max-w-[520px]"
+        className="fixed left-0 right-0 top-[12px] z-[501] flex h-[calc(100dvh-12px)] flex-col overflow-hidden animate-[slideUp_0.35s_cubic-bezier(0.34,1.56,0.64,1)] sm:top-auto sm:bottom-0 sm:h-auto sm:max-h-[88vh] sm:left-0 sm:right-0 sm:mx-auto sm:max-w-[520px]"
         style={{
           background: COL.bg,
           color: COL.text,
-          borderRadius: 0,
+          // 16px Top-Rundung — Modal ist 12px unter dem Viewport-Rand.
+          borderRadius: "16px 16px 0 0",
           border: `1px solid ${COL.divider}`,
         }}
         onClick={(e) => e.stopPropagation()}
@@ -322,14 +367,14 @@ export default function HeritageItemModal({
             zIndex: 30,
             boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
           }}
-          aria-label="Schließen"
+          aria-label={t("close", locale)}
         >
           ✕
         </button>
         {hasImage ? (
           <div
             className="relative h-[200px] w-full shrink-0 overflow-hidden sm:h-[280px]"
-            style={{ background: COL.cream }}
+            style={{ background: COL.cream, borderRadius: "12px 12px 0 0" }}
           >
             <Image
               src={item.bild_url as string}
@@ -337,7 +382,6 @@ export default function HeritageItemModal({
               fill
               className="object-cover"
               sizes="(max-width: 520px) 100vw, 520px"
-              unoptimized
             />
           </div>
         ) : null}
@@ -477,65 +521,65 @@ export default function HeritageItemModal({
               </p>
             ) : null}
 
-            <div
-              style={{
-                borderRadius: 8,
-                background: COL.cream,
-                border: `1px solid ${COL.divider}`,
-                overflow: "hidden",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setAllergensOpen((v) => !v)}
-                aria-expanded={allergensOpen}
-                aria-controls="allergens-panel"
+            {item.allergens_text && item.allergens_text.trim() ? (
+              <div
                 style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  padding: "12px 16px",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
+                  borderRadius: 8,
+                  background: COL.cream,
+                  border: `1px solid ${COL.divider}`,
+                  overflow: "hidden",
                 }}
               >
-                <span
+                <button
+                  type="button"
+                  onClick={() => setAllergensOpen((v) => !v)}
+                  aria-expanded={allergensOpen}
+                  aria-controls="allergens-panel"
                   style={{
-                    fontSize: 11,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.14em",
-                    color: COL.accent,
-                    fontWeight: 600,
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    padding: "12px 16px",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
                   }}
                 >
-                  Allergene & Zutaten
-                </span>
-                <span
-                  aria-hidden
-                  style={{
-                    fontSize: 14,
-                    color: COL.accent,
-                    transition: "transform 200ms ease",
-                    transform: allergensOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    lineHeight: 1,
-                  }}
-                >
-                  ▾
-                </span>
-              </button>
-              {allergensOpen ? (
-                <div
-                  id="allergens-panel"
-                  style={{
-                    padding: "0 16px 14px",
-                    borderTop: `1px solid ${COL.divider}`,
-                    paddingTop: 12,
-                  }}
-                >
-                  {item.allergens_text && item.allergens_text.trim() ? (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.14em",
+                      color: COL.accent,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t("allergens_only", locale)}
+                  </span>
+                  <span
+                    aria-hidden
+                    style={{
+                      fontSize: 14,
+                      color: COL.accent,
+                      transition: "transform 200ms ease",
+                      transform: allergensOpen ? "rotate(180deg)" : "rotate(0deg)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    ▾
+                  </span>
+                </button>
+                {allergensOpen ? (
+                  <div
+                    id="allergens-panel"
+                    style={{
+                      padding: "0 16px 14px",
+                      borderTop: `1px solid ${COL.divider}`,
+                      paddingTop: 12,
+                    }}
+                  >
                     <p
                       style={{
                         fontSize: 13,
@@ -544,25 +588,25 @@ export default function HeritageItemModal({
                         margin: "0 0 10px",
                       }}
                     >
-                      {item.allergens_text}
+                      {translateAllergenText(item.allergens_text, locale)}
                     </p>
-                  ) : null}
-                  <p
-                    style={{
-                      fontSize: 12,
-                      lineHeight: 1.5,
-                      color: COL.textMuted,
-                      margin: 0,
-                    }}
-                  >
-                    <span aria-hidden className="mr-1.5 inline-block">
-                      ⚠️
-                    </span>
-                    Bitte informieren Sie zusätzlich unser Service-Team über Ihre Allergien.
-                  </p>
-                </div>
-              ) : null}
-            </div>
+                    <p
+                      style={{
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        color: COL.textMuted,
+                        margin: 0,
+                      }}
+                    >
+                      <span aria-hidden className="mr-1.5 inline-block">
+                        ⚠️
+                      </span>
+                      {t("allergens_service", locale)}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             {suggestions.length > 0 ? (
               <div
@@ -582,7 +626,7 @@ export default function HeritageItemModal({
                     fontWeight: 600,
                   }}
                 >
-                  Oft zusammen bestellt
+                  {t("often_ordered_together", locale)}
                 </div>
                 <div
                   className="scrollbar-hide"
@@ -725,13 +769,23 @@ export default function HeritageItemModal({
                                   fontSize: 10,
                                   fontWeight: 600,
                                   letterSpacing: "0.02em",
-                                  border: inList
-                                    ? `1px solid ${COL.accent}`
-                                    : `1px solid ${COL.divider}`,
-                                  background: inList
-                                    ? "rgba(200,137,78,0.16)"
-                                    : "rgba(255,255,255,0.92)",
-                                  color: inList ? COL.accent : COL.textMuted,
+                                  // Bei theme="custom" denselben Look wie der Haupt-"Zur Merkliste"
+                                  // Button: voller Akzent-Hintergrund, Text in Bg-Farbe.
+                                  border: theme === "custom"
+                                    ? "none"
+                                    : inList
+                                      ? `1px solid ${COL.accent}`
+                                      : `1px solid ${COL.divider}`,
+                                  background: theme === "custom"
+                                    ? COL.accent
+                                    : inList
+                                      ? "rgba(200,137,78,0.16)"
+                                      : "rgba(255,255,255,0.92)",
+                                  color: theme === "custom"
+                                    ? COL.bg
+                                    : inList
+                                      ? COL.accent
+                                      : COL.textMuted,
                                   cursor: "pointer",
                                   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
                                   transition: "all 0.18s",
@@ -823,14 +877,14 @@ export default function HeritageItemModal({
                   textTransform: "uppercase",
                   border: "none",
                   cursor: "pointer",
-                  background: justAdded ? "#22c55e" : COL.accent,
-                  color: "#fff",
+                  backgroundColor: justAdded ? "#22c55e" : COL.accent,
+                  color: COL.bg,
                 }}
               >
                 <span aria-hidden className="mr-2">
                   {justAdded ? "✓" : "♡"}
                 </span>
-                {justAdded ? "Hinzugefügt" : "Zur Merkliste"}
+                {justAdded ? "✓" : t("add_to_wishlist", locale)}
               </button>
             </div>
             <p
@@ -841,7 +895,7 @@ export default function HeritageItemModal({
                 letterSpacing: "0.04em",
               }}
             >
-              Alle Angaben ohne Gewähr · Preise inkl. MwSt.
+              {t("disclaimer", locale)}
             </p>
           </div>
         </div>

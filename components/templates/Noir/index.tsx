@@ -1,5 +1,7 @@
 "use client";
+import { tCategory, translateAllergenText } from "@/lib/i18n-menu";
 
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -26,7 +28,7 @@ import {
 import { activeLunchOffers } from "@/lib/lunch";
 import { DRINK_CATEGORIES } from "@/lib/category-types";
 import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisekarteTier1Tracking";
-import { type FilterKey } from "@/components/speisekarte/constants";
+import { type FilterKey, IMG_BLUR_DATA_URL } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import HeritageItemModal from "@/components/templates/Heritage/HeritageItemModal";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
@@ -74,9 +76,12 @@ export default function NoirTemplate(props: SpeisekarteProps) {
     guestNote = null,
     lunchOffers = [],
     backgroundMode = null,
+    customBgColor = null,
+    customTextColor = null,
+    locale = "de",
   } = props;
-  const bgTheme = resolveBackground("noir", backgroundMode as BackgroundMode | null);
-  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, cream: bgTheme.text, muted: bgTheme.textMuted };
+  const bgTheme = resolveBackground("noir", backgroundMode as BackgroundMode | null, customBgColor, customTextColor);
+  const COL = { ...COL_DEFAULT, bg: bgTheme.bg, cream: bgTheme.text, muted: bgTheme.textMuted, card: bgTheme.card, gold: props.accentColor || COL_DEFAULT.gold };
 
   const [pickedMainTab, setPickedMainTab] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -130,7 +135,20 @@ export default function NoirTemplate(props: SpeisekarteProps) {
       template: "noir",
     });
     return undefined;
-  }, [track, restaurantName, dailyPushes.length, menuItems.length]);
+  }, [track, restaurantName, dailyPushes.length, menuItems.length]);/** Sichtbare Diät-Filter-Pills: nur die mit mindestens einem matching-Tag. */
+  const visibleFilterKeys = useMemo<ReadonlyArray<FilterKey>>(() => {
+    const has = (aliases: ReadonlyArray<string>) =>
+      menuItems.some((it) =>
+        (it.tags ?? []).some((tag) => aliases.includes(tag.trim().toLowerCase())),
+      );
+    const out: FilterKey[] = ["all"];
+    if (has(["vegan", "v"])) out.push("vegan");
+    if (has(["vegetarisch", "veg", "vegetarian"])) out.push("veg");
+    if (has(["glutenfrei", "gf", "gluten-free"])) out.push("gf");
+    if (has(["scharf", "spicy"])) out.push("spicy");
+    return out;
+  }, [menuItems]);
+
 
   const derivedTabs = useMemo(() => deriveCategoryTabsFromItems(menuItems), [menuItems]);
 
@@ -221,16 +239,13 @@ export default function NoirTemplate(props: SpeisekarteProps) {
           const tags = (item.tags ?? []).map((t) => t.trim().toLowerCase());
           return aliases.some((a) => tags.includes(a));
         });
-      }
-      if (activeAllergens.size > 0) {
-        list = list.filter((item) => {
-          const ids = (item.allergen_ids ?? []) as string[];
-          return !ids.some((a) => activeAllergens.has(a));
-        });
+        if (filter === "vegan" || filter === "veg") {
+          list = list.filter((item) => (item.main_tab ?? "").toLowerCase() !== "getraenke");
+        }
       }
       return list;
     },
-    [filter, activeAllergens],
+    [filter],
   );
 
   const handleDailyPushClick = useCallback(
@@ -291,7 +306,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
       style={{
         background: bgTheme.bg,
         color: bgTheme.text,
-        minHeight: "100vh",
+        minHeight: "100dvh",
         overflowX: "hidden",
         position: "relative",
       }}
@@ -312,7 +327,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
       `}</style>
 
       {!consentGiven && (
-        <ConsentBanner onConsent={() => setConsentGiven(true)} />
+        <ConsentBanner locale={locale} theme="dark" onConsent={() => setConsentGiven(true)} />
       )}
 
       {/* Ambient Glow */}
@@ -338,85 +353,76 @@ export default function NoirTemplate(props: SpeisekarteProps) {
           fontFamily: `'DM Sans', system-ui, sans-serif`,
         }}
       >
-        {/* Sticky Header */}
-        <header
-          style={{
-            padding: "32px 24px 20px",
-            borderBottom: `1px solid ${COL.border}`,
-            position: "sticky",
-            top: 0,
-            background: "rgba(10,8,5,0.94)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            zIndex: 10,
-          }}
-        >
-          <div style={{ fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", color: COL.gold, marginBottom: 4 }}>
-            qrave.menu
-          </div>
-          <h1 style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 300, letterSpacing: "0.02em", color: COL.creamFull, lineHeight: 1.1, margin: 0 }}>
-            {restaurantName}
-          </h1>
-        </header>
+        {/* Sticky Header + Tabs Container — beide stehen zusammen oben fest. */}
+        <div style={{ position: "sticky", top: 0, zIndex: 10 }}>
+          <header
+            style={{
+              padding: "32px 24px 20px",
+              borderBottom: `1px solid ${COL.border}`,
+              background: "rgba(10,8,5,0.94)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+            }}
+          >
+            <div style={{ fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", color: COL.gold, marginBottom: 4 }}>
+              qrave.menu
+            </div>
+            <h1 style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 300, letterSpacing: "0.02em", color: COL.creamFull, lineHeight: 1.1, margin: 0 }}>
+              {restaurantName}
+            </h1>
+          </header>
 
-        {/* Tabs */}
-        <nav
-          className="noir-scrollbar-hide tab-bar-fade"
-          style={{
-            display: "flex",
-            overflowX: "auto",
-            padding: "20px 24px 0",
-            borderBottom: `1px solid ${COL.border}`,
-            gap: 0,
-          }}
-        >
+          {/* Tabs */}
+          <nav
+            className="noir-scrollbar-hide tab-bar-fade"
+            style={{
+              display: "flex",
+              overflowX: "auto",
+              padding: "20px 24px 0",
+              borderBottom: `1px solid ${COL.border}`,
+              gap: 0,
+              background: COL.bg,
+            }}
+          >
           {mainTabs.map((tab) => {
             const active = effectiveMainTab === tab.key;
             return (
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
                   setPickedMainTab(tab.key);
                   setFilter("all");
                   if (tab.key !== LUNCH_TAB_KEY) trackCategoryTabSelect(categoryTabLabel(tab.key));
+                  (e.currentTarget as HTMLButtonElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
                 }}
                 style={tabButtonStyle(active)}
               >
-                {tab.label}
+                {tab.key === LUNCH_TAB_KEY ? tab.label : tCategory(tab.label, locale)}
               </button>
             );
           })}
-        </nav>
+          </nav>
+        </div>
 
         {/* Filter */}
-        <div
-          className="noir-scrollbar-hide"
-          style={{ display: "flex", gap: 8, padding: "16px 24px", overflowX: "auto" }}
-        >
-          {FILTER_OPTIONS.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setFilter(f.key)}
-              style={filterPillStyle(filter === f.key)}
-            >
-              {f.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setAllergenOpen(true)}
-            style={{
-              ...filterPillStyle(activeAllergens.size > 0),
-              borderColor: activeAllergens.size > 0 ? "#c84030" : COL.mutedSoft,
-              color: activeAllergens.size > 0 ? "#e08070" : COL.muted,
-              background: activeAllergens.size > 0 ? "rgba(200,64,48,0.08)" : "transparent",
-            }}
+        {visibleFilterKeys.length > 1 ? (
+          <div
+            className="noir-scrollbar-hide"
+            style={{ display: "flex", gap: 8, padding: "16px 24px", overflowX: "auto" }}
           >
-            {activeAllergens.size > 0 ? `Allergene (${activeAllergens.size})` : "Allergene"}
-          </button>
-        </div>
+            {FILTER_OPTIONS.filter((f) => visibleFilterKeys.includes(f.key)).map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilter(f.key)}
+                style={filterPillStyle(filter === f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {/* Guest-Note */}
         {guestNote && guestNote.trim() ? (
@@ -485,6 +491,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
               onItemCardRef={onItemCardRef}
               hideCategories={filter !== "all" ? DRINK_CATEGORIES : null}
               COL={COL}
+              locale={locale}
             />
           )}
         </main>
@@ -584,20 +591,25 @@ export default function NoirTemplate(props: SpeisekarteProps) {
       </nav>
 
       {/* Item Modal — reuse Heritage's Modal */}
-      {modalItem && (
-        <HeritageItemModal
-          item={modalItem}
-          menuItems={menuItems}
-          sponsoredItems={sponsoredItems}
-          restaurantId={restaurantId}
-          onClose={popModal}
-          onSelectItem={pushModal}
-          onAddToWishlist={handleAddToWishlist}
-          isInWishlist={isInWishlist}
-          onToggleWishlist={handleToggleWishlist}
-          theme="dark"
-        />
-      )}
+      {modalItem && (() => {
+        const modalThemeProps = customBgColor && customTextColor
+          ? { theme: "custom" as const, customBg: customBgColor, customText: customTextColor, customAccent: props.accentColor ?? COL.gold }
+          : { theme: "dark" as const };
+        return (
+          <HeritageItemModal
+            item={modalItem}
+            menuItems={menuItems}
+            sponsoredItems={sponsoredItems}
+            restaurantId={restaurantId}
+            onClose={popModal}
+            onSelectItem={pushModal}
+            onAddToWishlist={handleAddToWishlist}
+            isInWishlist={isInWishlist}
+            onToggleWishlist={handleToggleWishlist}
+            {...modalThemeProps}
+          />
+        );
+      })()}
 
       <Wishlist
         open={wishlistOpen}
@@ -609,18 +621,8 @@ export default function NoirTemplate(props: SpeisekarteProps) {
         cartTotal={cartTotal}
         onClear={clearWishlist}
         restaurantName={restaurantName}
-      />
-
-      <AllergenSheet
-        open={allergenOpen}
-        onClose={() => setAllergenOpen(false)}
-        activeAllergens={activeAllergens}
-        onToggleAllergen={toggleAllergen}
-        onApply={() => setAllergenOpen(false)}
-        onClearAll={() => setActiveAllergens(new Set())}
-        theme="dark"
-      />
-    </div>
+        locale={locale}
+      />    </div>
   );
 }
 
@@ -632,6 +634,7 @@ type NoirItemListProps = {
   onItemCardRef?: (item: MenuItem, el: HTMLElement | null) => void;
   hideCategories: ReadonlySet<string> | null;
   COL: typeof COL_DEFAULT;
+  locale: string;
 };
 
 function NoirItemList({
@@ -642,6 +645,7 @@ function NoirItemList({
   onItemCardRef,
   hideCategories,
   COL,
+  locale,
 }: NoirItemListProps) {
   const visibleSections =
     hideCategories === null ? sections : sections.filter((sec) => !hideCategories.has(sec.kategorie));
@@ -667,18 +671,20 @@ function NoirItemList({
           >
             <div style={{ padding: "20px 24px 0", display: "flex", alignItems: "center", gap: 16 }}>
               <h2 style={{ fontFamily: SERIF, fontSize: 22, fontWeight: 300, fontStyle: "italic", color: COL.goldLight, letterSpacing: "0.02em", whiteSpace: "nowrap", margin: 0 }}>
-                {sec.kategorie}
+                {tCategory(sec.kategorie, locale)}
               </h2>
               <div style={{ flex: 1, height: 1, background: COL.border }} />
             </div>
             <div style={{ padding: "8px 16px 0", display: "flex", flexDirection: "column", gap: 16 }}>
-              {items.map((item) => (
+              {items.map((item, i) => (
                 <NoirItemCard
                   key={item.id}
                   item={item}
+                  index={i}
                   onClick={() => onItemClick(item)}
                   cardRef={(el) => onItemCardRef?.(item, el)}
                   COL={COL}
+                  locale={locale}
                 />
               ))}
             </div>
@@ -691,14 +697,18 @@ function NoirItemList({
 
 function NoirItemCard({
   item,
+  index,
   onClick,
   cardRef,
   COL,
+  locale,
 }: {
   item: MenuItem;
+  index: number;
   onClick: () => void;
   cardRef: (el: HTMLElement | null) => void;
   COL: typeof COL_DEFAULT;
+  locale: string;
 }) {
   const soldOut = item.sold_out === true;
   const hasImage = Boolean(item.bild_url);
@@ -728,20 +738,29 @@ function NoirItemCard({
       }}
     >
       {hasImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={item.bild_url as string}
-          alt={item.name}
-          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+        <div
           style={{
+            position: "relative",
             width: "100%",
             height: 200,
-            objectFit: "cover",
-            display: "block",
             borderBottom: "1px solid rgba(201,168,76,0.1)",
-            filter: soldOut ? "grayscale(1)" : undefined,
+            overflow: "hidden",
           }}
-        />
+        >
+          <Image
+            src={item.bild_url as string}
+            alt={item.name}
+            fill
+            priority={index < 4}
+            placeholder="blur"
+            blurDataURL={IMG_BLUR_DATA_URL}
+            sizes="(max-width: 430px) 100vw, 430px"
+            style={{
+              objectFit: "cover",
+              filter: soldOut ? "grayscale(1)" : undefined,
+            }}
+          />
+        </div>
       ) : (
         <div
           style={{
@@ -817,7 +836,7 @@ function NoirItemCard({
         ) : null}
         {item.allergens_text && item.allergens_text.trim() ? (
           <p style={{ fontSize: 10, color: "rgba(201,168,76,0.45)", fontStyle: "italic", marginBottom: 6 }}>
-            {item.allergens_text}
+            {translateAllergenText(item.allergens_text, locale)}
           </p>
         ) : null}
         {(isVegan || isVeg) ? (
