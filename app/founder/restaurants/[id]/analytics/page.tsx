@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
+import { isYmd } from "@/lib/restaurant-analytics-presets";
 import { AnalyticsContent } from "./AnalyticsContent";
 
 export const metadata: Metadata = {
@@ -67,10 +68,13 @@ function shiftIso(iso: string, deltaDays: number): string {
 
 export default async function RestaurantAnalyticsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
 
   // Auth: nur Founder
   const cookieStore = await cookies();
@@ -93,9 +97,13 @@ export default async function RestaurantAnalyticsPage({
     redirect("/founder");
   }
 
-  // Datums-Ranges (Berlin)
+  // Datums-Ranges (Berlin). Zeitraum kommt optional aus den URL-SearchParams
+  // (`?from=YYYY-MM-DD&to=YYYY-MM-DD`), vom RangePicker im Client gesetzt.
+  // Fallback ohne URL-Range: letzte 30 Tage (bisheriges Verhalten).
   const today = berlinTodayIso();
-  const dailyFrom = shiftIso(today, -29);
+  const toIso = isYmd(sp.to ?? "") && sp.to! <= today ? sp.to! : today;
+  const dailyFrom =
+    isYmd(sp.from ?? "") && sp.from! <= toIso ? sp.from! : shiftIso(today, -29);
   const eventsFrom = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // restaurant_analytics_daily hat RLS — service-role nutzen für Aggregat-Reads
@@ -115,6 +123,7 @@ export default async function RestaurantAnalyticsPage({
       )
       .eq("restaurant_id", id)
       .gte("day_berlin", dailyFrom)
+      .lte("day_berlin", toIso)
       .order("day_berlin", { ascending: true }),
     supabase
       .from("scan_events")

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { AnalyticsDailyRow, RestaurantRow, ScanEventRow } from "./page";
 import { LineChart } from "@/components/shared/LineChart";
-
-type Range = "7d" | "30d" | "month";
+import { RangePicker, type Range } from "@/components/shared/RangePicker";
+import { isYmd } from "@/lib/restaurant-analytics-presets";
 
 const DRINK_KEYWORDS = ["bier", "wein", "softdrink", "saft", "apfelwein", "cocktail", "longdrink", "kaffee", "espresso", "tee", "wasser", "energy", "limo", "aperitif"];
 const DRINK_SUBCAT_COLOR: Record<string, string> = {
@@ -44,13 +45,33 @@ function shiftIso(iso: string, deltaDays: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function rangeBounds(range: Range, todayIso: string): { fromIso: string; toIso: string; days: number } {
+function daysInclusive(fromIso: string, toIso: string): number {
+  const a = Date.parse(`${fromIso}T00:00:00Z`);
+  const b = Date.parse(`${toIso}T00:00:00Z`);
+  return Math.max(1, Math.round((b - a) / 86400000) + 1);
+}
+
+function rangeBounds(
+  range: Range,
+  todayIso: string,
+  customFrom: string,
+  customTo: string,
+): { fromIso: string; toIso: string; days: number } {
   if (range === "7d") return { fromIso: shiftIso(todayIso, -6), toIso: todayIso, days: 7 };
+  if (range === "14d") return { fromIso: shiftIso(todayIso, -13), toIso: todayIso, days: 14 };
   if (range === "30d") return { fromIso: shiftIso(todayIso, -29), toIso: todayIso, days: 30 };
-  // current month
-  const [y, m] = todayIso.split("-").map((v) => parseInt(v, 10));
-  const fromIso = `${y}-${String(m).padStart(2, "0")}-01`;
-  return { fromIso, toIso: todayIso, days: Math.max(1, Math.round((Date.parse(`${todayIso}T00:00:00Z`) - Date.parse(`${fromIso}T00:00:00Z`)) / 86400000) + 1) };
+  if (range === "month") {
+    const [y, m] = todayIso.split("-").map((v) => parseInt(v, 10));
+    const fromIso = `${y}-${String(m).padStart(2, "0")}-01`;
+    return { fromIso, toIso: todayIso, days: daysInclusive(fromIso, todayIso) };
+  }
+  // custom: Picker liefert beide ISO-Werte; falls leer, fallback auf 7d
+  if (!customFrom || !customTo) return { fromIso: shiftIso(todayIso, -6), toIso: todayIso, days: 7 };
+  const from = customFrom <= customTo ? customFrom : customTo;
+  const to = customFrom <= customTo ? customTo : customFrom;
+  // To nicht in die Zukunft erlauben
+  const clampedTo = to > todayIso ? todayIso : to;
+  return { fromIso: from, toIso: clampedTo, days: daysInclusive(from, clampedTo) };
 }
 
 function sumDaily<K extends keyof AnalyticsDailyRow>(rows: AnalyticsDailyRow[], key: K): number {
@@ -102,9 +123,34 @@ type Props = {
 };
 
 export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: Props) {
-  const [range, setRange] = useState<Range>("7d");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Initialer Range aus den URL-SearchParams (vom Server für den Fetch genutzt),
+  // damit ein Hard-Reload mit `?from&to` den korrekten Zeitraum zeigt.
+  const urlFrom = searchParams.get("from") ?? "";
+  const urlTo = searchParams.get("to") ?? "";
+  const hasUrlRange = isYmd(urlFrom) && isYmd(urlTo);
+
+  const [range, setRange] = useState<Range>(hasUrlRange ? "custom" : "7d");
+  const [customFrom, setCustomFrom] = useState<string>(hasUrlRange ? urlFrom : "");
+  const [customTo, setCustomTo] = useState<string>(hasUrlRange ? urlTo : "");
   const todayIso = berlinTodayIso();
-  const bounds = useMemo(() => rangeBounds(range, todayIso), [range, todayIso]);
+  const bounds = useMemo(
+    () => rangeBounds(range, todayIso, customFrom, customTo),
+    [range, todayIso, customFrom, customTo],
+  );
+
+  // Bei Range-Wechsel die URL aktualisieren, damit die Server-Component die
+  // Daily-Daten für den gewählten Zeitraum neu lädt. Mount überspringen, damit
+  // der Default-View das 30-Tage-Initial-Fenster nutzt (kein Extra-Roundtrip).
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    router.replace(`?from=${bounds.fromIso}&to=${bounds.toIso}`, { scroll: false });
+  }, [bounds.fromIso, bounds.toIso, router]);
 
   // Daily-Daten auf gewählten Range filtern
   const daily = useMemo(
@@ -341,38 +387,16 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <div className="flex gap-1">
-              {(["7d", "30d", "month"] as Range[]).map((r) => {
-                const active = range === r;
-                const shortLabel = r === "7d" ? "7T" : r === "30d" ? "30T" : "Monat";
-                const fullLabel = r === "7d" ? "7 Tage" : r === "30d" ? "30 Tage" : "Dieser Monat";
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRange(r)}
-                    className="rounded-[8px] border px-2 py-1.5 text-[11px] font-semibold transition sm:px-3"
-                    style={
-                      active
-                        ? {
-                            borderColor: "color-mix(in srgb, var(--qrave-accent) 40%, transparent)",
-                            background: "color-mix(in srgb, var(--qrave-accent) 20%, transparent)",
-                            color: "var(--qrave-accent-soft)",
-                          }
-                        : {
-                            borderColor: "rgba(255,255,255,0.08)",
-                            background: "transparent",
-                            color: "rgba(242,242,242,0.55)",
-                          }
-                    }
-                    aria-label={fullLabel}
-                  >
-                    <span className="sm:hidden">{shortLabel}</span>
-                    <span className="hidden sm:inline">{fullLabel}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <RangePicker
+              range={range}
+              onRangeChange={setRange}
+              customFrom={customFrom}
+              customTo={customTo}
+              onCustomChange={(f, t) => {
+                setCustomFrom(f);
+                setCustomTo(t);
+              }}
+            />
             <button
               type="button"
               onClick={handleExport}

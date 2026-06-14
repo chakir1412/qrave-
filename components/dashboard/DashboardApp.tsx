@@ -327,6 +327,7 @@ export function DashboardApp({
               key="home-tab"
               userFirstName={userFirstName}
               restaurantName={restaurant.name}
+              restaurantId={restaurant.id}
               events={analytics.events}
               menuItems={menuItems}
               onGoKarte={(sub, options) => {
@@ -383,16 +384,30 @@ export function DashboardApp({
               template={restaurant.template ?? null}
               accentColor={restaurant.accent_color ?? null}
               backgroundMode={(restaurant as { background_mode?: string | null }).background_mode ?? null}
+              customBgColor={(restaurant as { custom_bg_color?: string | null }).custom_bg_color ?? null}
               menuItems={menuItems}
-              onTemplateChange={async ({ template: tpl, accentColor: ac, backgroundMode: bm }) => {
+              onTemplateChange={async ({ template: tpl, accentColor: ac, backgroundMode: bm, customBgColor: cbg, customTextColor: ctx }) => {
                 const { data, error } = await supabase
                   .from("restaurants")
-                  .update({ template: tpl, accent_color: ac, background_mode: bm })
+                  .update({
+                    template: tpl,
+                    accent_color: ac,
+                    background_mode: bm,
+                    custom_bg_color: cbg,
+                    custom_text_color: ctx,
+                  })
                   .eq("id", restaurant.id)
                   .select("id");
                 if (error) throw new Error(error.message ?? "Speichern fehlgeschlagen");
                 if (!data || data.length === 0) throw new Error("Keine Berechtigung zum Speichern");
-                setRestaurant((r) => ({ ...r, template: tpl, accent_color: ac, background_mode: bm }));
+                setRestaurant((r) => ({
+                  ...r,
+                  template: tpl,
+                  accent_color: ac,
+                  background_mode: bm,
+                  custom_bg_color: cbg,
+                  custom_text_color: ctx,
+                }));
               }}
               onTabChange={(t) => goTab(t)}
               onToast={showToast}

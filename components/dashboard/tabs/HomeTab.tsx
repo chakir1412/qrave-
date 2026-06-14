@@ -1,18 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MenuItem } from "@/lib/supabase";
 import type { KarteSub } from "../types";
 import type { AnalyticsEventRow } from "../analytics";
+import { fetchScanEventsForRange } from "@/hooks/useAnalytics";
 import { formatDateLongDe, greetingLabel } from "../utils";
 import { Hint } from "../Hint";
 import { LineChart } from "@/components/shared/LineChart";
-
-type Range = "7d" | "30d" | "month" | "custom";
+import {
+  RangePicker,
+  startOfLocalDay,
+  toIso,
+  type Range,
+} from "@/components/shared/RangePicker";
 
 type Props = {
   userFirstName: string;
   restaurantName: string;
+  restaurantId: string;
+  /** Initial-Events (letzte 30 Tage) für den ersten Paint des Default-Ranges.
+   *  Sobald ein Range gewählt wird, lädt der HomeTab die Events für genau
+   *  diesen Zeitraum selbst nach (siehe `rangeEvents`). */
   events: AnalyticsEventRow[];
   menuItems: MenuItem[];
   onGoKarte: (sub: KarteSub, options?: { filter?: "soldout" }) => void;
@@ -20,21 +29,8 @@ type Props = {
 
 const WEEKDAY_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"] as const;
 
-function startOfLocalDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-function toIso(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
 }
 
 /** Liefert from (inkl.), to (exkl.) und die Anzahl der Tage. */
@@ -51,6 +47,11 @@ function computeRange(
     const f = new Date(today);
     f.setDate(today.getDate() - 6);
     return { from: f, to: tomorrow, days: 7 };
+  }
+  if (range === "14d") {
+    const f = new Date(today);
+    f.setDate(today.getDate() - 13);
+    return { from: f, to: tomorrow, days: 14 };
   }
   if (range === "30d") {
     const f = new Date(today);
@@ -171,15 +172,9 @@ function deltaPct(current: number, previous: number): { pct: number | null; tren
   return { pct, trend: pct > 0 ? "up" : pct < 0 ? "down" : "flat" };
 }
 
-const RANGE_OPTIONS: { key: Range; label: string }[] = [
-  { key: "7d", label: "7 Tage" },
-  { key: "30d", label: "30 Tage" },
-  { key: "month", label: "Dieser Monat" },
-  { key: "custom", label: "Benutzerdefiniert" },
-];
-
 const RANGE_LABEL: Record<Range, string> = {
   "7d": "letzte 7 Tage",
+  "14d": "letzte 14 Tage",
   "30d": "letzte 30 Tage",
   month: "diesen Monat",
   custom: "Zeitraum",
@@ -188,6 +183,7 @@ const RANGE_LABEL: Record<Range, string> = {
 export function HomeTab({
   userFirstName,
   restaurantName,
+  restaurantId,
   events,
   menuItems,
   onGoKarte,
@@ -208,13 +204,32 @@ export function HomeTab({
   );
   const prevRange = useMemo(() => previousRange(rangeInfo), [rangeInfo]);
 
+  // Events für den gewählten Zeitraum (inkl. Vorperiode für den Delta-Vergleich)
+  // aus Supabase nachladen — das 30-Tage-Initial-Fenster reicht für lange/alte
+  // Ranges nicht aus. Seed = `events`-Prop für flickerfreien ersten Paint.
+  const [rangeEvents, setRangeEvents] = useState<AnalyticsEventRow[]>(events);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const rows = await fetchScanEventsForRange(
+        restaurantId,
+        prevRange.from.toISOString(),
+        rangeInfo.to.toISOString(),
+      );
+      if (!cancelled) setRangeEvents(rows);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [restaurantId, prevRange.from, rangeInfo.to, events]);
+
   const current = useMemo(
-    () => aggregateForRange(events, rangeInfo.from, rangeInfo.to, rangeInfo.days),
-    [events, rangeInfo],
+    () => aggregateForRange(rangeEvents, rangeInfo.from, rangeInfo.to, rangeInfo.days),
+    [rangeEvents, rangeInfo],
   );
   const previous = useMemo(
-    () => aggregateForRange(events, prevRange.from, prevRange.to, prevRange.days),
-    [events, prevRange],
+    () => aggregateForRange(rangeEvents, prevRange.from, prevRange.to, prevRange.days),
+    [rangeEvents, prevRange],
   );
 
   const totalDelta = deltaPct(current.totalSessions, previous.totalSessions);
@@ -291,6 +306,12 @@ export function HomeTab({
             setCustomFrom(f);
             setCustomTo(t);
           }}
+          leadingSlot={
+            <Hint
+              text="Wähle den Zeitraum, über den alle Zahlen, Charts und Peak-Zeiten ausgewertet werden."
+              placement="bottom"
+            />
+          }
         />
       </header>
 
@@ -579,80 +600,6 @@ export function HomeTab({
   );
 }
 
-function RangePicker({
-  range,
-  onRangeChange,
-  customFrom,
-  customTo,
-  onCustomChange,
-}: {
-  range: Range;
-  onRangeChange: (r: Range) => void;
-  customFrom: string;
-  customTo: string;
-  onCustomChange: (from: string, to: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Hint text="Wähle den Zeitraum, über den alle Zahlen, Charts und Peak-Zeiten ausgewertet werden." placement="bottom" />
-      <div className="flex gap-1.5">
-        {RANGE_OPTIONS.map((opt) => {
-          const active = range === opt.key;
-          return (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => onRangeChange(opt.key)}
-              className="rounded-[8px] border px-3 py-1.5 text-[11px] font-semibold transition"
-              style={
-                active
-                  ? {
-                      borderColor: "color-mix(in srgb, var(--qrave-accent) 40%, transparent)",
-                      background: "color-mix(in srgb, var(--qrave-accent) 20%, transparent)",
-                      color: "var(--qrave-accent-soft)",
-                    }
-                  : {
-                      borderColor: "rgba(255,255,255,0.08)",
-                      background: "transparent",
-                      color: "rgba(242,242,242,0.5)",
-                    }
-              }
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-      {range === "custom" ? (
-        <div className="flex items-center gap-2 text-[11px]" style={{ color: "rgba(242,242,242,0.5)" }}>
-          <input
-            type="date"
-            value={customFrom}
-            onChange={(e) => onCustomChange(e.target.value, customTo)}
-            className="rounded-[8px] border px-2 py-1.5 text-[11px]"
-            style={{
-              borderColor: "rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.04)",
-              color: "#f2f2f2",
-            }}
-          />
-          <span>bis</span>
-          <input
-            type="date"
-            value={customTo}
-            onChange={(e) => onCustomChange(customFrom, e.target.value)}
-            className="rounded-[8px] border px-2 py-1.5 text-[11px]"
-            style={{
-              borderColor: "rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.04)",
-              color: "#f2f2f2",
-            }}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 function Card({ children }: { children: React.ReactNode }) {
   return (

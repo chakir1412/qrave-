@@ -83,7 +83,8 @@ export async function fetchDashboardAnalytics(
     .from("scan_events")
     .select("id, session_id, item_id, item_name, event_type, filter_key, created_at")
     .eq("restaurant_id", restaurantId)
-    .gte("created_at", fetchFrom.toISOString());
+    .gte("created_at", fetchFrom.toISOString())
+    .limit(50000);
 
   if (error || !data) {
     return {
@@ -255,4 +256,34 @@ export async function fetchDashboardAnalytics(
     hourBuckets,
     topFilter,
   };
+}
+
+/** Rohe `scan_events` für einen beliebigen Zeitraum `[fromIso, toExclusiveIso)`.
+ *  Wird vom HomeTab-RangePicker genutzt, damit auch weit zurückliegende
+ *  Zeiträume (z. B. „Februar bis heute") vollständig geladen werden — das
+ *  30-Tage-Fenster in `fetchDashboardAnalytics` reicht dafür nicht aus. */
+export async function fetchScanEventsForRange(
+  restaurantId: string,
+  fromIso: string,
+  toExclusiveIso: string,
+): Promise<AnalyticsEventRow[]> {
+  const { data, error } = await supabase
+    .from("scan_events")
+    .select("id, session_id, item_id, item_name, event_type, filter_key, created_at")
+    .eq("restaurant_id", restaurantId)
+    .gte("created_at", fromIso)
+    .lt("created_at", toExclusiveIso)
+    .order("created_at", { ascending: true })
+    .limit(50000);
+
+  if (error || !data) return [];
+
+  return (data as ScanEventRow[]).map((e) => ({
+    item_id: e.item_id,
+    item_name: e.item_name,
+    event_type: e.event_type,
+    filter_key: e.filter_key,
+    created_at: e.created_at,
+    session_id: e.session_id,
+  }));
 }
