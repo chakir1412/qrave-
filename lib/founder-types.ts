@@ -165,4 +165,10 @@ export type FounderDashboardData = {
    *  im Produkte-Tab. Schlanker Select (id, restaurant_id, name, kategorie,
    *  preis, tags). */
   allMenuItems: FounderMenuItem[];
+  /** Letzter Dashboard-Login pro auth_user_id (ISO-Timestamp). Quelle:
+   *  Supabase Auth Admin API. null wenn der User noch nie eingeloggt war. */
+  lastLoginByUserId: Record<string, string | null>;
+  /** Letzte menu_items.updated_at pro restaurant_id. Zeigt wie aktiv ein
+   *  Wirt seine Karte pflegt. */
+  lastMenuUpdateByRestaurantId: Record<string, string | null>;
 };

@@ -396,6 +396,8 @@ export function FounderOverview({ data, initialLoadError }: Props) {
             isMobile={false}
             onRefresh={async () => undefined}
             sessionsWeekOverride={sessionsWeekByRestaurant}
+            lastLoginByUserId={data.lastLoginByUserId}
+            lastMenuUpdateByRestaurantId={data.lastMenuUpdateByRestaurantId}
           />
         ) : null}
 

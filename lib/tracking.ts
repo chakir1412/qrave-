@@ -35,9 +35,22 @@ export type TrackEventParams = {
   itemPrice?: number | null;
   itemTags?: string[];
   beverageSubcategory?: string | null;
+  /** Preis-Bucket aus itemPrice (budget/mid/premium). Bei item_detail
+   *  und wishlist_add gesetzt. */
+  priceBucket?: "budget" | "mid" | "premium" | null;
 };
 
 const CONSENT_KEY = "qrave_consent";
+
+/** Preis-Bucket aus EUR-Preis ableiten. Mid umfasst 5,00–15,00 inkl. */
+export function priceBucketFromEur(
+  price: number | null | undefined,
+): "budget" | "mid" | "premium" | null {
+  if (price == null || !Number.isFinite(price) || price < 0) return null;
+  if (price < 5) return "budget";
+  if (price <= 15) return "mid";
+  return "premium";
+}
 
 export async function trackEvent(params: TrackEventParams): Promise<void> {
   if (typeof window === "undefined") return;
@@ -50,7 +63,7 @@ export async function trackEvent(params: TrackEventParams): Promise<void> {
     await fetch("/api/track", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...params, tier: 1 }),
+      body: JSON.stringify({ ...params, tier: 1, consentGiven: true }),
     });
   } catch {
     /* Tracking-Fehler nie crashen lassen */
@@ -90,6 +103,11 @@ export function getOrCreateSessionId(): string {
 export function getOrCreateVisitorId(): { visitorId: string; returnVisit: boolean } {
   if (typeof window === "undefined") return { visitorId: "", returnVisit: false };
   try {
+    // DSGVO/TTDSG §25: Identifier-ID nur nach aktiver Einwilligung schreiben.
+    // Ohne Consent darf weder gelesen noch geschrieben werden.
+    if (window.localStorage.getItem(CONSENT_KEY) !== "accepted") {
+      return { visitorId: "", returnVisit: false };
+    }
     const key = "qrave_visitor_id";
     const existing = window.localStorage.getItem(key);
     if (existing) return { visitorId: existing, returnVisit: true };

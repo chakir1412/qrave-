@@ -29,6 +29,11 @@ export type RestaurantAnalyticsDailyRow = {
   vegan_clicks: number;
   vegetarian_clicks: number;
   avg_item_price_clicked: number | null;
+  /** Erweiterte Aggregate (Migration 20260529100100) */
+  price_bucket_clicks: Record<string, number>;
+  beverage_by_hour: Record<"morning" | "midday" | "evening" | "night", Record<string, number>>;
+  avg_wishlist_value: number | null;
+  top_categories_by_month: Record<string, Record<string, number>>;
   updated_at: string;
 };
 
@@ -56,6 +61,15 @@ function timeBlockForHour(h: number): "morning" | "midday" | "evening" | "night"
   if (h >= 11 && h < 15) return "midday";
   if (h >= 15 && h < 22) return "evening";
   return "night";
+}
+
+/** Preis-Bucket aus EUR-Preis (gespiegelt zu lib/tracking.ts). Server-seitig
+ *  als Sicherheitsnetz für Roh-Events deren `price_bucket`-Spalte null ist. */
+function priceBucketFromEur(price: number | null | undefined): "budget" | "mid" | "premium" | null {
+  if (price == null || !Number.isFinite(price) || price < 0) return null;
+  if (price < 5) return "budget";
+  if (price <= 15) return "mid";
+  return "premium";
 }
 
 /** Modaler Preis (häufigster Wert) eines Items. Bei Gleichstand: höchster
@@ -182,6 +196,58 @@ function metricsForRestaurantEvents(
       ? null
       : Math.round((allPrices.reduce((s, p) => s + p, 0) / allPrices.length) * 100) / 100;
 
+  // ---- Erweiterte Aggregate (Migration 20260529100100) ----
+  // E2: Preis-Bucket-Klicks (nur item_detail).
+  const priceBucketClicks: Record<string, number> = {};
+  for (const e of events) {
+    if (e.event_type !== "item_detail") continue;
+    const bucket = e.price_bucket?.trim() || priceBucketFromEur(e.item_price);
+    if (!bucket) continue;
+    priceBucketClicks[bucket] = (priceBucketClicks[bucket] ?? 0) + 1;
+  }
+
+  // E3: Getränke-Subkategorie × Tagesblock (für item_detail bei Getränken).
+  const beverageByHour: Record<"morning" | "midday" | "evening" | "night", Record<string, number>> = {
+    morning: {},
+    midday: {},
+    evening: {},
+    night: {},
+  };
+  for (const e of events) {
+    const sub = e.beverage_subcategory?.trim();
+    if (!sub) continue;
+    const block = timeBlockForHour(eventHourBerlin(e));
+    beverageByHour[block][sub] = (beverageByHour[block][sub] ?? 0) + 1;
+  }
+
+  // E4: Ø-Wert der Wishlist-Adds an diesem Tag.
+  const wishlistPrices: number[] = [];
+  for (const e of events) {
+    if (e.event_type !== "wishlist_add") continue;
+    if (e.item_price == null || !Number.isFinite(e.item_price)) continue;
+    wishlistPrices.push(Number(e.item_price));
+  }
+  const avgWishlistValue =
+    wishlistPrices.length === 0
+      ? null
+      : Math.round((wishlistPrices.reduce((s, p) => s + p, 0) / wishlistPrices.length) * 100) / 100;
+
+  // E5: Kategorien-Klicks nach Monat. Tages-Row enthält i. d. R. nur einen
+  // Monat — die jsonb-Form ermöglicht Aufsummierung über mehrere Tages-Rows
+  // hinweg in Read-Queries.
+  const topCategoriesByMonth: Record<string, Record<string, number>> = {};
+  for (const e of events) {
+    if (e.event_type !== "item_detail" && e.event_type !== "category_enter") continue;
+    const cat = e.kategorie?.trim();
+    if (!cat) continue;
+    const monatKey = e.monat != null && Number.isFinite(e.monat)
+      ? String(e.monat)
+      : String(new Date(e.created_at).getUTCMonth() + 1);
+    const map = topCategoriesByMonth[monatKey] ?? {};
+    map[cat] = (map[cat] ?? 0) + 1;
+    topCategoriesByMonth[monatKey] = map;
+  }
+
   return {
     restaurant_id: restaurantId,
     day_berlin: dayYmd,
@@ -200,6 +266,10 @@ function metricsForRestaurantEvents(
     vegan_clicks: veganClicks,
     vegetarian_clicks: vegetarianClicks,
     avg_item_price_clicked: avgItemPriceClicked,
+    price_bucket_clicks: priceBucketClicks,
+    beverage_by_hour: beverageByHour,
+    avg_wishlist_value: avgWishlistValue,
+    top_categories_by_month: topCategoriesByMonth,
     updated_at: new Date().toISOString(),
   };
 }

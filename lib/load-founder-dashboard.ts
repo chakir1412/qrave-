@@ -68,7 +68,54 @@ export async function loadFounderDashboardData(
     return data as import("@/lib/founder-types").FounderMenuItem[];
   }
 
-  const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl, kpiDeltas, analyticsDaily30d, allMenuItems] = await Promise.all([
+  /** Letzter Dashboard-Login pro User-ID (aus Supabase Auth Admin API).
+   *  Onboarding-Tracking: hilft erkennen wer aktiv ist. Bei fehlender
+   *  Service-Key: leeres Mapping (UI zeigt "—"). */
+  async function loadLastLoginByUserId(): Promise<Record<string, string | null>> {
+    try {
+      const srv = createServiceRoleClient();
+      const out: Record<string, string | null> = {};
+      let page = 1;
+      const perPage = 200;
+      for (;;) {
+        const { data, error } = await srv.auth.admin.listUsers({ page, perPage });
+        if (error || !data) break;
+        for (const u of data.users) {
+          out[u.id] = u.last_sign_in_at ?? null;
+        }
+        if (data.users.length < perPage) break;
+        page += 1;
+        if (page > 50) break;
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }
+
+  /** MAX(menu_items.updated_at) pro restaurant_id. Service Role um RLS-
+   *  Edge-Cases zu umgehen; Read-only. */
+  async function loadLastMenuUpdate(): Promise<Record<string, string | null>> {
+    try {
+      const srv = createServiceRoleClient();
+      const { data, error } = await srv
+        .from("menu_items")
+        .select("restaurant_id, updated_at")
+        .order("updated_at", { ascending: false });
+      if (error || !data) return {};
+      const out: Record<string, string | null> = {};
+      for (const row of data as { restaurant_id: string | null; updated_at: string | null }[]) {
+        if (!row.restaurant_id) continue;
+        if (out[row.restaurant_id] !== undefined) continue;
+        out[row.restaurant_id] = row.updated_at ?? null;
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }
+
+  const [r1, rAllWeek, rToday, rWeek, rMonth, rYear, rPipe, rTodo, rExt, rTbl, kpiDeltas, analyticsDaily30d, allMenuItems, lastLoginByUserId, lastMenuUpdateByRestaurantId] = await Promise.all([
     supabase.from("restaurants").select("*").order("created_at", { ascending: false }),
     scanBaseAllTypes(SESSION_WINDOW_ROW_LIMIT).gte("created_at", weekStart),
     sessionWindowBase().gte("created_at", todayStart),
@@ -86,6 +133,8 @@ export async function loadFounderDashboardData(
     loadFounderKpiDeltas(now),
     loadAnalyticsDaily(),
     loadAllMenuItems(),
+    loadLastLoginByUserId(),
+    loadLastMenuUpdate(),
   ]);
 
   const errors: string[] = [];
@@ -130,6 +179,8 @@ export async function loadFounderDashboardData(
     kpiDeltas,
     analyticsDaily30d,
     allMenuItems,
+    lastLoginByUserId,
+    lastMenuUpdateByRestaurantId,
   };
 
   return { data, errors };

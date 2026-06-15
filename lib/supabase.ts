@@ -11,6 +11,9 @@ export type Restaurant = {
   name: string;
   template?: string | null;
   background_mode?: string | null;
+  /** Wirt-eigene Hintergrund-/Schriftfarbe (überschreibt background_mode wenn gesetzt). */
+  custom_bg_color?: string | null;
+  custom_text_color?: string | null;
   stadt: string | null;
   adresse: string | null;
   telefon: string | null;
@@ -69,6 +72,13 @@ export type Restaurant = {
    *  Gäste-Angebot raus (Splash-Hinweis). Für den Founder im Restaurant-
    *  Detail sichtbar. */
   tisch_bereiche?: { name: string; count: number; geschlossen?: boolean }[];
+  /** Optional: WLAN-Zugangsdaten, die auf der Splash-Seite in einem
+   *  Bottom-Sheet angezeigt werden. Beide nullable; Button erscheint nur
+   *  wenn `wifi_name` gesetzt ist. */
+  wifi_name?: string | null;
+  wifi_password?: string | null;
+  /** Optionale Küchen-Schließzeit (HH:MM:SS). Zusätzlich zur Öffnungszeit. */
+  kitchen_closes_at?: string | null;
 };
 
 /** Wochentag-Keys des Öffnungszeiten-Plans. */
@@ -152,9 +162,6 @@ export type RestaurantAnalyticsDaily = {
   updated_at: string;
 };
 
-/** Mehrpreise z.B. 0,2l / 0,3l / 0,5l / Flasche */
-export type PreisVolumen = Record<string, string>;
-
 export type MenuItem = {
   id: string;
   restaurant_id: string;
@@ -184,15 +191,10 @@ export type MenuItem = {
   /** Einzelnes Emoji (z.B. 🍺) */
   emoji?: string | null;
   sort_order?: number;
-  /** Allergene: gluten, milk, egg, nuts, shellfish, fish, soy (nicht in allen DB-Versionen) */
-  allergen_ids?: string[] | null;
-  /** Freitext-Allergene & Zutaten (vom PDF-Import autom. vorbefuellt). */
+  /** Freitext-Allergene & Zutaten (vom PDF-Import autom. vorbefuellt).
+   *  Einzige funktionierende Allergen-Quelle — wird im Item-Modal angezeigt
+   *  und vom AllergenSheet deduppliziert aufgelistet. */
   allergens_text?: string | null;
-  sponsored?: boolean;
-  partner_name?: string | null;
-  preis_volumen?: PreisVolumen | null;
-  is_highlight?: boolean;
-  section_subtitle?: string | null;
   /** Scan-Events (z. B. pro Woche), für Stat-Pills im Item-Modal */
   scan_count?: number | null;
   /** Übersetzungen (NULL = noch nicht übersetzt; werden via DeepL beim

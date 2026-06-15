@@ -23,6 +23,10 @@ export type RawRestaurantEventRow = {
   item_price: number | null;
   item_tags: string[] | null;
   beverage_subcategory: string | null;
+  /** Monat (Europe/Berlin) zum Roh-Event — befüllt von /api/track. */
+  monat: number | null;
+  /** Preis-Bucket bei item_detail/wishlist_add. */
+  price_bucket: string | null;
 };
 
 export type RestaurantAnalyticsGranularity = "day" | "month";
