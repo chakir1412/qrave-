@@ -5,6 +5,7 @@ import { berlinDaySpanInclusive } from "@/lib/berlin-time";
 import { isYmd } from "@/lib/restaurant-analytics-presets";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
 import { backfillAnalyticsRange } from "@/lib/run-analytics-aggregation";
+import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 const MAX_BACKFILL_DAYS = 120;
 
@@ -19,6 +20,14 @@ type BodyJson = {
  * POST JSON: { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "restaurantId"?: "uuid" }
  */
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("founder-backfill", ip, 10, "1 m");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate Limit überschritten." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
   const cookieStore = await cookies();
   const supabaseUser = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

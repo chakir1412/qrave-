@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
+import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -159,6 +160,14 @@ export async function PATCH(req: Request) {
  * - `{ action: "renameArea", restaurantId, newBereich, oldBereichIsNull?, oldBereich? }`
  */
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("founder-tables-post", ip, 60, "1 m");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate Limit überschritten." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
   const denied = await assertFounder();
   if (denied) return denied;
 
@@ -330,6 +339,14 @@ export async function POST(req: Request) {
  * Query: `tableId` = einzelner Tisch, oder `restaurantId` + `bereich` = alle Tische des Bereichs.
  */
 export async function DELETE(req: Request) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("founder-tables-del", ip, 30, "1 m");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate Limit überschritten." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
   const denied = await assertFounder();
   if (denied) return denied;
 

@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
+import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -33,6 +34,14 @@ const STOP_WORDS = new Set([
 ]);
 
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("founder-unsplash", ip, 30, "1 m");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate Limit überschritten." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
   const cookieStore = await cookies();
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -121,7 +130,13 @@ export async function POST(req: Request) {
 
   let updated = 0;
 
-  const accessKey = process.env.UNSPLASH_ACCESS_KEY!;
+  const accessKey = process.env.UNSPLASH_ACCESS_KEY?.trim();
+  if (!accessKey) {
+    return NextResponse.json(
+      { error: "UNSPLASH_ACCESS_KEY nicht gesetzt." },
+      { status: 500 },
+    );
+  }
 
   for (const item of items) {
     try {

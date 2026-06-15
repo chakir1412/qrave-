@@ -1,13 +1,8 @@
 {
+  "regions": ["fra1"],
   "functions": {
     "app/api/parse-menu/route.ts": {
       "maxDuration": 120
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/aggregate-analytics",
-      "schedule": "0 0 * * *"
-    }
-  ]
+  }
 }

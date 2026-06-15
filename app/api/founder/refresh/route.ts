@@ -2,8 +2,17 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { loadFounderDashboardData } from "@/lib/load-founder-dashboard";
+import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("founder-refresh", ip, 60, "1 m");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate Limit überschritten." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
 import { sendPublishConfirmation } from "@/lib/email";
+import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,14 @@ export const dynamic = "force-dynamic";
  *  dem Founder-Dashboard. Setzt `published=true` und `status='live'`,
  *  schickt die Bestätigungs-Mail an den Wirt. Idempotent. */
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("founder-publish", ip, 30, "1 m");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate Limit überschritten." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
   const cookieStore = await cookies();
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

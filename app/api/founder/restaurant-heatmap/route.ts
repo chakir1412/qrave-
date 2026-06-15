@@ -2,10 +2,19 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
+import { checkRateLimit, getClientIp, rateLimitHeaders, isUuid } from "@/lib/rate-limit";
 
 const WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function GET(req: Request) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("founder-heatmap", ip, 60, "1 m");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate Limit überschritten." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
   const cookieStore = await cookies();
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,8 +37,8 @@ export async function GET(req: Request) {
   }
 
   const restaurantId = new URL(req.url).searchParams.get("restaurantId")?.trim() ?? "";
-  if (!restaurantId) {
-    return NextResponse.json({ error: "restaurantId fehlt" }, { status: 400 });
+  if (!restaurantId || !isUuid(restaurantId)) {
+    return NextResponse.json({ error: "restaurantId fehlt oder ungültig" }, { status: 400 });
   }
 
   let srv;

@@ -10,6 +10,7 @@ import {
   pdfBufferToPngBase64PagesRange,
 } from "@/lib/server/pdf-scan";
 import { enrichItemsWithDescriptions } from "@/lib/auto-describe";
+import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 /** Vercel Serverless Timeout (PDF-Rendering + KI). */
 export const maxDuration = 120;
@@ -165,6 +166,40 @@ type AnthropicErrorBody = {
   error?: { type?: string; message?: string };
 };
 
+/** HTTP-Status, bei denen ein Retry gegen Anthropic sinnvoll ist:
+ *  429 = Rate-Limit, 503 = Service Unavailable, 529 = Overloaded. */
+const ANTHROPIC_RETRY_STATUSES = new Set([429, 503, 529]);
+/** Exponential Backoff zwischen Retries: 1s → 2s → 4s. */
+const ANTHROPIC_RETRY_BACKOFFS_MS = [1000, 2000, 4000];
+const ANTHROPIC_MAX_ATTEMPTS = 3;
+
+/** POST an Anthropic mit Retry bei 429/503/529. Andere Fehler werden sofort
+ *  zurückgegeben — der Caller entscheidet wie damit umgegangen wird. */
+async function anthropicFetchWithRetry(
+  headers: Record<string, string>,
+  body: string,
+): Promise<Response> {
+  let res!: Response;
+  for (let attempt = 0; attempt < ANTHROPIC_MAX_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      const delay = ANTHROPIC_RETRY_BACKOFFS_MS[attempt - 1] ?? 4000;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers,
+      body,
+    });
+    if (res.ok || !ANTHROPIC_RETRY_STATUSES.has(res.status)) {
+      return res;
+    }
+    console.warn(
+      `anthropic ${res.status} — Retry-Versuch ${attempt + 1}/${ANTHROPIC_MAX_ATTEMPTS}`,
+    );
+  }
+  return res;
+}
+
 function normalizeModelJsonText(input: string): string {
   let t = input.trim();
   if (t.startsWith("```")) {
@@ -260,14 +295,13 @@ function splitTextIntoChunks(text: string, chunkSize: number): string[] {
 
 async function parseChunkOnce(chunk: string, apiKey: string): Promise<ParsedMenuItemDto[]> {
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
+    const res = await anthropicFetchWithRetry(
+      {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({
+      JSON.stringify({
         model: MODEL,
         max_tokens: CHUNK_MAX_TOKENS,
         messages: [
@@ -285,7 +319,7 @@ ${chunk}`,
           },
         ],
       }),
-    });
+    );
     const raw = await res.text();
     if (!res.ok) {
       return [];
@@ -470,10 +504,9 @@ async function anthropicExtractMenuItems(
     headers["anthropic-beta"] = "pdfs-2024-09-25";
   }
 
-  const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
+  const anthropicRes = await anthropicFetchWithRetry(
     headers,
-    body: JSON.stringify({
+    JSON.stringify({
       model: MODEL,
       max_tokens: maxTokens,
       messages: [
@@ -483,7 +516,7 @@ async function anthropicExtractMenuItems(
         },
       ],
     }),
-  });
+  );
 
   const rawText = await anthropicRes.text();
   if (!anthropicRes.ok) {
@@ -529,6 +562,18 @@ async function anthropicExtractMenuItems(
 }
 
 export async function POST(req: Request) {
+  // Rate-Limit vor Founder-Auth: schützt vor Brute-Force gegen Auth-Cookie
+  // und vor accidental flood (z. B. UI-Bug der mehrfach feuert). Anthropic
+  // kostet pro Call — 10/h pro IP ist großzügig für legitime Founder-Nutzung.
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("parse-menu", ip, 10, "1 h");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { success: false, error: "Rate Limit überschritten." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
+
   const denied = await assertFounderOrUnauthorized();
   if (denied) return denied;
 
@@ -555,8 +600,6 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-
-    console.log("parse-menu FormData keys:", [...formData.keys()]);
 
     const pdfDocumentRaw = formData.get("pdfDocument");
     const pdfDocument =

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { nextBerlinYmd, startOfBerlinYmdUtcIso } from "@/lib/berlin-time";
 import { isYmd } from "@/lib/restaurant-analytics-presets";
+import { checkRateLimit, getClientIp, rateLimitHeaders, isUuid } from "@/lib/rate-limit";
 import type { RestaurantAnalyticsApiPayload, RestaurantAnalyticsApiRestaurant } from "@/lib/restaurant-analytics-api-types";
 import {
   aggregateRestaurantAnalytics,
@@ -17,6 +18,14 @@ const RESTAURANT_SELECT =
   "id,name,slug,stadt,telefon,aktiv,cuisine_type,stadtbezirk,sitzplaetze_ca,restaurant_typ";
 
 export async function GET(req: Request) {
+  const ip = getClientIp(req);
+  const rl = await checkRateLimit("founder-analytics", ip, 60, "1 m");
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Rate Limit überschritten." },
+      { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,7 +52,7 @@ export async function GET(req: Request) {
   const fromYmd = searchParams.get("from") ?? "";
   const toYmd = searchParams.get("to") ?? "";
 
-  if (!restaurantId || !isYmd(fromYmd) || !isYmd(toYmd)) {
+  if (!restaurantId || !isUuid(restaurantId) || !isYmd(fromYmd) || !isYmd(toYmd)) {
     return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
   }
   if (fromYmd > toYmd) {
