@@ -51,6 +51,20 @@ body {
   mask-image: linear-gradient(to right, transparent 0, black 20px, black calc(100% - 20px), transparent 100%);
 }
 
+/* Qrave-Logo: subtiler lila Glow-Puls, langsam.
+ *  Auf <img>-Tags der Logo-Instanzen (Landing-Navbar, Login, Registrierung,
+ *  Dashboard-Sidebar). prefers-reduced-motion respektiert. */
+@keyframes qravePulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(147, 51, 234, 0.4)); }
+  50% { filter: drop-shadow(0 0 14px rgba(147, 51, 234, 0.7)); }
+}
+.logo-glow {
+  animation: qravePulse 3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-glow { animation: none; }
+}
+
 /* Speisekarte template: overlay animations */
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -528,7 +542,7 @@ body {
 .qrave-shell {
   background: var(--qrave-dash-bg);
   color: var(--qrave-dash-text);
-  min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--font-dm-sans), system-ui, sans-serif;
 }
 

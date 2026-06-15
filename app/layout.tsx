@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { DM_Sans, Geist, Geist_Mono, Roboto } from "next/font/google";
 import "./globals.css";
@@ -29,6 +29,22 @@ export const metadata: Metadata = {
   title: "Qrave – Die schönste digitale Speisekarte",
   description:
     "QR scannen — Menü sofort. Kostenlos, mehrsprachig, mit KI-Import. Kein App-Download, kein Zwang für Gäste.",
+  icons: {
+    icon: [
+      { url: "/QR_logo.png", media: "(prefers-color-scheme: light)" },
+      { url: "/QR_Logo_weiß.png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: [
+      { url: "/QR_logo.png", media: "(prefers-color-scheme: light)" },
+      { url: "/QR_Logo_weiß.png", media: "(prefers-color-scheme: dark)" },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -39,6 +55,8 @@ export default function RootLayout({
   return (
     <html lang="de">
       <head>
+        <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com" />
         <Script
           src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js"
           strategy="afterInteractive"
