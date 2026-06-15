@@ -57,7 +57,6 @@ export default function RegistrierenWizard() {
     return () => {
       if (s.logoPreview?.startsWith("blob:")) URL.revokeObjectURL(s.logoPreview);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.logoPreview]);
 
   const set = useCallback(<K extends keyof WizardState>(key: K, value: WizardState[K]) => {
@@ -133,10 +132,17 @@ export default function RegistrierenWizard() {
       }
       // Auto-Login direkt im Browser-Client, damit /dashboard die Session
       // im localStorage findet und nicht zum Login redirected.
-      await supabase.auth.signInWithPassword({
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
         email: s.email.trim().toLowerCase(),
         password: s.password,
       });
+      if (signInErr) {
+        // Registrierung war erfolgreich, aber Auto-Login fehlgeschlagen.
+        // User-freundliche Meldung + auf Login-Seite weiter, statt blindem
+        // Dashboard-Redirect der dann auf /login zurückspringen würde.
+        window.location.assign("/login?registered=1");
+        return;
+      }
       window.location.assign("/dashboard");
     } catch (err) {
       setS((prev) => ({
@@ -298,12 +304,15 @@ export default function RegistrierenWizard() {
           <a href="/" className="qrave-back-link text-sm font-medium">
             ← Zurück
           </a>
-          <span
-            className="text-[11px] uppercase tracking-[0.18em]"
-            style={{ color: ACCENT, fontFamily: FONT_ROBOTO, fontWeight: 900 }}
-          >
-            QRAVE
-          </span>
+          <a href="/" aria-label="Qrave Startseite">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/QR_Logo_weiß.png"
+              alt="Qrave"
+              className="logo-glow"
+              style={{ height: 32, width: "auto", display: "block" }}
+            />
+          </a>
         </div>
 
         {/* Progress */}

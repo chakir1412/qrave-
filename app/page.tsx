@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import RoiSection from "@/components/landing/RoiSection";
 
 const WHATSAPP_SUPPORT =
   "https://wa.me/491738996449?text=Hallo%2C%20ich%20habe%20eine%20Frage%20zu%20Qrave.";
@@ -706,9 +707,32 @@ export default function Home() {
         {/* NAVBAR */}
         <nav className="nav">
           <div className="nav-inner">
-            <Link href="/" className="logo">
-              <span className="dot" />
-              qrave
+            <Link
+              href="/"
+              className="logo"
+              aria-label="Qrave Startseite"
+              style={{ display: "inline-flex", alignItems: "center", gap: 10 }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/QR_Logo_weiß.png"
+                alt=""
+                className="logo-glow"
+                style={{ height: 32, width: "auto", display: "block" }}
+              />
+              <span
+                style={{
+                  fontFamily: "var(--font-roboto), system-ui, sans-serif",
+                  fontWeight: 900,
+                  fontSize: 20,
+                  color: "#ffffff",
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1,
+                  textTransform: "lowercase",
+                }}
+              >
+                qrave
+              </span>
             </Link>
             <div className="nav-right">
               <a href="#how" className="nav-link">So funktioniert&apos;s</a>
@@ -1128,6 +1152,9 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ROI / WAS BRINGT'S */}
+        <RoiSection />
+
         {/* PRICING */}
         <section className="pricing">
           <div className="wrap">
@@ -1175,9 +1202,9 @@ export default function Home() {
         <footer>
           <div className="foot-inner">
             <div className="left">
-              <Link href="/" className="logo" style={{ fontSize: 16 }}>
-                <span className="dot" />
-                qrave
+              <Link href="/" className="logo" aria-label="Qrave Startseite">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/QR_Logo_weiß.png" alt="Qrave" style={{ height: 28, width: "auto", display: "block" }} />
               </Link>
               <span>© {new Date().getFullYear()} Qrave</span>
             </div>

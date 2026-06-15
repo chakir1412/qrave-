@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 const ACCENT = "#9333ea";
@@ -33,7 +34,14 @@ export default function LoginPage() {
 function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") ?? "/dashboard";
+  const redirectParam = searchParams.get("redirect");
+  // Open-Redirect-Schutz: nur relative Pfade auf eigene Domain erlauben.
+  // '//evil.com' ist protocol-relative und würde extern weiterleiten.
+  const redirect =
+    redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")
+      ? redirectParam
+      : "/dashboard";
+  const justRegistered = searchParams.get("registered") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loadingGoogle, setLoadingGoogle] = useState(false);
@@ -152,13 +160,16 @@ function LoginInner() {
       `}</style>
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-6 pb-10 pt-10">
-        <div className="mb-10 text-center">
-          <span
-            className="text-[20px] tracking-[0.04em]"
-            style={{ color: ACCENT, fontFamily: FONT_ROBOTO, fontWeight: 900 }}
-          >
-            QRAVE
-          </span>
+        <div className="mb-10 flex justify-center">
+          <Link href="/" aria-label="Qrave Startseite">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/QR_Logo_weiß.png"
+              alt="Qrave"
+              className="logo-glow"
+              style={{ height: 32, width: "auto", display: "block" }}
+            />
+          </Link>
         </div>
 
         <section
@@ -202,6 +213,22 @@ function LoginInner() {
           >
             Melde dich an um deine Speisekarte zu verwalten.
           </p>
+
+          {justRegistered ? (
+            <div
+              className="mt-4 rounded-[10px] px-4 py-3"
+              style={{
+                background: "rgba(34,197,94,0.08)",
+                border: "1px solid rgba(34,197,94,0.25)",
+                color: "rgba(255,255,255,0.85)",
+                fontFamily: FONT_DM,
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            >
+              Registrierung erfolgreich. Bitte melde dich jetzt an.
+            </div>
+          ) : null}
 
           <button
             type="button"
