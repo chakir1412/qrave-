@@ -106,7 +106,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!restaurant || !analytics) {
+  if (!restaurant) {
     return (
       <div
         className="flex min-h-dvh flex-col items-center justify-center gap-2 px-6 text-center font-sans text-sm"
@@ -118,12 +118,27 @@ export default function DashboardPage() {
     );
   }
 
+  // Analytics dürfen fehlschlagen ohne das ganze Dashboard zu blocken — Fallback auf leere Struktur
+  // (identisch zur Fehler-Branch in fetchDashboardAnalytics).
+  const safeAnalytics: Awaited<ReturnType<typeof fetchDashboardAnalytics>> = analytics ?? {
+    events: [],
+    viewsToday: null,
+    viewsYesterday: null,
+    topItemToday: null,
+    topItemsWeek: [],
+    weekSeries: [0, 0, 0, 0, 0, 0, 0],
+    monthTotal: 0,
+    peaksToday: [],
+    hourBuckets: { morning: 0, midday: 0, evening: 0, night: 0 },
+    topFilter: null,
+  };
+
   return (
     <DashboardApp
       userFirstName={userFirstName}
       restaurant={restaurant}
       initialMenuItems={menuItems}
-      initialAnalytics={analytics}
+      initialAnalytics={safeAnalytics}
       initialDailyPushes={dailyPushes}
       initialLunchOffers={lunchOffers}
     />

@@ -1,16 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MenuItem } from "@/lib/supabase";
 import { dash, dashPrimaryButtonStyle } from "../constants";
 import { TemplatePreview, type PreviewTemplateId } from "../templatePreviews";
-import {
-  BACKGROUND_MODES,
-  DEFAULT_MODE_PER_TEMPLATE,
-  MODE_LABELS,
-  resolveBackground,
-  type BackgroundMode,
-} from "@/lib/template-background";
+import { isDarkHex, resolveBackground, suggestAccentColors } from "@/lib/template-background";
 
 type TemplateOption = {
   id: PreviewTemplateId;
@@ -18,7 +12,6 @@ type TemplateOption = {
   description: string;
   colorInfo: string;
   defaultAccent: string;
-  swatches: ReadonlyArray<string>;
 };
 
 const TEMPLATE_OPTIONS: ReadonlyArray<TemplateOption> = [
@@ -26,67 +19,174 @@ const TEMPLATE_OPTIONS: ReadonlyArray<TemplateOption> = [
     id: "heritage", label: "Heritage", description: "Klassisch & warm — ideal für Wirtshäuser",
     colorInfo: "Beige + Gold · Lora Italic",
     defaultAccent: "#c0580a",
-    swatches: ["#c0580a", "#c8894e", "#b86c2a", "#8b5a2b", "#5c3a1c", "#2c1410"],
   },
   {
     id: "noir", label: "Noir", description: "Elegant & dunkel — ideal für Bars & Lounges",
     colorInfo: "Schwarz + Gold · Cormorant Garamond",
     defaultAccent: "#c9a84c",
-    swatches: ["#c9a84c", "#e8c97a", "#d4a64a", "#a08440", "#6b5a35", "#f4d97a"],
   },
   {
     id: "clean", label: "Clean", description: "Hell & frisch — ideal für Cafés & Bistros",
     colorInfo: "Beige + Grün · Playfair Display",
     defaultAccent: "#2d6a4f",
-    swatches: ["#2d6a4f", "#4a8c6a", "#1a4d36", "#66a583", "#346f53", "#0a3120"],
   },
   {
     id: "trattoria", label: "Trattoria", description: "Rustikal & warm — ideal für Italiener & Pizzerien",
     colorInfo: "Beige + Rot · Lora Italic",
     defaultAccent: "#c0392b",
-    swatches: ["#c0392b", "#e74c3c", "#a02817", "#8c1a0b", "#f9c46c", "#5a1308"],
   },
   {
     id: "minimal", label: "Minimal", description: "Schlicht & klar — passt zu fast jedem Restaurant",
     colorInfo: "Weiß + Schwarz · Inter",
     defaultAccent: "#111111",
-    swatches: ["#111111", "#2563eb", "#c0392b", "#2d6a4f", "#c0580a", "#6b21a8"],
   },
   {
     id: "playful", label: "Playful", description: "Verspielt & bold — ideal für Trendbars & Streetfood",
     colorInfo: "Pink + Magenta · Syne",
     defaultAccent: "#ff3d7f",
-    swatches: ["#ff3d7f", "#ffb800", "#00d9ff", "#c084fc", "#34d399", "#fb7185"],
   },
   {
     id: "asian-dark", label: "Asian Dark", description: "Modern & dunkel — ideal für asiatische Küche",
     colorInfo: "Schwarz + Rot · Noto Sans JP",
     defaultAccent: "#e8282e",
-    swatches: ["#e8282e", "#ff6b35", "#c9a84c", "#d4a64a", "#ff4422", "#b91c1c"],
   },
   {
     id: "street-food", label: "Street Food", description: "Kräftig & schnell — ideal für Burger & Fast Casual",
     colorInfo: "Schwarz + Gelb · Bebas Neue",
     defaultAccent: "#e8b400",
-    swatches: ["#e8b400", "#ff4422", "#f59e0b", "#fbbf24", "#facc15", "#ffd54f"],
   },
   {
     id: "mediterranean", label: "Mediterranean", description: "Warm & mediterran — ideal für türkische & arabische Küche",
     colorInfo: "Beige + Terracotta · Inter",
     defaultAccent: "#c0580a",
-    swatches: ["#c0580a", "#d4613a", "#c9972a", "#5c8a3c", "#8b5a2b", "#2c1a0e"],
+  },
+  {
+    id: "blossom", label: "Blossom", description: "Hell & verspielt — ideal für Brunch & Cafés",
+    colorInfo: "Creme + Coral · Lora Italic & Nunito",
+    defaultAccent: "#e8836a",
   },
 ];
 
 const MAX_RECOMMENDED_CATEGORIES = 5;
+
+/** Default-18-Hintergrund-Farben (3 Reihen × 6): hell, mittel/dunkel, spezial. */
+const BG_PALETTE_DEFAULT: ReadonlyArray<string> = [
+  "#ffffff", "#faf8f5", "#f5f0e8", "#e8e4dc", "#d4cfc5", "#b8b2a8",
+  "#c0580a", "#8b3a3a", "#4a3728", "#1a2332", "#1c3a2a", "#1c1c1e",
+  "#c9a07a", "#d4b896", "#5c6b3a", "#2d4a5c", "#3d1a4a", "#0a0805",
+];
+
+/** Template-spezifische BG-Palette — Override des Defaults pro Template.
+ *  Pro Eintrag 12 Farben in 4 Gruppen à 3 (Blossom: 16 Farben in 4er-Gruppen).
+ *  Playful fehlt absichtlich — keine BG-Wahl im UI (eigene fixe CI). */
+const BG_PALETTE_PER_TEMPLATE: Partial<Record<string, ReadonlyArray<string>>> = {
+  heritage: [
+    "#f5ede0", "#f0e8d8", "#ede0cc",
+    "#f0e0c8", "#e8d0b0", "#dfc090",
+    "#2a2018", "#1c1810", "#0e0c08",
+    "#d8d0c8", "#c0b8b0", "#a09890",
+  ],
+  noir: [
+    "#000000", "#0a0a0a", "#111111",
+    "#1a1a1a", "#222222", "#2a2a2a",
+    "#1a1510", "#100d08", "#0a0805",
+    "#1a1500", "#151000", "#0a0800",
+  ],
+  clean: [
+    "#ffffff", "#f8f8f4", "#f2f2ec",
+    "#f5f0e8", "#f0ece0", "#ece8d8",
+    "#f0f5f0", "#e8f0e8", "#e0ece0",
+    "#f5ede0", "#f0e8d8", "#ece0cc",
+  ],
+  trattoria: [
+    "#fdf5e8", "#f8f0e0", "#f2e8d4",
+    "#f5e8dc", "#f0ddd0", "#e8d0c0",
+    "#2c1810", "#201008", "#140a04",
+    "#3a1a10", "#2a1008", "#1a0804",
+  ],
+  minimal: [
+    "#ffffff", "#fafafa", "#f5f5f5",
+    "#f0f0f0", "#e8e8e8", "#e0e0e0",
+    "#d0d0d0", "#c0c0c0", "#b0b0b0",
+    "#1a1a1a", "#111111", "#000000",
+  ],
+  "asian-dark": [
+    "#000000", "#050505", "#0a0a0a",
+    "#0d0d0d", "#111111", "#151515",
+    "#100808", "#150a0a", "#1a0c0c",
+    "#1a0505", "#150404", "#100303",
+  ],
+  "street-food": [
+    "#000000", "#0a0a0a", "#111111",
+    "#1a1a1a", "#222222", "#2a2a2a",
+    "#1a1500", "#151000", "#0a0800",
+    "#1a1a10", "#151510", "#101008",
+  ],
+  mediterranean: [
+    "#fdf5e8", "#f8f0e0", "#f5ece0",
+    "#f0e8d8", "#ece0cc", "#e8d8c0",
+    "#f5e0d0", "#f0d8c8", "#e8ccb8",
+    "#2a1808", "#201005", "#180c04",
+  ],
+  blossom: [
+    "#fdf6f0", "#fff5ee", "#f5f0e8", "#ffffff",
+    "#fde8dc", "#f9d4c5", "#fce4f0", "#f5e6f5",
+    "#e8f5e8", "#f0f7e0", "#e0f0e8", "#f5f0e0",
+    "#fce8f0", "#f8d8e8", "#f5cce0", "#f0c0d8",
+  ],
+};
+
+function bgPaletteFor(templateId: string | null | undefined): ReadonlyArray<string> {
+  if (templateId && BG_PALETTE_PER_TEMPLATE[templateId]) {
+    return BG_PALETTE_PER_TEMPLATE[templateId] as ReadonlyArray<string>;
+  }
+  return BG_PALETTE_DEFAULT;
+}
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex.trim());
+  if (!m) return null;
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+
+/** WCAG-Relative-Luminance (sRGB linearisiert). */
+function relativeLuminance(hex: string): number {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+  const [r, g, b] = rgb.map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(a: string, b: string): number {
+  const L1 = relativeLuminance(a);
+  const L2 = relativeLuminance(b);
+  const hi = Math.max(L1, L2);
+  const lo = Math.min(L1, L2);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Abgeleitete Schriftfarbe für einen gegebenen Hintergrund. */
+function deriveTextColor(bgHex: string): string {
+  return isDarkHex(bgHex) ? "#f0eee8" : "#1a1a1a";
+}
 
 type Props = {
   slideClass: string;
   template: string | null;
   accentColor: string | null;
   backgroundMode: string | null;
+  customBgColor: string | null;
   menuItems: MenuItem[];
-  onTemplateChange: (input: { template: string; accentColor: string; backgroundMode: BackgroundMode }) => Promise<void>;
+  onTemplateChange: (input: {
+    template: string;
+    accentColor: string;
+    backgroundMode: null;
+    customBgColor: string;
+    customTextColor: string;
+  }) => Promise<void>;
   onTabChange: (tab: "karte") => void;
   onToast: (msg: string) => void;
 };
@@ -96,17 +196,28 @@ export function DesignTab({
   template,
   accentColor,
   backgroundMode,
+  customBgColor,
   menuItems,
   onTemplateChange,
   onTabChange,
   onToast,
 }: Props) {
   const [preview, setPreview] = useState<TemplateOption | null>(null);
+  const [selectedBg, setSelectedBg] = useState<string>("");
   const [selectedAccent, setSelectedAccent] = useState<string>("");
-  const [selectedMode, setSelectedMode] = useState<BackgroundMode>("light");
+  const selectedAccentRef = useRef<string>("");
+  useEffect(() => {
+    selectedAccentRef.current = selectedAccent;
+  }, [selectedAccent]);
   const [saving, setSaving] = useState(false);
 
-  // Anzahl distinct-Kategorien aus der aktuellen Speisekarte.
+  /** Bg-Click resettet Akzent auf den vorgeschlagenen [3]-Eintrag —
+   *  Wenn der Wirt einen anderen Akzent wollte, kann er aus den 4 auswählen. */
+  function handleBgChange(newBg: string) {
+    setSelectedBg(newBg);
+    setSelectedAccent(suggestAccentColors(preview?.id ?? null, newBg)[3]);
+  }
+
   const categoryCount = useMemo(() => {
     const set = new Set<string>();
     for (const it of menuItems) {
@@ -116,31 +227,43 @@ export function DesignTab({
     return set.size;
   }, [menuItems]);
 
-  /** Beim Öffnen der Vorschau: Akzent vorinitialisieren — wenn der User das
-   *  aktuell aktive Template anschaut, übernimm dessen aktuellen accent_color,
-   *  sonst den Template-Default. */
+  /** Beim Öffnen der Vorschau Hintergrund + Akzent initialisieren. */
   useEffect(() => {
     if (!preview) return;
-    if (preview.id === template && accentColor) setSelectedAccent(accentColor);
-    else setSelectedAccent(preview.defaultAccent);
-    // Background-Mode: bestehend wenn dieses Template aktiv, sonst Template-Default.
-    if (preview.id === template && backgroundMode && (BACKGROUND_MODES as readonly string[]).includes(backgroundMode)) {
-      setSelectedMode(backgroundMode as BackgroundMode);
+    const isActive = preview.id === template;
+    let initialBg: string;
+    if (isActive && customBgColor) {
+      initialBg = customBgColor;
     } else {
-      setSelectedMode(DEFAULT_MODE_PER_TEMPLATE[preview.id]);
+      const base = resolveBackground(preview.id, backgroundMode as never);
+      initialBg = /^#[0-9a-f]{6}$/i.test(base.bg) ? base.bg : "#ffffff";
     }
+    setSelectedBg(initialBg);
+    setSelectedAccent(
+      isActive && accentColor ? accentColor : suggestAccentColors(preview.id, initialBg)[3],
+    );
     window.scrollTo({ top: 0, behavior: "auto" });
-  }, [preview, template, accentColor, backgroundMode]);
+  }, [preview, template, backgroundMode, customBgColor, accentColor]);
 
   const hasItems = menuItems.length > 0;
 
   async function applyTemplate() {
     if (!preview || saving) return;
+    const bgToSave = selectedBg || "#ffffff";
+    // Ref statt State — robust gegen Re-Renders die mitten im Save den Closure
+    // überschreiben könnten (z. B. wenn der Parent-State während des await
+    // updated wird und der useEffect den State zurücksetzt).
+    const accentToSave = selectedAccentRef.current || selectedAccent || suggestAccentColors(preview.id, bgToSave)[3];
+    const textToSave = deriveTextColor(bgToSave);
     setSaving(true);
     try {
-      // Fallback wenn selectedAccent noch leer ist (race vor useEffect-Init).
-      const accentToSave = selectedAccent || preview.defaultAccent;
-      await onTemplateChange({ template: preview.id, accentColor: accentToSave, backgroundMode: selectedMode });
+      await onTemplateChange({
+        template: preview.id,
+        accentColor: accentToSave,
+        backgroundMode: null,
+        customBgColor: bgToSave,
+        customTextColor: textToSave,
+      });
       onToast("Template gespeichert");
       setPreview(null);
     } catch (err) {
@@ -183,6 +306,14 @@ export function DesignTab({
   const tooManyCategories = categoryCount > MAX_RECOMMENDED_CATEGORIES;
 
   if (preview) {
+    const previewBg = selectedBg || "#ffffff";
+    const previewText = deriveTextColor(previewBg);
+    const accentSuggestions = suggestAccentColors(preview.id, previewBg);
+    const bgPalette = bgPaletteFor(preview.id);
+    const previewAccent = selectedAccent || accentSuggestions[3];
+    const ratio = contrastRatio(previewBg, previewText);
+    const goodContrast = ratio >= 3.0;
+
     return (
       <div className={slideClass}>
         <button
@@ -201,8 +332,9 @@ export function DesignTab({
           <TemplatePreview
             id={preview.id}
             width={preview.id === "clean" || preview.id === "playful" ? 130 : 240}
-            accentColor={selectedAccent || preview.defaultAccent}
-            backgroundMode={selectedMode}
+            accentColor={previewAccent}
+            customBgColor={previewBg}
+            customTextColor={previewText}
           />
         </div>
 
@@ -225,78 +357,40 @@ export function DesignTab({
           <span className="mt-1 block" style={{ color: dash.tx }}>{preview.colorInfo}</span>
         </div>
 
-        {/* Color-Picker */}
-        <div className="mt-4">
-          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: dash.mi }}>
-            Akzentfarbe anpassen
-          </div>
-          <div className="flex items-center gap-2.5">
-            <input
-              type="color"
-              value={selectedAccent || preview.defaultAccent}
-              onChange={(e) => setSelectedAccent(e.target.value)}
-              aria-label="Akzentfarbe"
-              style={{
-                width: 36, height: 36, padding: 0, border: `1px solid ${dash.bo}`,
-                borderRadius: 8, background: "transparent", cursor: "pointer",
-              }}
+        {/* Playful hat eine feste CI — Farbwahl ausblenden. */}
+        {preview.id !== "playful" ? (
+          <>
+            {/* Hintergrund-Palette — Schrift wird automatisch abgeleitet */}
+            <ColorPalette
+              label="Hintergrundfarbe"
+              colors={bgPalette}
+              selected={selectedBg}
+              onSelect={handleBgChange}
             />
-            <div className="flex flex-1 flex-wrap gap-1.5">
-              {preview.swatches.map((c) => {
-                const isActive = selectedAccent.toLowerCase() === c.toLowerCase();
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setSelectedAccent(c)}
-                    aria-label={`Akzentfarbe ${c}`}
-                    style={{
-                      width: 28, height: 28, borderRadius: 8, background: c,
-                      border: isActive ? `2px solid ${dash.tx}` : `1px solid ${dash.bo}`,
-                      boxShadow: isActive ? `0 0 0 2px ${dash.bg}` : "none",
-                      cursor: "pointer",
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </div>
 
-        {/* Hintergrund-Slider (5 Stufen) */}
-        <div className="mt-4">
-          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: dash.mi }}>
-            Hintergrund
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            {BACKGROUND_MODES.map((m) => {
-              const isActive = selectedMode === m;
-              const swatch = resolveBackground(preview.id, m).bg;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setSelectedMode(m)}
-                  aria-label={MODE_LABELS[m]}
-                  title={MODE_LABELS[m]}
-                  style={{
-                    flex: 1,
-                    height: 40,
-                    borderRadius: 8,
-                    background: swatch,
-                    border: isActive ? `2px solid ${dash.primaryBg}` : `1px solid ${dash.bo}`,
-                    boxShadow: isActive ? `0 0 0 2px ${dash.bg}` : "none",
-                    cursor: "pointer",
-                  }}
-                />
-              );
-            })}
-          </div>
-          <div className="mt-1.5 flex items-center justify-between text-[10px]" style={{ color: dash.mi }}>
-            <span>{MODE_LABELS.extraLight}</span>
-            <span>{MODE_LABELS.extraDark}</span>
-          </div>
-        </div>
+            {/* Akzentfarbe — 4 zur Bg-Farbe passende Vorschläge */}
+            <ColorPalette
+              label="Akzentfarbe"
+              colors={accentSuggestions}
+              selected={selectedAccent}
+              onSelect={setSelectedAccent}
+            />
+
+            {/* WCAG-Kontrast-Hinweis */}
+            <div
+              className="mt-3 rounded-[10px] border px-3.5 py-2.5 text-[12px] leading-[1.5]"
+              style={{
+                background: goodContrast ? "rgba(34,197,94,0.08)" : "rgba(250,204,21,0.08)",
+                borderColor: goodContrast ? "rgba(34,197,94,0.3)" : "rgba(250,204,21,0.35)",
+                color: goodContrast ? "#86efac" : "#fde68a",
+              }}
+            >
+              {goodContrast
+                ? `✓ Gute Lesbarkeit (Kontrast ${ratio.toFixed(1)}:1)`
+                : `⚠ Diese Farbkombination ist schwer lesbar (Kontrast ${ratio.toFixed(1)}:1)`}
+            </div>
+          </>
+        ) : null}
 
         {/* Kategorien-Warnung — nur für Templates mit Splash (Clean/Playful) */}
         {tooManyCategories && (preview.id === "clean" || preview.id === "playful") ? (
@@ -349,9 +443,8 @@ export function DesignTab({
         {TEMPLATE_OPTIONS.map((opt) => {
           const active = template === opt.id;
           const previewAccent = active && accentColor ? accentColor : opt.defaultAccent;
-          const previewMode = (active && backgroundMode && (BACKGROUND_MODES as readonly string[]).includes(backgroundMode))
-            ? (backgroundMode as BackgroundMode)
-            : DEFAULT_MODE_PER_TEMPLATE[opt.id];
+          const gridCustomBg = active && customBgColor ? customBgColor : null;
+          const gridCustomText = gridCustomBg ? deriveTextColor(gridCustomBg) : null;
           const isSplit = opt.id === "clean" || opt.id === "playful";
           return (
             <button
@@ -369,7 +462,13 @@ export function DesignTab({
                 className="mb-2.5 flex items-center justify-center overflow-hidden rounded-[10px]"
                 style={{ background: "rgba(0,0,0,0.4)", padding: 6, minHeight: isSplit ? 110 : 178 }}
               >
-                <TemplatePreview id={opt.id} width={isSplit ? 60 : 100} accentColor={previewAccent} backgroundMode={previewMode} />
+                <TemplatePreview
+                  id={opt.id}
+                  width={isSplit ? 60 : 100}
+                  accentColor={previewAccent}
+                  customBgColor={gridCustomBg}
+                  customTextColor={gridCustomText}
+                />
               </div>
 
               <div className="flex items-start justify-between gap-2">
@@ -400,6 +499,57 @@ export function DesignTab({
                 </div>
               ) : null}
             </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** 6×3 Grid mit Kreisen; aktive Farbe bekommt Ring abhängig von der
+ *  Farb-Helligkeit (dunkler Ring auf hellen Farben, weiß auf dunklen). */
+function ColorPalette({
+  label,
+  colors,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  colors: ReadonlyArray<string>;
+  selected: string;
+  onSelect: (c: string) => void;
+}) {
+  return (
+    <div className="mt-5">
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: dash.mi }}>
+        {label}
+      </div>
+      <div
+        className="grid"
+        style={{ gridTemplateColumns: "repeat(6, 36px)", gap: 8, justifyContent: "space-between" }}
+      >
+        {colors.map((c) => {
+          const isActive = selected.toLowerCase() === c.toLowerCase();
+          const ringColor = isDarkHex(c) ? "#ffffff" : "#1a1a1a";
+          return (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onSelect(c)}
+              aria-label={`${label} ${c}`}
+              aria-pressed={isActive}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: c,
+                border: "none",
+                outline: isActive ? `2px solid ${ringColor}` : "none",
+                outlineOffset: isActive ? 2 : 0,
+                cursor: "pointer",
+                padding: 0,
+              }}
+            />
           );
         })}
       </div>

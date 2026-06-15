@@ -22,6 +22,9 @@ export type DashboardRestaurant = Pick<
   | "splash_media_url"
   | "splash_media_type"
   | "tisch_bereiche"
+  | "wifi_name"
+  | "wifi_password"
+  | "kitchen_closes_at"
 > & {
   accent_color?: string | null;
   logo_url?: string | null;

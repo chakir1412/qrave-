@@ -83,8 +83,7 @@ export function DashboardShell({
 
   // Drawer schließt automatisch bei Tab- oder Routen-Wechsel.
   useEffect(() => {
-    if (drawerOpen) setDrawerOpen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setDrawerOpen(false);
   }, [activeTab, pathname]);
 
   // Body-Scroll-Lock solange Drawer offen.
@@ -269,12 +268,14 @@ function DashboardSidebar({
     <aside
       className={`qrave-sidebar w-[252px] flex-shrink-0 flex-col px-4 py-6 ${fixed ? "fixed inset-y-0 left-0" : ""} ${className}`}
     >
-      <div className="qrave-font-display mb-9 flex items-center gap-2 px-2 text-[20px] font-black">
-        <span
-          className="inline-block h-2 w-2 rounded-full"
-          style={{ background: "var(--qrave-accent)", boxShadow: "0 0 10px var(--qrave-accent)" }}
+      <div className="mb-3 flex items-center justify-center py-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/QR_Logo_weiß.png"
+          alt="Qrave"
+          className="logo-glow"
+          style={{ height: 40, width: "auto", display: "block" }}
         />
-        qrave
       </div>
 
       <div className="qrave-nav-section">Menu</div>

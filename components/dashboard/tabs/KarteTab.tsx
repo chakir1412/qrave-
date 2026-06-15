@@ -276,8 +276,8 @@ export function KarteTab({
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
   const [renamingValue, setRenamingValue] = useState("");
-  /** Reorder-Modal: Item-Click → Dropdown zur Wahl der Ziel-Position. */
-  const [reorderTarget, setReorderTarget] = useState<{ itemId: string; kategorie: string } | null>(null);
+  /** Welches Item hat aktuell das Kategorie-Picker-Dropdown offen. */
+  const [categoryPickerFor, setCategoryPickerFor] = useState<string | null>(null);
   const [dragItemId, setDragItemId] = useState<string | null>(null);
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
   const [touchDragItemId, setTouchDragItemId] = useState<string | null>(null);
@@ -328,6 +328,9 @@ export function KarteTab({
   const [soldOutFilter, setSoldOutFilter] = useState(false);
 
   // Vom HomeTab via Shortcut "Ausverkauft markieren" angesprungen.
+  // clearInitialFilter ist absichtlich nicht in den Deps: Parent (DashboardApp)
+  // übergibt eine inline-Arrow-Funktion, neue Identität pro Render → würde den
+  // Effect endlos triggern. Nur reagieren wenn sich `initialFilter` ändert.
   useEffect(() => {
     if (initialFilter === "soldout") {
       setSoldOutFilter(true);
@@ -393,6 +396,39 @@ export function KarteTab({
     return [...names].sort(compareKategorieOrder);
   }, [groupedForList, extraCategories, activeMainTab]);
 
+  /** Vollständige Kategorienliste (alle main-tabs) für den Verschieben-Picker. */
+  const allCategoryNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of menuItems) {
+      const c = (m.kategorie || "Sonstiges").trim();
+      if (c) set.add(c);
+    }
+    for (const c of extraCategories) {
+      const t = c.trim();
+      if (t) set.add(t);
+    }
+    return [...set].sort(compareKategorieOrder);
+  }, [menuItems, extraCategories]);
+
+  /** Picker schließt bei Klick außerhalb oder Escape. */
+  useEffect(() => {
+    if (!categoryPickerFor) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest("[data-cat-picker]")) return;
+      setCategoryPickerFor(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCategoryPickerFor(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [categoryPickerFor]);
+
   const mainTabChips = useMemo((): string[] => {
     const keys = new Set(
       menuItems
@@ -435,58 +471,42 @@ export function KarteTab({
 
   const selectedCount = useMemo(() => reviewRows.filter((r) => r.selected).length, [reviewRows]);
 
-  /** Verschiebt das Item innerhalb seiner Kategorie an `targetIndex` (0-basiert).
-   *  Schreibt allen Items in der Kategorie neue, dichte sort_order-Werte
-   *  in 10er-Schritten — robust gegen spätere Einfügungen. */
-  async function reorderWithinCategory(itemId: string, kategorie: string, targetIndex: number) {
-    const baseOrder = sortOrderIndexForKategorie(kategorie);
-    const itemsInCat = menuItems
-      .filter((m) => (m.kategorie || "Sonstiges") === kategorie)
-      .sort((a, b) => (a.sort_order ?? baseOrder) - (b.sort_order ?? baseOrder));
-    const fromIdx = itemsInCat.findIndex((m) => m.id === itemId);
-    if (fromIdx < 0) return;
-    const clamped = Math.max(0, Math.min(itemsInCat.length - 1, targetIndex));
-    if (clamped === fromIdx) return;
-    const reordered = [...itemsInCat];
-    const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(clamped, 0, moved);
-
-    // Pro Item ein UPDATE — bei < 100 Items pro Kategorie unproblematisch.
-    const updates = reordered.map(async (m, i) => {
-      const nextOrder = baseOrder + i * 10;
-      if (m.sort_order === nextOrder) return m;
-      const { data, error } = await supabase
-        .from("menu_items")
-        .update({ sort_order: nextOrder })
-        .eq("id", m.id)
-        .select(DASHBOARD_MENU_ITEM_SELECT)
-        .single();
-      if (error || !data) return m;
-      return data as MenuItem;
-    });
-    const updated = await Promise.all(updates);
-    const updatedMap = new Map(updated.map((m) => [m.id, m]));
-    onItemsChange(menuItems.map((m) => updatedMap.get(m.id) ?? m));
-    onToast("✓ Position aktualisiert");
-  }
-
   async function moveItemToCategory(itemId: string, nextCategory: string) {
     const next = nextCategory.trim();
     if (!next) return;
     const current = menuItems.find((m) => m.id === itemId);
     if (!current || current.kategorie === next) return;
+    const previousKategorie = current.kategorie ?? "";
+    const previousSortOrder = current.sort_order;
+    const optimisticSortOrder = sortOrderIndexForKategorie(next);
+    // Optimistic UI: lokal sofort verschieben, damit das Item nicht für die
+    // Dauer des DB-Roundtrips in der alten Kategorie stehen bleibt.
+    onItemsChange(
+      menuItems.map((m) =>
+        m.id === itemId ? { ...m, kategorie: next, sort_order: optimisticSortOrder } : m,
+      ),
+    );
     const { data, error } = await supabase
       .from("menu_items")
-      .update({ kategorie: next, sort_order: sortOrderIndexForKategorie(next) })
+      .update({ kategorie: next, sort_order: optimisticSortOrder })
       .eq("id", itemId)
       .select(DASHBOARD_MENU_ITEM_SELECT)
       .single();
     if (error || !data) {
+      // Revert
+      onItemsChange(
+        menuItems.map((m) =>
+          m.id === itemId
+            ? { ...m, kategorie: previousKategorie, sort_order: previousSortOrder }
+            : m,
+        ),
+      );
       onToast(error?.message ?? "Kategoriewechsel fehlgeschlagen");
       return;
     }
     setExtraCategories((prev) => (prev.includes(next) ? prev : [...prev, next]));
     onItemsChange(menuItems.map((m) => (m.id === itemId ? (data as MenuItem) : m)));
+    onToast(`Verschoben nach ${next}`);
   }
 
   async function renameCategory(oldName: string, nextName: string) {
@@ -679,7 +699,6 @@ export function KarteTab({
         fd.append("pdfDocument", "1");
       } else {
         const extractedText = await extractTextFromPdf(file);
-        console.log("Extracted text length:", extractedText.length);
         const MAX_TEXT = 3_500_000;
         if (extractedText.length > MAX_TEXT) {
           throw new Error(
@@ -1518,8 +1537,46 @@ export function KarteTab({
                   >
                     + Gericht
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCategoryInput(true)}
+                    className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-bold transition active:scale-[0.98]"
+                    style={{ backgroundColor: dash.s1, borderColor: dash.bo, color: dash.mu }}
+                  >
+                    + Kategorie
+                  </button>
                 </div>
               </div>
+              {showNewCategoryInput ? (
+                <div className="mb-3">
+                  <input
+                    autoFocus
+                    value={draftNewCategory}
+                    onChange={(e) => setDraftNewCategory(e.target.value)}
+                    onBlur={() => {
+                      const v = draftNewCategory.trim();
+                      if (v) setExtraCategories((prev) => (prev.includes(v) ? prev : [...prev, v]));
+                      setDraftNewCategory("");
+                      setShowNewCategoryInput(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const v = draftNewCategory.trim();
+                        if (v) setExtraCategories((prev) => (prev.includes(v) ? prev : [...prev, v]));
+                        setDraftNewCategory("");
+                        setShowNewCategoryInput(false);
+                      }
+                      if (e.key === "Escape") {
+                        setDraftNewCategory("");
+                        setShowNewCategoryInput(false);
+                      }
+                    }}
+                    className="w-full rounded-[11px] border px-3.5 py-3 text-sm outline-none"
+                    style={{ backgroundColor: dash.s2, borderColor: dash.orm, color: dash.tx }}
+                    placeholder="Kategoriename eingeben …"
+                  />
+                </div>
+              ) : null}
               {menuItems.length > 0 && (
                 <div
                   className="mb-3 flex gap-1.5 overflow-x-auto scrollbar-hide pb-1"
@@ -1629,20 +1686,81 @@ export function KarteTab({
                           className={`relative flex items-center gap-2 rounded-[14px] border px-3 py-3 transition ${!m.aktiv ? "opacity-45" : ""}`}
                           style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
                         >
-                          <button
-                            type="button"
-                            onClick={() => setReorderTarget({ itemId: m.id, kategorie: m.kategorie || "Sonstiges" })}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border transition"
-                            style={{
-                              borderColor: "rgba(255,255,255,0.08)",
-                              background: "rgba(255,255,255,0.04)",
-                              color: "rgba(242,242,242,0.55)",
-                            }}
-                            aria-label="Position ändern"
-                            title="Position ändern"
-                          >
-                            <i className="fa-solid fa-arrows-up-down text-[11px]" />
-                          </button>
+                          <div className="relative shrink-0" data-cat-picker>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCategoryPickerFor((prev) => (prev === m.id ? null : m.id))
+                              }
+                              className="flex h-7 w-7 items-center justify-center rounded-[8px] border transition"
+                              style={{
+                                borderColor: "rgba(255,255,255,0.08)",
+                                background:
+                                  categoryPickerFor === m.id
+                                    ? "color-mix(in srgb, var(--qrave-accent) 18%, transparent)"
+                                    : "rgba(255,255,255,0.04)",
+                                color:
+                                  categoryPickerFor === m.id
+                                    ? "var(--qrave-accent-soft)"
+                                    : "rgba(242,242,242,0.55)",
+                              }}
+                              aria-label="In Kategorie verschieben"
+                              title="In Kategorie verschieben"
+                              aria-expanded={categoryPickerFor === m.id}
+                            >
+                              <i className="fa-solid fa-arrows-up-down text-[11px]" />
+                            </button>
+                            {categoryPickerFor === m.id ? (
+                              <div
+                                role="menu"
+                                className="absolute left-0 top-full z-50 mt-2 w-[220px] overflow-hidden rounded-[12px] border"
+                                style={{
+                                  background: "#0f0a1e",
+                                  borderColor: "rgba(255,255,255,0.08)",
+                                  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                                }}
+                              >
+                                <div
+                                  className="px-3.5 pt-3 pb-2 text-[10px] font-bold uppercase tracking-[0.12em]"
+                                  style={{ color: dash.mu }}
+                                >
+                                  In Kategorie verschieben
+                                </div>
+                                <div className="max-h-[260px] overflow-y-auto pb-1">
+                                  {allCategoryNames.map((cat) => {
+                                    const isCurrent = (m.kategorie || "Sonstiges") === cat;
+                                    return (
+                                      <button
+                                        key={cat}
+                                        type="button"
+                                        role="menuitem"
+                                        disabled={isCurrent}
+                                        onClick={() => {
+                                          setCategoryPickerFor(null);
+                                          if (!isCurrent) void moveItemToCategory(m.id, cat);
+                                        }}
+                                        className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13px] transition hover:bg-[rgba(147,51,234,0.15)] disabled:cursor-default disabled:hover:bg-transparent"
+                                        style={{
+                                          color: isCurrent ? dash.mt : dash.tx,
+                                        }}
+                                      >
+                                        <span
+                                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                                          style={{
+                                            background: isCurrent
+                                              ? "var(--qrave-accent)"
+                                              : "transparent",
+                                          }}
+                                          aria-hidden
+                                        />
+                                        <span className="truncate">{cat}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
                           <button
                             type="button"
                             onClick={() => onOpenEdit(m)}
@@ -1704,59 +1822,16 @@ export function KarteTab({
               })}
 
               <div data-editor-category="" />
-              <div className="mb-4">
-                {!showNewCategoryInput ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowNewCategoryInput(true)}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-[13px] border border-dashed py-3 text-[13px] font-semibold"
-                    style={{
-                      backgroundColor: dash.s1,
-                      borderColor: "rgba(0,200,160,0.3)",
-                      color: dash.or,
-                    }}
-                  >
-                    + Neue Kategorie
-                  </button>
-                ) : (
-                  <input
-                    autoFocus
-                    value={draftNewCategory}
-                    onChange={(e) => setDraftNewCategory(e.target.value)}
-                    onBlur={() => {
-                      const v = draftNewCategory.trim();
-                      if (v) setExtraCategories((prev) => (prev.includes(v) ? prev : [...prev, v]));
-                      setDraftNewCategory("");
-                      setShowNewCategoryInput(false);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const v = draftNewCategory.trim();
-                        if (v) setExtraCategories((prev) => (prev.includes(v) ? prev : [...prev, v]));
-                        setDraftNewCategory("");
-                        setShowNewCategoryInput(false);
-                      }
-                      if (e.key === "Escape") {
-                        setDraftNewCategory("");
-                        setShowNewCategoryInput(false);
-                      }
-                    }}
-                    className="w-full rounded-[11px] border px-3.5 py-3 text-sm outline-none"
-                    style={{ backgroundColor: dash.s2, borderColor: dash.orm, color: dash.tx }}
-                    placeholder="Kategoriename eingeben …"
-                  />
-                )}
-              </div>
 
               <div className="mt-6 border-t pt-4" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                 <button
                   type="button"
                   onClick={() => setDeleteMenuConfirmOpen(true)}
-                  className="w-full rounded-[11px] border py-2.5 text-[12px] font-medium transition active:opacity-80"
+                  className="w-full rounded-[11px] border py-2.5 text-[12px] font-semibold transition active:opacity-80"
                   style={{
-                    borderColor: dash.bo,
-                    color: dash.mt,
-                    backgroundColor: "transparent",
+                    borderColor: "rgba(239,68,68,0.4)",
+                    color: "#ef4444",
+                    backgroundColor: "rgba(239,68,68,0.08)",
                   }}
                 >
                   Karte löschen
@@ -1793,7 +1868,7 @@ export function KarteTab({
                 Speisekarte löschen?
               </h2>
               <p className="mb-5 text-[13px] leading-relaxed" style={{ color: dash.mi }}>
-                Alle Kategorien und Gerichte werden unwiderruflich gelöscht. Diese Aktion kann nicht
+                Alle Gerichte und Kategorien werden unwiderruflich gelöscht. Diese Aktion kann nicht
                 rückgängig gemacht werden.
               </p>
               <div className="flex gap-2">
@@ -1812,11 +1887,11 @@ export function KarteTab({
                   onClick={() => void confirmDeleteFullMenu()}
                   className="flex-1 rounded-[12px] py-3 text-[14px] font-bold text-white transition disabled:opacity-60"
                   style={{
-                    backgroundColor: dash.re,
-                    boxShadow: "0 4px 14px rgba(255,75,110,0.28)",
+                    backgroundColor: "#ef4444",
+                    boxShadow: "0 4px 14px rgba(239,68,68,0.32)",
                   }}
                 >
-                  {deletingMenu ? "Löscht …" : "Alles löschen"}
+                  {deletingMenu ? "Löscht …" : "Endgültig löschen"}
                 </button>
               </div>
             </div>
@@ -2563,119 +2638,7 @@ export function KarteTab({
         </div>
       )}
 
-      {reorderTarget ? (
-        <ReorderItemModal
-          target={reorderTarget}
-          menuItems={menuItems}
-          onClose={() => setReorderTarget(null)}
-          onApply={async (idx) => {
-            const { itemId, kategorie } = reorderTarget;
-            setReorderTarget(null);
-            await reorderWithinCategory(itemId, kategorie, idx);
-          }}
-        />
-      ) : null}
     </div>
   );
 }
 
-function ReorderItemModal({
-  target,
-  menuItems,
-  onClose,
-  onApply,
-}: {
-  target: { itemId: string; kategorie: string };
-  menuItems: MenuItem[];
-  onClose: () => void;
-  onApply: (targetIndex: number) => Promise<void> | void;
-}) {
-  const itemsInCat = useMemo(
-    () =>
-      menuItems
-        .filter((m) => (m.kategorie || "Sonstiges") === target.kategorie)
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
-    [menuItems, target.kategorie],
-  );
-  const currentIdx = itemsInCat.findIndex((m) => m.id === target.itemId);
-  const currentItem = itemsInCat[currentIdx];
-  const [next, setNext] = useState<number>(currentIdx);
-
-  if (!currentItem) return null;
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[210] flex items-center justify-center px-4"
-      style={{ background: "rgba(6,4,14,0.78)", backdropFilter: "blur(8px)" }}
-    >
-      <button type="button" aria-label="Schließen" onClick={onClose} className="absolute inset-0 cursor-default" />
-      <div
-        className="relative w-full max-w-[380px] overflow-hidden rounded-[18px] border p-5"
-        style={{
-          background: "var(--qrave-dash-surface)",
-          borderColor: "color-mix(in srgb, var(--qrave-accent) 30%, transparent)",
-        }}
-      >
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <div className="qrave-font-display text-[16px] font-black tracking-tight">Position ändern</div>
-            <p className="mt-1 text-[12px]" style={{ color: "rgba(242,242,242,0.5)" }}>
-              {currentItem.name} · {target.kategorie}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Schließen"
-            className="text-[16px]"
-            style={{ color: "rgba(242,242,242,0.55)" }}
-          >
-            ✕
-          </button>
-        </div>
-
-        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: "rgba(242,242,242,0.5)" }}>
-          Zielposition (1 = oben)
-        </label>
-        <select
-          value={next}
-          onChange={(e) => setNext(Number.parseInt(e.target.value, 10))}
-          className="mb-4 w-full rounded-[10px] border bg-transparent px-3 py-2 text-[13px] outline-none"
-          style={{ borderColor: "var(--qrave-dash-border)", color: "#f2f2f2" }}
-        >
-          {itemsInCat.map((m, i) => (
-            <option key={m.id} value={i} style={{ background: "#0c0820" }}>
-              {i + 1}. {m.id === target.itemId ? "— hier —" : m.name}
-            </option>
-          ))}
-        </select>
-
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-[10px] border px-4 py-2 text-[13px] font-semibold"
-            style={{ borderColor: "rgba(255,255,255,0.12)", color: "rgba(242,242,242,0.75)" }}
-          >
-            Abbrechen
-          </button>
-          <button
-            type="button"
-            onClick={() => void onApply(next)}
-            disabled={next === currentIdx}
-            className="rounded-[10px] px-5 py-2 text-[13px] font-bold transition disabled:opacity-50"
-            style={{
-              background: "var(--qrave-accent-gradient)",
-              color: "#fff",
-              boxShadow: "0 6px 20px rgba(147,51,234,0.4)",
-            }}
-          >
-            Verschieben
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}

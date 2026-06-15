@@ -16,6 +16,9 @@ type Patch = {
   maps_url?: string | null;
   oeffnungszeiten?: OeffnungszeitenWoche | null;
   active_languages?: string[];
+  wifi_name?: string | null;
+  wifi_password?: string | null;
+  kitchen_closes_at?: string | null;
 };
 
 type Args = {

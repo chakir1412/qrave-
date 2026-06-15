@@ -14,7 +14,7 @@ const BASE_H = 320;
 
 export type PreviewTemplateId =
   | "heritage" | "noir" | "clean" | "trattoria" | "minimal"
-  | "playful" | "asian-dark" | "street-food" | "mediterranean";
+  | "playful" | "asian-dark" | "street-food" | "mediterranean" | "blossom";
 
 type Variant = "default" | "splash" | "items";
 
@@ -23,24 +23,28 @@ export function TemplatePreview({
   width = 180,
   accentColor,
   backgroundMode,
+  customBgColor,
+  customTextColor,
 }: {
   id: PreviewTemplateId;
   width?: number;
   accentColor?: string;
   backgroundMode?: BackgroundMode;
+  customBgColor?: string | null;
+  customTextColor?: string | null;
 }) {
   if (id === "clean" || id === "playful") {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, width: "100%" }}>
-        <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "splash")}</PreviewStage>
+        <PreviewStage width={width} accent={accentColor} mode={backgroundMode} customBg={customBgColor} customText={customTextColor} templateId={id}>{renderFrame(id, "splash")}</PreviewStage>
         <span aria-hidden style={{ fontSize: Math.max(10, width * 0.07), color: "rgba(255,255,255,0.5)" }}>→</span>
-        <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "items")}</PreviewStage>
+        <PreviewStage width={width} accent={accentColor} mode={backgroundMode} customBg={customBgColor} customText={customTextColor} templateId={id}>{renderFrame(id, "items")}</PreviewStage>
       </div>
     );
   }
   return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100%" }}>
-      <PreviewStage width={width} accent={accentColor} mode={backgroundMode} templateId={id}>{renderFrame(id, "default")}</PreviewStage>
+      <PreviewStage width={width} accent={accentColor} mode={backgroundMode} customBg={customBgColor} customText={customTextColor} templateId={id}>{renderFrame(id, "default")}</PreviewStage>
     </div>
   );
 }
@@ -50,18 +54,25 @@ function PreviewStage({
   width,
   accent,
   mode,
+  customBg,
+  customText,
   templateId,
 }: {
   children: ReactNode;
   width: number;
   accent?: string;
   mode?: BackgroundMode;
+  customBg?: string | null;
+  customText?: string | null;
   templateId: PreviewTemplateId;
 }) {
   const scale = width / BASE_W;
   const height = BASE_H * scale;
   // Background-Override via CSS-Variablen — Frames lesen --p-bg / --p-text als Fallback.
-  const bg = mode ? resolveBackground(templateId, mode) : null;
+  // Customs haben Vorrang vor mode (gleiche Logik wie resolveBackground).
+  const bg = (customBg || customText || mode)
+    ? resolveBackground(templateId, mode, customBg, customText)
+    : null;
   const cssVars: React.CSSProperties = {};
   if (accent) (cssVars as Record<string, string>)["--p-accent"] = accent;
   if (bg) {
@@ -95,6 +106,7 @@ function renderFrame(id: PreviewTemplateId, variant: Variant): ReactNode {
     case "asian-dark": return <AsianDarkFrame />;
     case "street-food": return <StreetFoodFrame />;
     case "mediterranean": return <MediterraneanFrame />;
+    case "blossom": return <BlossomFrame />;
   }
 }
 
@@ -543,6 +555,52 @@ function MediterraneanFrame() {
         ))}
       </div>
       <HomeIndicator color="rgba(0,0,0,0.2)" />
+    </PhoneShell>
+  );
+}
+
+/* ─────────────────────── Blossom ─────────────────────── */
+
+function BlossomFrame() {
+  const COL = { bg: "#fdf6f0", card: "#fff", text: "#3d2b1f", muted: "#7a5c4e", border: "#f0ddd4", accent3: "#f9d4c5", tagBg: "#fce8df", tagText: "#c0603e" };
+  const accent = "var(--p-accent, #e8836a)";
+  const items = [
+    { name: "Avocado Toast", price: "9,50 €", tag: "Vegan" },
+    { name: "Pancakes", price: "8,90 €", tag: "Süß" },
+    { name: "Eggs Benedict", price: "12,50 €", tag: "" },
+  ];
+  return (
+    <PhoneShell bg={`var(--p-bg, ${COL.bg})`} borderColor="rgba(61,43,31,0.12)">
+      <StatusBar color={COL.text} />
+      <div style={{ padding: "8px 12px 8px", borderBottom: `1px solid ${COL.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg, ${COL.accent3}, ${accent})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 10, fontStyle: "italic", fontFamily: 'Georgia, serif', fontWeight: 600 }}>B</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: 'Georgia, serif', fontStyle: "italic", fontSize: 11, fontWeight: 600, color: COL.text }}>Blossom Brunch</div>
+          <div style={{ fontSize: 6, color: "#b08a7a", letterSpacing: "0.1em", fontWeight: 700 }}>SPEISEKARTE</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 4, padding: "8px 12px 4px", overflow: "hidden" }}>
+        <div style={{ fontSize: 7, fontWeight: 700, padding: "4px 10px", borderRadius: 999, background: accent, color: "#fff" }}>Frühstück</div>
+        <div style={{ fontSize: 7, fontWeight: 600, padding: "4px 10px", borderRadius: 999, border: `1px solid ${COL.border}`, color: COL.muted, background: COL.card }}>Bowls</div>
+        <div style={{ fontSize: 7, fontWeight: 600, padding: "4px 10px", borderRadius: 999, border: `1px solid ${COL.border}`, color: COL.muted, background: COL.card }}>Kaffee</div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 4px" }}>
+        <div style={{ fontFamily: 'Georgia, serif', fontStyle: "italic", fontSize: 11, fontWeight: 600, color: COL.text }}>Frühstück</div>
+        <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${COL.border}, transparent)` }} />
+      </div>
+      <div style={{ padding: "4px 10px", display: "flex", flexDirection: "column", gap: 5 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ background: COL.card, border: `1px solid ${COL.border}`, borderRadius: 9, padding: "6px 8px", boxShadow: "0 1px 3px rgba(61,43,31,0.05)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <span style={{ fontSize: 8, fontWeight: 700, color: COL.text }}>{it.name}</span>
+              <span style={{ fontSize: 8, fontWeight: 800, color: accent }}>{it.price}</span>
+            </div>
+            {it.tag ? <span style={{ display: "inline-block", marginTop: 3, fontSize: 6, fontWeight: 700, padding: "1px 6px", borderRadius: 999, background: COL.tagBg, color: COL.tagText }}>{it.tag}</span> : null}
+          </div>
+        ))}
+        <div aria-hidden style={{ textAlign: "center", color: COL.accent3, fontSize: 8, letterSpacing: 4, padding: "4px 0" }}>✿ ✾ ✿</div>
+      </div>
+      <HomeIndicator color="rgba(61,43,31,0.2)" />
     </PhoneShell>
   );
 }

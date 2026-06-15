@@ -8,6 +8,7 @@ export const TEMPLATE_CARDS = [
   { id: "asian-dark", label: "Asian Dark", icon: "" },
   { id: "street-food", label: "Street Food", icon: "" },
   { id: "mediterranean", label: "Mediterranean", icon: "" },
+  { id: "blossom", label: "Blossom", icon: "" },
 ] as const;
 
 /** Tailwind/CSS-Klasse für Glass-Cards (siehe globals.css) */
