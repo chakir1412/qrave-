@@ -87,6 +87,13 @@ const ALLOWED_BEVERAGE_SUBCATEGORIES = new Set([
   "energy",
   "sonstiges_getraenk",
 ]);
+const ALLOWED_PRICE_BUCKETS = new Set(["budget", "mid", "premium"]);
+
+function readPriceBucket(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const norm = v.trim().toLowerCase();
+  return ALLOWED_PRICE_BUCKETS.has(norm) ? norm : null;
+}
 
 function readItemTags(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
@@ -149,6 +156,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
+    // ---- DSGVO Server-Side-Consent-Gate. ----
+    // Client schickt `consentGiven: true` aus `lib/tracking.ts` nur wenn
+    // localStorage.qrave_consent === 'accepted'. Wer den Client umgeht
+    // (Bot, Custom-Client), erreicht den Insert nicht.
+    if (o.consentGiven !== true) {
+      return NextResponse.json({ error: "Consent required" }, { status: 403 });
+    }
+
     // ---- 2. UUID-Format-Check für restaurant_id und session_id. ----
     if (!isUuid(restaurantId)) {
       return NextResponse.json({ error: "Invalid restaurantId" }, { status: 400 });
@@ -185,6 +200,7 @@ export async function POST(req: Request) {
     const itemPrice = readItemPrice(o.itemPrice);
     const itemTags = readItemTags(o.itemTags);
     const beverageSubcategory = readBeverageSubcategory(o.beverageSubcategory);
+    const priceBucket = readPriceBucket(o.priceBucket);
 
     // Vercel-Functions laufen in UTC. Tracking-Felder müssen Europe/Berlin
     // sein, sonst stimmen Tagesblöcke / Peak-Hour / Wochentag-Aggregationen
@@ -217,6 +233,7 @@ export async function POST(req: Request) {
       item_price: itemPrice,
       item_tags: itemTags,
       beverage_subcategory: beverageSubcategory,
+      price_bucket: priceBucket,
     });
 
     if (error) {

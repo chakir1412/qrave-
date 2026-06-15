@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 
 type LegalPageShellProps = {
@@ -9,16 +8,32 @@ export function LegalPageShell({ children }: LegalPageShellProps) {
   return (
     <div className="flex min-h-screen flex-col bg-[#080810] font-sans antialiased">
       <header className="shrink-0 border-b border-white/10 px-6 py-4">
-        <a href="https://qrave.menu" className="inline-flex items-center">
-          <Image
-            src="/logo.png"
-            alt="Qrave"
-            width={120}
-            height={36}
-            className="h-8 w-auto"
-            priority
+        <Link
+          href="/"
+          aria-label="Qrave Startseite"
+          className="inline-flex items-center gap-[10px]"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/QR_Logo_weiß.png"
+            alt=""
+            className="logo-glow"
+            style={{ height: 32, width: "auto", display: "block" }}
           />
-        </a>
+          <span
+            style={{
+              fontFamily: "var(--font-roboto), system-ui, sans-serif",
+              fontWeight: 900,
+              fontSize: 20,
+              color: "#ffffff",
+              letterSpacing: "-0.02em",
+              lineHeight: 1,
+              textTransform: "lowercase",
+            }}
+          >
+            qrave
+          </span>
+        </Link>
       </header>
 
       <main className="mx-auto w-full max-w-[720px] flex-1 px-6 py-[60px]">

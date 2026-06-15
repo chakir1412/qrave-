@@ -68,15 +68,30 @@ export default function DatenschutzPage() {
       <p className="mt-2 text-[15px] leading-[1.8] text-white/60">
         Beim Aufruf einer digitalen Speisekarte werden anonymisierte Nutzungsdaten
         erhoben (z. B. aufgerufene Kategorien, angeklickte Speisen, Tageszeit des
-        Besuchs). Es werden keine personenbezogenen Daten wie IP-Adressen,
-        Geräte-IDs oder Standortdaten gespeichert. Eine Identifizierung einzelner
-        Personen ist nicht möglich.
+        Besuchs). Eine Identifizierung einzelner Personen ist nicht möglich.
       </p>
       <p className="mt-3 text-[15px] leading-[1.8] text-white/60">
-        Die Erhebung dieser Daten erfolgt auf Basis von Art. 6 Abs. 1 lit. f DSGVO
-        (berechtigtes Interesse). Detaillierte Nutzungsanalysen werden nur nach
-        ausdrücklicher Einwilligung via Consent-Banner erhoben (Art. 6 Abs. 1
-        lit. a DSGVO).
+        <strong className="text-white/80">Tier-0 — ohne Einwilligung:</strong>{" "}
+        Beim Aufruf wird ein Zähler-Event mit Tageszeit, Wochentag, Gerätetyp
+        (mobile/desktop) und einem nicht-reversiblen HMAC-Hash der IP-Adresse
+        (täglich rotierender Schlüssel, daher tag-übergreifend nicht verkettbar)
+        geschrieben. Rohdaten werden nach 48 Stunden automatisch gelöscht; vorher
+        fließen sie in anonyme Tages-Aggregate ein. Rechtsgrundlage:
+        Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse — Reichweitenmessung).
+      </p>
+      <p className="mt-3 text-[15px] leading-[1.8] text-white/60">
+        <strong className="text-white/80">Tier-1 — nur mit Einwilligung:</strong>{" "}
+        Nach Klick auf „Helfen" im Consent-Banner werden zusätzlich folgende
+        Interaktionen anonym erfasst: Scroll-Tiefe (25 / 50 / 75 / 100 %),
+        Verweildauer pro Kategorie und pro geöffnetem Item, Wiederkehr-Flag
+        (anonyme Pseudonym-ID im lokalen Speicher), Bounce-Erkennung (Abbruch
+        unter 5 Sekunden), Item-Klicks, Kategorie-Wechsel, Filter-Nutzung
+        (vegan / vegetarisch / glutenfrei / scharf), Merklisten-Adds inklusive
+        Preis, Getränke-Subkategorie (Bier / Wein / Cocktails / …), sowie
+        Preis-Bucket des Items (budget / mid / premium). Auch diese Rohdaten
+        werden nach 48 Stunden gelöscht. Rechtsgrundlage:
+        Art. 6 Abs. 1 lit. a DSGVO (Einwilligung). Du kannst deine Einwilligung
+        jederzeit widerrufen, indem du den lokalen Speicher des Browsers löschst.
       </p>
 
       <h2 className="mt-10 text-lg font-medium text-white">
@@ -127,9 +142,9 @@ export default function DatenschutzPage() {
           <code className="rounded bg-white/5 px-1.5 py-0.5 text-[13px]">
             qrave_visitor_id
           </code>{" "}
-          — pseudonyme Geräte-ID für anonyme Nutzungsstatistiken (Tier-0). Wird
-          nicht an den Server übertragen, solange keine Einwilligung erteilt
-          wurde.
+          — pseudonyme Geräte-ID für Wiederkehr-Erkennung. Wird erst nach
+          erteilter Einwilligung erstellt und gespeichert. Ohne Einwilligung
+          existiert dieser Eintrag nicht.
         </li>
         <li>
           <code className="rounded bg-white/5 px-1.5 py-0.5 text-[13px]">
