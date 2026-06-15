@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { DashboardRestaurant } from "../types";
 import { dash } from "../constants";
 import {
+  supabase,
   OEFFNUNGSZEITEN_WEEKDAY_KEYS,
   type OeffnungszeitenWeekday,
   type OeffnungszeitenWoche,
@@ -46,6 +47,9 @@ type Props = {
     maps_url?: string | null;
     oeffnungszeiten?: OeffnungszeitenWoche | null;
     active_languages?: string[];
+    wifi_name?: string | null;
+    wifi_password?: string | null;
+    kitchen_closes_at?: string | null;
   }) => Promise<void>;
   onToast: (msg: string) => void;
   splashMediaUrl: string | null;
@@ -331,25 +335,98 @@ function SpeisekarteSection({
 
 function RestaurantSection({ restaurant, onPatchRestaurant }: Props) {
   return (
-    <SectionCard title="Restaurant">
-      <div className="flex h-[52px] items-center justify-between px-4" style={rowBorder}>
-        <span style={labelStyle}>Name</span>
-        <span style={valueStyle}>{restaurant.name}</span>
-      </div>
-      <EditableTextRow
-        label="Adresse"
-        value={restaurant.adresse ?? ""}
-        placeholder="Straße & Hausnr."
-        onCommit={(next) => void onPatchRestaurant({ adresse: next.trim() || null })}
+    <div className="flex flex-col gap-3">
+      <SectionCard title="Restaurant">
+        <div className="flex h-[52px] items-center justify-between px-4" style={rowBorder}>
+          <span style={labelStyle}>Name</span>
+          <span style={valueStyle}>{restaurant.name}</span>
+        </div>
+        <EditableTextRow
+          label="Adresse"
+          value={restaurant.adresse ?? ""}
+          placeholder="Straße & Hausnr."
+          onCommit={(next) => void onPatchRestaurant({ adresse: next.trim() || null })}
+        />
+        <EditableTextRow
+          label="Telefon"
+          value={restaurant.telefon ?? ""}
+          placeholder="+49 …"
+          onCommit={(next) => void onPatchRestaurant({ telefon: next.trim() || null })}
+          noBorder
+        />
+      </SectionCard>
+
+      <SectionCard title="WLAN (optional)">
+        <EditableTextRow
+          label="WLAN-Name"
+          value={restaurant.wifi_name ?? ""}
+          placeholder="z. B. Wirtshaus-Gast"
+          onCommit={(next) => void onPatchRestaurant({ wifi_name: next.trim() || null })}
+        />
+        <PasswordRow
+          label="Passwort"
+          value={restaurant.wifi_password ?? ""}
+          placeholder="Optional"
+          onCommit={(next) => void onPatchRestaurant({ wifi_password: next.trim() || null })}
+          noBorder
+        />
+      </SectionCard>
+    </div>
+  );
+}
+
+function PasswordRow({
+  label,
+  value,
+  placeholder,
+  onCommit,
+  noBorder,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onCommit: (next: string) => void;
+  noBorder?: boolean;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <div
+      className="flex min-h-[52px] w-full items-center justify-between gap-2 px-4"
+      style={noBorder ? undefined : rowBorder}
+    >
+      <span style={labelStyle} className="shrink-0">
+        {label}
+      </span>
+      <input
+        type={visible ? "text" : "password"}
+        value={draft}
+        placeholder={placeholder}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft !== value) onCommit(draft);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-right text-[13px] outline-none focus:bg-white/[0.04]"
+        style={{ color: "#f2f2f2" }}
+        autoComplete="off"
       />
-      <EditableTextRow
-        label="Telefon"
-        value={restaurant.telefon ?? ""}
-        placeholder="+49 …"
-        onCommit={(next) => void onPatchRestaurant({ telefon: next.trim() || null })}
-        noBorder
-      />
-    </SectionCard>
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        className="shrink-0 rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-white/[0.04]"
+        style={{ color: "rgba(242,242,242,0.6)" }}
+        aria-label={visible ? "Passwort verbergen" : "Passwort anzeigen"}
+      >
+        {visible ? "Verbergen" : "Anzeigen"}
+      </button>
+    </div>
   );
 }
 
@@ -392,6 +469,66 @@ function OeffnungszeitenSection({ restaurant, onPatchRestaurant }: Props) {
           onChange={(next) => void onPatchRestaurant({ oeffnungszeiten: next })}
         />
       </SectionCard>
+      <SectionCard title="Küche schließt um (optional)">
+        <KitchenCloseRow
+          value={restaurant.kitchen_closes_at ?? null}
+          onCommit={(next) =>
+            void onPatchRestaurant({ kitchen_closes_at: next })
+          }
+        />
+      </SectionCard>
+    </div>
+  );
+}
+
+function KitchenCloseRow({
+  value,
+  onCommit,
+}: {
+  value: string | null;
+  onCommit: (next: string | null) => void;
+}) {
+  // DB liefert time als "HH:MM:SS" — Time-Input erwartet "HH:MM".
+  const displayValue = value ? value.slice(0, 5) : "";
+  const [draft, setDraft] = useState(displayValue);
+  useEffect(() => {
+    setDraft(displayValue);
+  }, [displayValue]);
+
+  return (
+    <div className="flex min-h-[52px] w-full items-center justify-between gap-3 px-4">
+      <span style={labelStyle} className="shrink-0">
+        Küche bis
+      </span>
+      <div className="flex items-center gap-2">
+        <input
+          type="time"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => {
+            if (draft === displayValue) return;
+            // Leer = unsetzen; sonst "HH:MM:00"
+            const next = draft.trim().length === 0 ? null : `${draft}:00`;
+            onCommit(next);
+          }}
+          className="rounded-md bg-transparent px-2 py-1 text-right text-[13px] outline-none focus:bg-white/[0.04]"
+          style={{ color: "#f2f2f2", colorScheme: "dark" }}
+        />
+        {draft.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft("");
+              onCommit(null);
+            }}
+            className="rounded-md px-2 py-1 text-[12px] transition-colors hover:bg-white/[0.04]"
+            style={{ color: "rgba(242,242,242,0.5)" }}
+            aria-label="Küchenzeit löschen"
+          >
+            Löschen
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -556,8 +693,39 @@ function SprachenSection({ restaurant, onPatchRestaurant, onToast }: Props) {
   );
 }
 
-function AccountSection({ userEmail, onLogout }: Props) {
+function AccountSection({ userEmail, onLogout, onToast }: Props) {
   const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDeleteAccount() {
+    if (typeof window === "undefined") return;
+    const ok = window.confirm(
+      "Account wirklich löschen?\n\nAlle deine Daten (Restaurant, Speisekarte, Statistiken, hochgeladene Bilder) werden unwiderruflich gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.",
+    );
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      const res = await authFetch("/api/dashboard/delete-account", {
+        method: "POST",
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
+      if (!res.ok || !json?.success) {
+        onToast(json?.error ?? "Löschen fehlgeschlagen");
+        setDeleting(false);
+        return;
+      }
+      // Session lokal entfernen + zur Startseite. Auth-User existiert
+      // serverseitig nicht mehr — Login-Versuch würde scheitern.
+      await supabase.auth.signOut().catch(() => undefined);
+      window.location.assign("https://qrave.menu");
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : "Löschen fehlgeschlagen");
+      setDeleting(false);
+    }
+  }
+
   return (
     <SectionCard title="Account">
       <div className="flex h-[52px] items-center justify-between px-4" style={rowBorder}>
@@ -573,7 +741,7 @@ function AccountSection({ userEmail, onLogout }: Props) {
         <span style={labelStyle}>Passwort ändern</span>
         <i className="fa-solid fa-chevron-right text-[11px]" style={{ color: "rgba(242,242,242,0.32)" }} />
       </button>
-      <div className="p-3">
+      <div className="space-y-2 p-3">
         <button
           type="button"
           onClick={() => {
@@ -588,6 +756,25 @@ function AccountSection({ userEmail, onLogout }: Props) {
         >
           Abmelden
         </button>
+        <button
+          type="button"
+          onClick={() => void handleDeleteAccount()}
+          disabled={deleting}
+          className="w-full rounded-[10px] py-[12px] text-[13px] font-semibold disabled:opacity-60"
+          style={{
+            background: "transparent",
+            border: "1px solid rgba(248,113,113,0.4)",
+            color: "#f87171",
+          }}
+        >
+          {deleting ? "Wird gelöscht …" : "Account löschen"}
+        </button>
+        <p
+          className="px-1 pt-1 text-[11px] leading-snug"
+          style={{ color: "rgba(242,242,242,0.45)" }}
+        >
+          DSGVO Art. 17: Alle deine Daten werden unwiderruflich entfernt.
+        </p>
       </div>
     </SectionCard>
   );

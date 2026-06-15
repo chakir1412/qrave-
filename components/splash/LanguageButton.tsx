@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LOCALE_LABEL, SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
 
@@ -17,6 +17,11 @@ const LOCALE_FLAG: Record<SupportedLocale, string> = {
 type Props = {
   slug: string;
   activeLanguages: SupportedLocale[];
+  /** Aktueller Locale (vom Parent gemanagt). */
+  current: SupportedLocale;
+  /** Callback wenn der Gast eine Sprache wählt — Parent persistiert
+   *  in `localStorage[qrave_locale_${slug}]`. */
+  onLocaleChange: (next: SupportedLocale) => void;
   accent: string;
   /** Theme-Tokens vom Splash — sonst sieht Button auf hellem Bg ausgegraut aus. */
   bg?: string;
@@ -24,30 +29,21 @@ type Props = {
   text?: string;
 };
 
-const STORAGE_KEY = "qrave-locale";
-
-export function LanguageButton({ slug, activeLanguages, accent, bg, border, text }: Props) {
+export function LanguageButton({
+  slug,
+  activeLanguages,
+  current,
+  onLocaleChange,
+  accent,
+  bg,
+  border,
+  text,
+}: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [current, setCurrent] = useState<SupportedLocale>("de");
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY) as SupportedLocale | null;
-      if (stored && activeLanguages.includes(stored)) setCurrent(stored);
-    } catch {
-      // ignore
-    }
-  }, [activeLanguages]);
 
   function selectLocale(locale: SupportedLocale) {
-    try {
-      localStorage.setItem(STORAGE_KEY, locale);
-    } catch {
-      // ignore
-    }
-    setCurrent(locale);
+    onLocaleChange(locale);
     setOpen(false);
     router.push(`/${slug}/karte?locale=${locale}`);
   }

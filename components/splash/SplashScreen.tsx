@@ -1,13 +1,26 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { PublicRestaurant } from "@/lib/load-restaurant-public";
 import { getOpenStatus } from "@/lib/oeffnungszeiten";
 import ShareButton from "./ShareButton";
 import { LanguageButton } from "./LanguageButton";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/lib/menu-i18n";
-import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
+import { t } from "@/lib/i18n-menu";
+import {
+  deriveAccentColor,
+  hexToRgb,
+  isDarkHex,
+  resolveBackground,
+  type BackgroundMode,
+} from "@/lib/template-background";
 
 type Props = {
   restaurant: PublicRestaurant;
+  /** Erste daily_push-Zeile für heute (Europe/Berlin). Wird als Pill
+   *  unterhalb des Restaurant-Namens angezeigt. */
+  todaySpecial?: { name: string; emoji: string | null } | null;
 };
 
 /** Splash-Seite für die Gäste-Speisekarte (qrave.menu/[slug]). Server-rendered,
@@ -16,7 +29,7 @@ type Props = {
 
 type ThemeId =
   | "heritage" | "noir" | "clean" | "trattoria" | "minimal"
-  | "playful" | "asian-dark" | "street-food" | "mediterranean";
+  | "playful" | "asian-dark" | "street-food" | "mediterranean" | "blossom";
 
 type SplashTheme = {
   /** Hintergrund unter dem Media-Overlay; wird auch sichtbar wenn kein Hero-Bild gesetzt ist. */
@@ -198,11 +211,52 @@ const THEMES: Record<ThemeId, SplashTheme> = {
     ornamentStripe: "repeating-linear-gradient(90deg, #d4613a 0px, #d4613a 12px, #c9972a 12px, #c9972a 24px, #5c8a3c 24px, #5c8a3c 36px, #c9972a 36px, #c9972a 48px)",
     fontImport: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
   },
+  blossom: {
+    bg: "#fdf6f0",
+    text: "#3d2b1f",
+    textMuted: "rgba(61,43,31,0.55)",
+    accent: "#e8836a",
+    buttonBg: "#e8836a",
+    buttonFg: "#ffffff",
+    secondaryBg: "#ffffff",
+    secondaryBorder: "#f0ddd4",
+    secondaryText: "#3d2b1f",
+    fontDisplay: `'Lora', Georgia, ui-serif, serif`,
+    fontItalic: true,
+    mode: "light",
+    mediaOverlay: "linear-gradient(180deg, rgba(253,246,240,0.55) 0%, rgba(253,246,240,0.92) 70%, rgba(253,246,240,1) 100%)",
+    fontImport: "https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500;1,600&family=Nunito:wght@400;600;700;800&display=swap",
+  },
 };
 
 function getTheme(template: string | null | undefined): SplashTheme {
   if (template && template in THEMES) return THEMES[template as ThemeId];
   return THEMES.heritage;
+}
+
+/** Überschreibt die Theme-Tokens mit Wirt-gewählten custom_bg/text_color.
+ *  Akzent + Sekundär-Token werden aus der Helligkeit des Bg abgeleitet. */
+function customizeTheme(base: SplashTheme, customBg: string, customText: string): SplashTheme {
+  const accent = deriveAccentColor(customBg);
+  const dark = isDarkHex(customBg);
+  const rgb = hexToRgb(customBg);
+  const rgbStr = rgb ? rgb.join(",") : "0,0,0";
+  return {
+    ...base,
+    bg: customBg,
+    text: customText,
+    textMuted: dark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.55)",
+    accent,
+    buttonBg: accent,
+    // Button-Text in Bg-Farbe — guter Kontrast gegen den Akzent.
+    buttonFg: customBg,
+    secondaryBg: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+    secondaryBorder: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+    secondaryText: customText,
+    mode: dark ? "dark" : "light",
+    // Tint übers Hero-Media in der Bg-Farbe — saftiger Übergang zum custom Bg.
+    mediaOverlay: `linear-gradient(180deg, rgba(${rgbStr},0.55) 0%, rgba(${rgbStr},0.92) 70%, rgba(${rgbStr},1) 100%)`,
+  };
 }
 
 function berlinTodayIso(): string {
@@ -239,11 +293,69 @@ function statusBadgeColors(kind: "open" | "opens-later" | "closed-today", mode: 
   };
 }
 
-export default function SplashScreen({ restaurant }: Props) {
-  const theme = getTheme(restaurant.template);
+/** Per-Slug localStorage-Key — getrennt von der globalen `qrave-locale`-Variante. */
+function localeStorageKey(slug: string): string {
+  return `qrave_locale_${slug}`;
+}
+
+export default function SplashScreen({ restaurant, todaySpecial = null }: Props) {
+  const baseTheme = getTheme(restaurant.template);
+  const activeLanguages = (restaurant.active_languages ?? ["de"]).filter(
+    (c): c is SupportedLocale =>
+      (SUPPORTED_LOCALES as readonly string[]).includes(c),
+  ) as SupportedLocale[];
+
+  /** Locale-State: Default "de" (matched dem SSR-Markup). Effect läuft auf
+   *  Mount, liest localStorage → navigator.language → fällt auf "de" zurück.
+   *  Kurzes DE-Flicker beim First-Paint ist akzeptiert. */
+  const [locale, setLocale] = useState<SupportedLocale>("de");
+  const [wifiOpen, setWifiOpen] = useState(false);
+  const [wifiCopied, setWifiCopied] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let detected: SupportedLocale | null = null;
+    try {
+      const stored = window.localStorage.getItem(localeStorageKey(restaurant.slug)) as
+        | SupportedLocale
+        | null;
+      if (stored && activeLanguages.includes(stored)) {
+        detected = stored;
+      }
+    } catch {
+      /* localStorage blockiert (Private-Mode etc.) → weiter zu navigator */
+    }
+    if (!detected) {
+      const navLang = (navigator.language || "de").toLowerCase().split("-")[0];
+      if ((activeLanguages as readonly string[]).includes(navLang)) {
+        detected = navLang as SupportedLocale;
+      }
+    }
+    setLocale(detected ?? "de");
+  }, [restaurant.slug, activeLanguages]);
+
+  function handleLocaleChange(next: SupportedLocale) {
+    setLocale(next);
+    try {
+      window.localStorage.setItem(localeStorageKey(restaurant.slug), next);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Playful ignoriert custom-Farben — die Pink-CI ist konstitutiv.
+  const customBgRaw = (restaurant as { custom_bg_color?: string | null }).custom_bg_color?.trim() || null;
+  const customTextRaw = (restaurant as { custom_text_color?: string | null }).custom_text_color?.trim() || null;
+  const useCustom = Boolean(customBgRaw && customTextRaw && restaurant.template !== "playful");
+  const theme: SplashTheme =
+    useCustom && customBgRaw && customTextRaw
+      ? customizeTheme(baseTheme, customBgRaw, customTextRaw)
+      : baseTheme;
   const bgOverride = resolveBackground(
     restaurant.template,
     ((restaurant as { background_mode?: string | null }).background_mode ?? null) as BackgroundMode | null,
+    useCustom ? customBgRaw : null,
+    useCustom ? customTextRaw : null,
   );
   const mediaUrl = restaurant.splash_media_url?.trim() ?? "";
   const mediaType = restaurant.splash_media_type === "video" ? "video" : "image";
@@ -252,6 +364,9 @@ export default function SplashScreen({ restaurant }: Props) {
       ? restaurant.splash_image_url?.trim() || restaurant.logo_url?.trim() || ""
       : "";
   const status = getOpenStatus(restaurant.oeffnungszeiten ?? null);
+  const wifiName = restaurant.wifi_name?.trim() ?? "";
+  const wifiPassword = restaurant.wifi_password?.trim() ?? "";
+  const hasWifi = wifiName.length > 0;
 
   const todayIso = berlinTodayIso();
   const overrideToday =
@@ -264,26 +379,36 @@ export default function SplashScreen({ restaurant }: Props) {
     .filter((b) => b?.geschlossen === true && typeof b.name === "string" && b.name.trim().length > 0)
     .map((b) => b.name.trim());
 
+  const kitchenCloses = restaurant.kitchen_closes_at?.trim().slice(0, 5) ?? "";
   const statusBadge = (() => {
     if (status.kind === "open") {
       const c = statusBadgeColors("open", theme.mode);
-      return { ...c, label: `Geöffnet · bis ${status.closesAt}` };
+      const base = `${t("open_until", locale)} ${status.closesAt}`;
+      const label =
+        kitchenCloses.length > 0
+          ? `${base} (${t("kitchen_until", locale)} ${kitchenCloses})`
+          : base;
+      return { ...c, label };
     }
     if (status.kind === "opens-later") {
       const c = statusBadgeColors("opens-later", theme.mode);
-      return { ...c, label: `Geschlossen · öffnet um ${status.opensAt}` };
+      return { ...c, label: `${t("closed_today", locale)} · ${t("opens_at", locale)} ${status.opensAt}` };
     }
     if (status.kind === "closed-today") {
       const c = statusBadgeColors("closed-today", theme.mode);
-      return { ...c, label: "Heute geschlossen" };
+      return { ...c, label: t("closed_today_full", locale) };
     }
     return null;
   })();
 
   const isDark = theme.mode === "dark";
 
+  const isRtl = locale === "ar";
+
   return (
     <div
+      dir={isRtl ? "rtl" : "ltr"}
+      lang={locale}
       className="relative flex min-h-dvh flex-col overflow-hidden"
       style={{ background: bgOverride.bg, color: bgOverride.text, fontFamily: theme.fontDisplay }}
     >
@@ -390,6 +515,26 @@ export default function SplashScreen({ restaurant }: Props) {
           );
         })()}
 
+        {/* Tages-Special-Pill */}
+        {todaySpecial && todaySpecial.name.trim().length > 0 ? (
+          <div className="mt-3 flex justify-center">
+            <span
+              className="inline-flex max-w-full items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold"
+              style={{
+                background: theme.secondaryBg,
+                color: theme.accent,
+                borderColor: theme.secondaryBorder,
+                fontFamily: "system-ui, sans-serif",
+              }}
+            >
+              <span aria-hidden>{todaySpecial.emoji?.trim() || "✨"}</span>
+              <span className="truncate">
+                {t("todays_special_badge", locale).replace(/^✨\s*/, "")}: {todaySpecial.name.trim()}
+              </span>
+            </span>
+          </div>
+        ) : null}
+
         {/* Stadtteil / Adresse */}
         {(restaurant.stadtbezirk?.trim() || restaurant.adresse?.trim()) ? (
           <p
@@ -435,7 +580,7 @@ export default function SplashScreen({ restaurant }: Props) {
                 }}
               >
                 <i className="fa-solid fa-circle-info text-[10px]" style={{ opacity: 0.7 }} />
-                {name} heute geschlossen
+                {name} {t("area_closed_today", locale)}
               </span>
             ))}
           </div>
@@ -443,12 +588,15 @@ export default function SplashScreen({ restaurant }: Props) {
 
         <div className="flex-1" />
 
-        {/* Sekundär-Buttons (Kontakt + Sprache) */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Sekundär-Buttons (Kontakt + ggf. WLAN + Sprache) */}
+        <div
+          className="grid gap-3"
+          style={{ gridTemplateColumns: hasWifi ? "repeat(3, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))" }}
+        >
           <Link
             href={`/${restaurant.slug}/kontakt`}
             prefetch
-            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-4 py-4 text-sm font-semibold transition-colors"
+            className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-3 py-4 text-sm font-semibold transition-colors"
             style={{
               borderColor: theme.secondaryBorder,
               background: theme.secondaryBg,
@@ -459,16 +607,39 @@ export default function SplashScreen({ restaurant }: Props) {
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span>Kontakt</span>
+            <span>{t("contact", locale)}</span>
           </Link>
+
+          {hasWifi ? (
+            <button
+              type="button"
+              onClick={() => {
+                setWifiCopied(false);
+                setWifiOpen(true);
+              }}
+              className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-3 py-4 text-sm font-semibold transition-colors"
+              style={{
+                borderColor: theme.secondaryBorder,
+                background: theme.secondaryBg,
+                color: theme.secondaryText,
+                fontFamily: "system-ui, sans-serif",
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                <line x1="12" y1="20" x2="12.01" y2="20" />
+              </svg>
+              <span>WLAN</span>
+            </button>
+          ) : null}
 
           <LanguageButton
             slug={restaurant.slug}
-            activeLanguages={
-              (restaurant.active_languages ?? ["de"]).filter((c): c is SupportedLocale =>
-                (SUPPORTED_LOCALES as readonly string[]).includes(c),
-              ) as SupportedLocale[]
-            }
+            activeLanguages={activeLanguages}
+            current={locale}
+            onLocaleChange={handleLocaleChange}
             accent={theme.accent}
             bg={theme.secondaryBg}
             border={theme.secondaryBorder}
@@ -478,7 +649,7 @@ export default function SplashScreen({ restaurant }: Props) {
 
         {/* Primär-CTA */}
         <Link
-          href={`/${restaurant.slug}/karte`}
+          href={`/${restaurant.slug}/karte?locale=${locale}`}
           prefetch
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-bold tracking-tight active:scale-[0.98]"
           style={{
@@ -491,7 +662,7 @@ export default function SplashScreen({ restaurant }: Props) {
             fontFamily: "system-ui, sans-serif",
           }}
         >
-          Zur Speisekarte
+          {t("to_menu", locale)}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
             <path d="M5 12h14M13 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -499,6 +670,106 @@ export default function SplashScreen({ restaurant }: Props) {
       </div>
 
       {/* Hero-Media-Overlay nicht über Inhalt: durch z-Index oben gelöst */}
+
+      {hasWifi && wifiOpen ? (
+        <WifiSheet
+          name={wifiName}
+          password={wifiPassword}
+          copied={wifiCopied}
+          onCopy={async () => {
+            try {
+              await navigator.clipboard.writeText(wifiPassword);
+              setWifiCopied(true);
+            } catch {
+              setWifiCopied(true);
+            }
+          }}
+          onClose={() => setWifiOpen(false)}
+          theme={theme}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function WifiSheet({
+  name,
+  password,
+  copied,
+  onCopy,
+  onClose,
+  theme,
+}: {
+  name: string;
+  password: string;
+  copied: boolean;
+  onCopy: () => void;
+  onClose: () => void;
+  theme: SplashTheme;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="WLAN-Zugang"
+      className="fixed inset-0 z-[1000] flex items-end justify-center"
+      style={{ background: "rgba(0,0,0,0.45)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[480px] rounded-t-3xl px-5 pb-7 pt-5"
+        style={{
+          background: theme.bg,
+          color: theme.text,
+          boxShadow: "0 -16px 48px rgba(0,0,0,0.35)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full" style={{ background: theme.textMuted }} />
+
+        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: theme.textMuted }}>
+          WLAN
+        </div>
+        <div className="mb-5 text-lg font-bold" style={{ fontFamily: theme.fontDisplay, fontStyle: theme.fontItalic ? "italic" : undefined }}>
+          {name}
+        </div>
+
+        {password.length > 0 ? (
+          <>
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.14em]" style={{ color: theme.textMuted }}>
+              Passwort
+            </div>
+            <div
+              className="mb-4 flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-base"
+              style={{ borderColor: theme.secondaryBorder, background: theme.secondaryBg, color: theme.secondaryText, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+            >
+              <span className="truncate">{password}</span>
+              <button
+                type="button"
+                onClick={onCopy}
+                className="shrink-0 rounded-xl px-3 py-1.5 text-[13px] font-semibold transition-colors active:scale-[0.97]"
+                style={{ background: theme.buttonBg, color: theme.buttonFg, fontFamily: "system-ui, sans-serif" }}
+              >
+                {copied ? "Kopiert ✓" : "Kopieren"}
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full rounded-2xl border px-4 py-3 text-sm font-semibold"
+          style={{
+            borderColor: theme.secondaryBorder,
+            background: theme.secondaryBg,
+            color: theme.secondaryText,
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          Schließen
+        </button>
+      </div>
     </div>
   );
 }
