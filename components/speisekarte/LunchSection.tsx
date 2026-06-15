@@ -10,7 +10,7 @@ type LunchSectionProps = {
   offers: LunchOffer[];
   menuItems: MenuItem[];
   onItemClick: (item: MenuItem) => void;
-  /** Optional: dunkler Hintergrund (z. B. BarSoleil) */
+  /** Optional: dunkler Hintergrund */
   theme?: "light" | "dark";
 };
 

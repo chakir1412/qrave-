@@ -5,6 +5,7 @@ import type { MenuItem } from "@/lib/supabase";
 import {
   getOrCreateSessionId,
   getOrCreateVisitorId,
+  priceBucketFromEur,
   trackEvent,
   type TrackEventParams,
 } from "@/lib/tracking";
@@ -27,9 +28,10 @@ export function useSpeisekarteTier1Tracking({
   modalItem,
 }: UseSpeisekarteTier1TrackingArgs) {
   const sessionId = useMemo(() => getOrCreateSessionId(), []);
-  // Persistente Browser-ID (localStorage). returnVisit = true wenn der
-  // Browser schon mal hier war — wird an jedem Tier-1-Event mitgeschickt.
-  const { returnVisit } = useMemo(() => getOrCreateVisitorId(), []);
+  // DSGVO/TTDSG §25: Visitor-ID wird LAZY innerhalb von safeTrack geholt,
+  // nicht am Mount. So wird sie nur erstellt nachdem der Gast Consent
+  // erteilt hat. `getOrCreateVisitorId` selbst prüft den Consent
+  // zusätzlich (Defense-in-Depth).
 
   const categoryEnterTimeRef = useRef<Record<string, number>>({});
   const visibleCatsRef = useRef<Set<string>>(new Set());
@@ -61,6 +63,8 @@ export function useSpeisekarteTier1Tracking({
       } else {
         return;
       }
+      // Erst HIER (nach Consent-Check) die Visitor-ID aufbauen/lesen.
+      const { returnVisit } = getOrCreateVisitorId();
       try {
         await trackEvent({
           restaurantId,
@@ -73,7 +77,7 @@ export function useSpeisekarteTier1Tracking({
         /* nie crashen */
       }
     },
-    [restaurantId, tischNummer, sessionId, returnVisit],
+    [restaurantId, tischNummer, sessionId],
   );
 
   useEffect(() => {
@@ -96,6 +100,7 @@ export function useSpeisekarteTier1Tracking({
         : null;
     const itemTags = filterTrackingItemTags(modalItem.tags);
     const beverageSubcategory = mapBeverageSubcategory(modalItem.kategorie, modalItem.main_tab);
+    const priceBucket = priceBucketFromEur(itemPrice);
     void safeTrack({
       eventType: "item_detail",
       itemId: modalItem.id,
@@ -105,6 +110,7 @@ export function useSpeisekarteTier1Tracking({
       itemPrice,
       itemTags,
       beverageSubcategory,
+      priceBucket,
     });
     return () => {
       const d = Math.round((Date.now() - start) / 1000);
@@ -290,12 +296,17 @@ export function useSpeisekarteTier1Tracking({
 
   const trackWishlistAdd = useCallback(
     (item: MenuItem) => {
+      const itemPrice =
+        typeof item.preis === "number" && Number.isFinite(item.preis) ? item.preis : null;
+      const priceBucket = priceBucketFromEur(itemPrice);
       void safeTrack({
         eventType: "wishlist_add",
         itemId: item.id,
         itemName: item.name,
         kategorie: item.kategorie,
         mainTab: item.main_tab ?? undefined,
+        itemPrice,
+        priceBucket,
       });
     },
     [safeTrack],

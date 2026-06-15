@@ -2,7 +2,7 @@
 
 type GuestNoteBannerProps = {
   note: string;
-  /** Optional: dunkles Theme (z. B. BarSoleil), sonst Light. */
+  /** Optional: dunkles Theme, sonst Light. */
   theme?: "light" | "dark";
 };
 

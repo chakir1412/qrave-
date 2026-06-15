@@ -37,10 +37,5 @@ export function getItemEmoji(item: MenuItem, kategorie?: string): string {
 }
 
 export function getDisplayPrice(item: MenuItem): string {
-  const pv = item.preis_volumen;
-  if (pv && typeof pv === "object") {
-    const first = pv["g"] ?? pv["m"] ?? pv["l"] ?? pv["btl"];
-    if (typeof first === "string") return first;
-  }
   return formatPrice(item.preis);
 }

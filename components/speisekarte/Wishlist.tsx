@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { MenuItem } from "@/lib/supabase";
 import { formatPrice, getDisplayPrice } from "./utils";
 import PresentationMode from "./PresentationMode";
+import { t } from "@/lib/i18n-menu";
 
 type CartItem = { item: MenuItem; qty: number };
 
@@ -18,6 +19,8 @@ type WishlistProps = {
   restaurantName?: string;
   /** Overlay z-index (z. B. 999 wenn Bottom-Nav darüber liegen soll) */
   overlayZIndex?: number;
+  /** UI-Sprache (von der Speisekarte). Default `"de"`. */
+  locale?: string;
 };
 
 export default function Wishlist({
@@ -30,6 +33,7 @@ export default function Wishlist({
   onClear,
   restaurantName,
   overlayZIndex = 500,
+  locale = "de",
 }: WishlistProps) {
   const [presentOpen, setPresentOpen] = useState(false);
   if (!open) return null;
@@ -69,7 +73,7 @@ export default function Wishlist({
             {cart.length === 0 ? (
               <div className="text-center py-8" style={{ color: "#9a948a" }}>
                 <div className="text-[2.2rem] mb-2">🛒</div>
-                <div className="text-[0.84rem]">Deine Liste ist leer.</div>
+                <div className="text-[0.84rem]">{t("wishlist_empty", locale)}</div>
               </div>
             ) : (
               <ul className="space-y-2">

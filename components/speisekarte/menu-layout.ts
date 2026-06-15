@@ -1,6 +1,7 @@
 import type { MenuItem } from "@/lib/supabase";
 import { compareKategorieOrder } from "@/lib/category-sort-order";
-import type { Section } from "./MenuGrid";
+
+export type Section = { kategorie: string; items: MenuItem[] };
 
 /** Interner Key für den Tab „Alle“ (Kollision mit echter Kategorie „Alle“ vermeiden). */
 export const CATEGORY_TAB_ALLE_KEY = "__alle__";
@@ -112,7 +113,6 @@ export function buildSectionsForCategoryTab(activeKey: string, menuItems: MenuIt
     const sorted = [...raw].sort(compareItemsBySortOrder);
     sections.push({
       kategorie: k,
-      subtitle: sorted[0]?.section_subtitle ?? null,
       items: sorted,
     });
   }

@@ -13,6 +13,7 @@ import PlayfulTemplate from "@/components/templates/Playful";
 import AsianDarkTemplate from "@/components/templates/AsianDark";
 import StreetFoodTemplate from "@/components/templates/StreetFood";
 import MediterraneanTemplate from "@/components/templates/Mediterranean";
+import BlossomTemplate from "@/components/templates/Blossom";
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,7 @@ const templateMap: Record<string, ComponentType<SpeisekarteProps>> = {
   "asian-dark": AsianDarkTemplate,
   "street-food": StreetFoodTemplate,
   mediterranean: MediterraneanTemplate,
+  blossom: BlossomTemplate,
 };
 
 function parseTischNummer(segment: string): number | null {
@@ -50,8 +52,6 @@ export default async function TischSpeisekartePage({
   if (!data) {
     notFound();
   }
-
-  const { restaurant } = data;
 
   const { data: tischLegacy, error: tischLegacyError } = await supabase
     .from("tables")
@@ -79,17 +79,7 @@ export default async function TischSpeisekartePage({
     console.error("Tisch lookup tables:", tischLegacyError);
   }
 
-  if (!tischExists) {
-    console.log("Tisch fallback debug:", {
-      slug,
-      tischSegment,
-      tischNr,
-      restaurantFound: !!restaurant,
-      restaurantId: restaurant?.id,
-      tischFound: false,
-      mode: "continue_without_table_tracking",
-    });
-  }
+  // Tisch existiert nicht in DB → ohne Tisch-Tracking weiterlaufen (Phase-1-Verhalten).
 
   // Tisch-Tracking vorbereitet — INSERT deaktiviert bis Phase 2
   // (dynamische QR-Codes pro Tisch). Tier-0 Scan wird aktuell in der
@@ -112,7 +102,6 @@ export default async function TischSpeisekartePage({
     restaurantName: data.restaurant.name,
     accentColor: data.restaurant.accent_color ?? undefined,
     logoUrl: data.restaurant.logo_url ?? undefined,
-    highlights: data.highlights,
     dailyPushes: data.dailyPushes,
     restaurantId: data.restaurant.id,
     tischNummer: tischNr,
@@ -120,6 +109,8 @@ export default async function TischSpeisekartePage({
     guestNote: data.restaurant.guest_note ?? null,
     lunchOffers: data.lunchOffers,
     backgroundMode: (data.restaurant as { background_mode?: string | null }).background_mode ?? null,
+    customBgColor: (data.restaurant as { custom_bg_color?: string | null }).custom_bg_color ?? null,
+    customTextColor: (data.restaurant as { custom_text_color?: string | null }).custom_text_color ?? null,
   };
 
   const templateKey = (data.restaurant.template ?? "minimal") as string;
