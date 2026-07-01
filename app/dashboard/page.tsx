@@ -58,7 +58,11 @@ export default function DashboardPage() {
         return;
       }
 
-      const restRow = data as unknown as DashboardRestaurant;
+      const restRow = data as unknown as DashboardRestaurant & { onboarding_completed?: boolean };
+      if (!restRow.onboarding_completed) {
+        router.replace("/onboarding");
+        return;
+      }
       setRestaurant(restRow);
       setUserFirstName(
         firstNameFromSession(

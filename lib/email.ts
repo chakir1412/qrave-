@@ -75,6 +75,61 @@ export async function sendRegistrationNotification(data: NewRegistrationData): P
   }
 }
 
+export type OnboardingSubmissionData = {
+  restaurantId: string;
+  restaurantName: string;
+  slug: string;
+  cuisineType: string;
+  stadt: string;
+  telefon: string;
+  ownerEmail: string;
+  fileUrl: string | null;
+  link: string | null;
+};
+
+/** Notification an info@qrave.menu wenn ein Wirt den Onboarding-Wizard abschließt. */
+export async function sendOnboardingNotification(data: OnboardingSubmissionData): Promise<void> {
+  const resend = getResend();
+  if (!resend) return;
+
+  const fileRow = data.fileUrl
+    ? `<tr><td style="padding: 8px 0; color: #777;">Datei</td><td style="padding: 8px 0;"><a href="${escapeHtml(data.fileUrl)}" style="color: #9333ea;">${escapeHtml(data.fileUrl)}</a></td></tr>`
+    : "";
+  const linkRow = data.link
+    ? `<tr><td style="padding: 8px 0; color: #777;">Link</td><td style="padding: 8px 0;"><a href="${escapeHtml(data.link)}" style="color: #9333ea;">${escapeHtml(data.link)}</a></td></tr>`
+    : "";
+
+  const html = `
+    <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 560px; margin: auto; color: #1a1916;">
+      <h1 style="font-size: 20px; margin: 0 0 16px;">Neue Onboarding-Anfrage</h1>
+      <p style="margin: 0 0 20px; color: #555;">${escapeHtml(data.restaurantName)} hat den Onboarding-Wizard abgeschlossen.</p>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+        <tr><td style="padding: 8px 0; color: #777; width: 140px;">Restaurant</td><td style="padding: 8px 0; font-weight: 600;">${escapeHtml(data.restaurantName)}</td></tr>
+        <tr><td style="padding: 8px 0; color: #777;">Slug</td><td style="padding: 8px 0;"><code>${escapeHtml(data.slug)}</code></td></tr>
+        <tr><td style="padding: 8px 0; color: #777;">Art</td><td style="padding: 8px 0;">${escapeHtml(data.cuisineType)}</td></tr>
+        <tr><td style="padding: 8px 0; color: #777;">Stadt</td><td style="padding: 8px 0;">${escapeHtml(data.stadt)}</td></tr>
+        <tr><td style="padding: 8px 0; color: #777;">Telefon</td><td style="padding: 8px 0;">${escapeHtml(data.telefon)}</td></tr>
+        <tr><td style="padding: 8px 0; color: #777;">E-Mail</td><td style="padding: 8px 0;">${escapeHtml(data.ownerEmail)}</td></tr>
+        ${fileRow}
+        ${linkRow}
+        <tr><td style="padding: 8px 0; color: #777;">Restaurant-ID</td><td style="padding: 8px 0;"><code>${escapeHtml(data.restaurantId)}</code></td></tr>
+      </table>
+    </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: ADMIN_INBOX,
+      subject: `Neue Onboarding-Anfrage — ${data.restaurantName}`,
+      html,
+    });
+  } catch (e) {
+    console.error("[email] sendOnboardingNotification:", e);
+  }
+}
+
 export type PublishConfirmationData = {
   restaurantName: string;
   slug: string;

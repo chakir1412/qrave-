@@ -143,7 +143,7 @@ export default function RegistrierenWizard() {
         window.location.assign("/login?registered=1");
         return;
       }
-      window.location.assign("/dashboard");
+      window.location.assign("/onboarding");
     } catch (err) {
       setS((prev) => ({
         ...prev,
