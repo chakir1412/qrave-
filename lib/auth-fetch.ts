@@ -13,7 +13,11 @@ export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}
   if (session?.access_token && !headers.has("authorization")) {
     headers.set("Authorization", `Bearer ${session.access_token}`);
   }
-  if (!headers.has("content-type") && init.body) {
+  // JSON-Content-Type nur setzen wenn Body wirklich ein String ist.
+  // Bei FormData/Blob/URLSearchParams-Bodies muss fetch selbst den passenden
+  // Content-Type (inkl. multipart-Boundary) setzen — sonst schlägt
+  // `req.formData()` server-seitig fehl.
+  if (!headers.has("content-type") && typeof init.body === "string") {
     headers.set("Content-Type", "application/json");
   }
   return fetch(input, { ...init, headers, credentials: "same-origin" });
