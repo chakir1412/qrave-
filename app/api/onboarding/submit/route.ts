@@ -128,16 +128,26 @@ export async function POST(req: Request) {
 
   const srv = createServiceRoleClient();
 
-  // Aktuelles Restaurant für diesen Auth-User laden
+  // Aktuelles Restaurant für diesen Auth-User laden.
+  // maybeSingle statt single: kein Fehler bei 0 Rows, damit wir user.id
+  // im Debug-Response zurückgeben können.
   const { data: existing, error: loadErr } = await srv
     .from("restaurants")
     .select("id, slug, name, email")
     .eq("auth_user_id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (loadErr || !existing) {
+  if (loadErr) {
+    console.error("[onboarding/submit] restaurant load:", loadErr, "user.id:", user.id);
     return NextResponse.json(
-      { error: "Kein Restaurant für deinen Account gefunden." },
+      { error: "Fehler beim Laden des Restaurants.", debug: { userId: user.id, dbError: loadErr.message } },
+      { status: 500 },
+    );
+  }
+  if (!existing) {
+    console.error("[onboarding/submit] no restaurant for user.id:", user.id);
+    return NextResponse.json(
+      { error: "Kein Restaurant für deinen Account gefunden.", debug: { userId: user.id } },
       { status: 404 },
     );
   }
