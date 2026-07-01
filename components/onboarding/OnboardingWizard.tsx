@@ -81,17 +81,10 @@ export default function OnboardingWizard({
       if (file) fd.set("file", file);
       if (link.trim()) fd.set("link", link.trim());
       const res = await authFetch("/api/onboarding/submit", { method: "POST", body: fd });
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        debug?: { userId?: string; dbError?: string };
-      };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         setSubmitting(false);
-        const dbg = j.debug
-          ? ` (userId=${j.debug.userId ?? "—"}${j.debug.dbError ? `, dbError=${j.debug.dbError}` : ""})`
-          : "";
-        setError((j.error ?? "Absenden fehlgeschlagen.") + dbg);
+        setError(j.error ?? "Absenden fehlgeschlagen.");
         return;
       }
       setStep(3);

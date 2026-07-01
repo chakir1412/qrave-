@@ -45,9 +45,15 @@ export async function POST(req: Request) {
     );
   }
 
-  // Auth: Cookie ODER Authorization: Bearer.
-  // Der Browser-Client (lib/supabase.ts) persistiert nur in localStorage —
-  // ohne Bearer würde Server-side kein User erkannt werden.
+  // Auth: Bearer-Token bevorzugt, Cookie nur als Fallback.
+  //
+  // Warum diese Reihenfolge? Der Wirt-Browser-Client (lib/supabase.ts,
+  // localStorage) und der Founder-Client (createBrowserClient aus
+  // @supabase/ssr, Cookies) können gleichzeitig aktive Sessions haben —
+  // Chakir ist parallel Founder + Test-Wirt. Der Wizard schickt via
+  // authFetch immer den localStorage-Token als Bearer; der ist die
+  // authoritative Wirt-Identität. Ohne Bearer (z. B. Wirt via Google
+  // OAuth, dessen Session im Cookie steht), fällt es auf getUser() zurück.
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -62,14 +68,16 @@ export async function POST(req: Request) {
     },
   );
 
-  let user = (await supabase.auth.getUser()).data.user;
+  let user: { id: string; email?: string } | null = null;
+  const bearer = req.headers.get("authorization") ?? "";
+  const token = bearer.toLowerCase().startsWith("bearer ") ? bearer.slice(7).trim() : "";
+  if (token) {
+    const { data } = await supabase.auth.getUser(token);
+    if (data.user) user = data.user;
+  }
   if (!user) {
-    const bearer = req.headers.get("authorization") ?? "";
-    const token = bearer.toLowerCase().startsWith("bearer ") ? bearer.slice(7).trim() : "";
-    if (token) {
-      const { data } = await supabase.auth.getUser(token);
-      if (data.user) user = data.user;
-    }
+    const { data } = await supabase.auth.getUser();
+    if (data.user) user = data.user;
   }
   if (!user) {
     return NextResponse.json({ error: "Nicht eingeloggt" }, { status: 401 });
@@ -138,16 +146,11 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (loadErr) {
-    console.error("[onboarding/submit] restaurant load:", loadErr, "user.id:", user.id);
-    return NextResponse.json(
-      { error: "Fehler beim Laden des Restaurants.", debug: { userId: user.id, dbError: loadErr.message } },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Fehler beim Laden des Restaurants." }, { status: 500 });
   }
   if (!existing) {
-    console.error("[onboarding/submit] no restaurant for user.id:", user.id);
     return NextResponse.json(
-      { error: "Kein Restaurant für deinen Account gefunden.", debug: { userId: user.id } },
+      { error: "Kein Restaurant für deinen Account gefunden." },
       { status: 404 },
     );
   }
