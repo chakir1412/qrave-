@@ -815,6 +815,9 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ROI / WAS BRINGT'S */}
+        <RoiSection />
+
         {/* HOW */}
         <section id="how">
           <div className="wrap">
@@ -1151,9 +1154,6 @@ export default function Home() {
             </div>
           </div>
         </section>
-
-        {/* ROI / WAS BRINGT'S */}
-        <RoiSection />
 
         {/* PRICING */}
         <section className="pricing">

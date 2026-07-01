@@ -41,7 +41,7 @@ const card: CSSProperties = {
 
 const SLOT_KEYS = ["scans_morning", "scans_midday", "scans_evening", "scans_night"] as const;
 const SLOT_LABELS = ["Morgen", "Mittag", "Abend", "Nacht"] as const;
-const SLOT_RANGES = ["06:00–11:00", "11:00–15:00", "15:00–22:00", "22:00–06:00"] as const;
+const SLOT_RANGES = ["06:00–11:00", "11:00–17:00", "17:00–22:00", "22:00–06:00"] as const;
 
 function todayBerlinIso(): string {
   return new Intl.DateTimeFormat("en-CA", {

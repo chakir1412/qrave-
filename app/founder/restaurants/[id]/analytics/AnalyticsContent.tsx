@@ -140,22 +140,43 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
     [range, todayIso, customFrom, customTo],
   );
 
-  // Bei Range-Wechsel die URL aktualisieren, damit die Server-Component die
-  // Daily-Daten für den gewählten Zeitraum neu lädt. Mount überspringen, damit
-  // der Default-View das 30-Tage-Initial-Fenster nutzt (kein Extra-Roundtrip).
+  // Daily-Rows kommen initial vom Server (SSR-Prop) und werden bei jedem
+  // Range-Wechsel client-seitig nachgeladen — direkter Fetch umgeht den
+  // Next.js Router-Cache, der `router.replace` mit neuen searchParams nicht
+  // zuverlässig invalidiert.
+  const [dailyRows, setDailyRows] = useState<AnalyticsDailyRow[]>(analyticsDaily);
   const didMountRef = useRef(false);
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
       return;
     }
+    // URL für Shareability/Reload synchron halten — kein Re-Fetch via Server.
     router.replace(`?from=${bounds.fromIso}&to=${bounds.toIso}`, { scroll: false });
-  }, [bounds.fromIso, bounds.toIso, router]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/founder/restaurant-daily-analytics?restaurantId=${restaurant.id}&from=${bounds.fromIso}&to=${bounds.toIso}`,
+        );
+        if (!res.ok) return;
+        const json = (await res.json()) as { rows?: AnalyticsDailyRow[] };
+        if (!cancelled) setDailyRows(json.rows ?? []);
+      } catch {
+        // Netzwerk-Fehler: behalte aktuellen Stand.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bounds.fromIso, bounds.toIso, router, restaurant.id]);
 
-  // Daily-Daten auf gewählten Range filtern
+  // Daily-Daten auf gewählten Range filtern (defensiv — die API liefert
+  // bereits den passenden Range, aber bei Range-Wechsel zeigt der Filter
+  // sofort die korrekte Untermenge der noch alten dailyRows).
   const daily = useMemo(
-    () => analyticsDaily.filter((r) => r.day_berlin >= bounds.fromIso && r.day_berlin <= bounds.toIso),
-    [analyticsDaily, bounds.fromIso, bounds.toIso],
+    () => dailyRows.filter((r) => r.day_berlin >= bounds.fromIso && r.day_berlin <= bounds.toIso),
+    [dailyRows, bounds.fromIso, bounds.toIso],
   );
 
   // Stat-Aggregate
@@ -315,8 +336,8 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
     // Aus scans_morning/midday/evening/night + Peak-Wochentag
     const slots = [
       { name: "Morgens", value: tageszeit.morgen, range: "06:00–11:00" },
-      { name: "Mittags", value: tageszeit.mittag, range: "11:00–15:00" },
-      { name: "Abends", value: tageszeit.abend, range: "15:00–22:00" },
+      { name: "Mittags", value: tageszeit.mittag, range: "11:00–17:00" },
+      { name: "Abends", value: tageszeit.abend, range: "17:00–22:00" },
       { name: "Nachts", value: tageszeit.nacht, range: "22:00–06:00" },
     ];
     const best = slots.reduce((a, b) => (b.value > a.value ? b : a), slots[0]);
@@ -440,8 +461,8 @@ export function AnalyticsContent({ restaurant, analyticsDaily, scanEvents7d }: P
         {/* 2. SCANS NACH TAGESZEIT */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <TageszeitCard label="Morgen" sub="06:00–11:00" value={tageszeit.morgen} color="#3b82f6" max={tageszeitMax} />
-          <TageszeitCard label="Mittag" sub="11:00–15:00" value={tageszeit.mittag} color="#eab308" max={tageszeitMax} />
-          <TageszeitCard label="Abend" sub="15:00–22:00" value={tageszeit.abend} color="#9333ea" max={tageszeitMax} />
+          <TageszeitCard label="Mittag" sub="11:00–17:00" value={tageszeit.mittag} color="#eab308" max={tageszeitMax} />
+          <TageszeitCard label="Abend" sub="17:00–22:00" value={tageszeit.abend} color="#9333ea" max={tageszeitMax} />
           <TageszeitCard label="Nacht" sub="22:00–06:00" value={tageszeit.nacht} color="#6b7280" max={tageszeitMax} />
         </div>
 

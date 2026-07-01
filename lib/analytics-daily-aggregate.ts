@@ -58,8 +58,8 @@ function eventHourBerlin(e: RawRestaurantEventRow): number {
 
 function timeBlockForHour(h: number): "morning" | "midday" | "evening" | "night" {
   if (h >= 6 && h < 11) return "morning";
-  if (h >= 11 && h < 15) return "midday";
-  if (h >= 15 && h < 22) return "evening";
+  if (h >= 11 && h < 17) return "midday";
+  if (h >= 17 && h < 22) return "evening";
   return "night";
 }
 
