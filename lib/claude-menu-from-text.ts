@@ -4,7 +4,7 @@ import {
   type ParsedMenuItemDto,
 } from "@/lib/parse-menu";
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-6";
 
 type AnthropicMessageResponse = {
   content: Array<{ type: string; text?: string }>;

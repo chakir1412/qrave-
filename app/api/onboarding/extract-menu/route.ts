@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-6";
 const MAX_PDF_BYTES = 4_000_000;
 
 /** Schlanke Onboarding-Variante des /api/parse-menu-Endpoints.
