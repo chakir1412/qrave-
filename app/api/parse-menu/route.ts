@@ -52,9 +52,9 @@ const MAX_EXTRACTED_TEXT_CHARS = 3_500_000;
 /** PDF-Binary direkt an Anthropic (Base64 im JSON); unter Limit bleibt Request unter Vercel ~4,5 MB. */
 const MAX_PDF_BYTES_DIRECT = 4_000_000;
 
-/** Page-Chunking: Seiten pro Anthropic-Call (3 Seiten = robust und passt
- *  bequem in `maxTokens` 8192). */
-const PAGES_PER_CHUNK = 3;
+/** Page-Chunking: Seiten pro Anthropic-Call. 2 Seiten = kleinerer Output
+ *  → passt zuverlässig in max_tokens, auch bei sehr dichten Karten. */
+const PAGES_PER_CHUNK = 2;
 /** Hartes Limit für die Anzahl paralleler Chunks pro Request — schützt vor
  *  Riesen-PDFs mit > ~60 Seiten. */
 const MAX_PAGE_CHUNKS = 20;
@@ -62,7 +62,10 @@ const MAX_PAGE_CHUNKS = 20;
 const MODEL = "claude-sonnet-4-6";
 const CHUNK_SIZE = 2000;
 const MAX_CHUNKS = 32;
-const CHUNK_MAX_TOKENS = 4000;
+const CHUNK_MAX_TOKENS = 8000;
+/** Vision-Calls: großzügig, damit dichte Karten mit ~50 Items pro Chunk
+ *  nicht mittendrin abgeschnitten werden. Sonnet 4.6 verkraftet das direkt. */
+const VISION_MAX_TOKENS = 16000;
 const CHUNK_RETRY_SPLIT_MIN_LENGTH = 1000;
 const PDF_IMPORT_PROMPT = `Du bist ein Experte für Restaurantspeisekarten. Extrahiere alle Menüpunkte aus der Speisekarte.
 Antworte NUR mit einem JSON Array, ohne Markdown, ohne Erklärung, ohne Codeblöcke:
@@ -474,7 +477,7 @@ async function parsePdfByPageChunks(
       try {
         return await anthropicExtractMenuItems(content, apiKey, {
           usePdfBeta: false,
-          maxTokens: 8192,
+          maxTokens: VISION_MAX_TOKENS,
         });
       } catch (err) {
         console.error(`parse-menu page-chunk anthropic ${from}-${to}:`, err);
@@ -552,10 +555,29 @@ async function anthropicExtractMenuItems(
       return parseMenuJsonFromModel(JSON.stringify({ items: asObj.items }));
     }
     return parseMenuJsonFromModel(cleanedResponse);
-  } catch (e) {
-    console.error("JSON parse error:", e);
-    console.error("Raw response:", cleanedResponse.slice(0, 500));
-    throw new Error("KI-Antwort konnte nicht verarbeitet werden. Bitte erneut versuchen.");
+  } catch {
+    // Truncation-Fallback: bei abgeschnittenem JSON (z. B. weil max_tokens
+    // dennoch nicht reicht) versuche über repairJson mind. die vollständig
+    // geparsten Items zu retten. Analog zu parseChunkOnce.
+    const repaired = repairJson(cleanedResponse);
+    try {
+      return parseMenuJsonFromModel(repaired);
+    } catch {
+      try {
+        const parsed = JSON.parse(repaired) as unknown;
+        if (Array.isArray(parsed)) {
+          return parseMenuJsonFromModel(JSON.stringify({ items: parsed }));
+        }
+        const asObj = parsed as { items?: unknown };
+        if (Array.isArray(asObj?.items)) {
+          return parseMenuJsonFromModel(JSON.stringify({ items: asObj.items }));
+        }
+      } catch {
+        // fällt in den finalen throw
+      }
+      console.error("anthropicExtractMenuItems repair failed. Preview:", cleanedResponse.slice(0, 500));
+      throw new Error("KI-Antwort konnte nicht verarbeitet werden. Bitte erneut versuchen.");
+    }
   }
 }
 
@@ -721,7 +743,7 @@ export async function POST(req: Request) {
             ];
             const imgItems = await anthropicExtractMenuItems(imageContent, apiKey, {
               usePdfBeta: false,
-              maxTokens: 8192,
+              maxTokens: VISION_MAX_TOKENS,
             });
             if (imgItems.length > 0) {
               await enrichItemsWithDescriptions(imgItems, apiKey);
@@ -745,7 +767,7 @@ export async function POST(req: Request) {
         ];
         const docItems = await anthropicExtractMenuItems(docContent, apiKey, {
           usePdfBeta: true,
-          maxTokens: 8192,
+          maxTokens: VISION_MAX_TOKENS,
         });
         if (docItems.length === 0) {
           return NextResponse.json(
@@ -881,7 +903,7 @@ export async function POST(req: Request) {
     try {
       const imgItems = await anthropicExtractMenuItems(userContent, apiKey, {
         usePdfBeta: false,
-        maxTokens: 4096,
+        maxTokens: VISION_MAX_TOKENS,
       });
       if (imgItems.length === 0) {
         return NextResponse.json(
