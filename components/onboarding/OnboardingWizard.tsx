@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CUISINE_TYPES } from "@/lib/onboarding-cuisines";
+import { authFetch } from "@/lib/auth-fetch";
 
 const ACCENT = "#9333ea";
 const ACCENT_LIGHT = "#7c3aed";
@@ -79,7 +80,7 @@ export default function OnboardingWizard({
       fd.set("telefon", telefon.trim());
       if (file) fd.set("file", file);
       if (link.trim()) fd.set("link", link.trim());
-      const res = await fetch("/api/onboarding/submit", { method: "POST", body: fd });
+      const res = await authFetch("/api/onboarding/submit", { method: "POST", body: fd });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         setSubmitting(false);

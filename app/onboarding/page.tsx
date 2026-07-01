@@ -1,60 +1,74 @@
-import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
-import { createServiceRoleClient } from "@/lib/supabase-service-role";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Onboarding – Qrave",
-  description: "Letzter Schritt: Erzähl uns kurz, was du anbietest.",
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import OnboardingWizard from "@/components/onboarding/OnboardingWizard";
+
+type Prefill = {
+  name: string;
+  cuisine: string;
+  stadt: string;
+  telefon: string;
 };
 
-export const dynamic = "force-dynamic";
+export default function OnboardingPage() {
+  const router = useRouter();
+  const [prefill, setPrefill] = useState<Prefill | null>(null);
 
-export default async function OnboardingPage() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {},
-      },
-    },
-  );
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace("/login?redirect=/onboarding");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("name, cuisine_type, stadt, telefon, onboarding_completed")
+        .eq("auth_user_id", session.user.id)
+        .single();
+      if (cancelled) return;
+      if (error || !data) {
+        router.replace("/dashboard");
+        return;
+      }
+      if (data.onboarding_completed) {
+        router.replace("/dashboard");
+        return;
+      }
+      setPrefill({
+        name: data.name ?? "",
+        cuisine: data.cuisine_type ?? "",
+        stadt: data.stadt ?? "",
+        telefon: data.telefon ?? "",
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect("/login?redirect=/onboarding");
-  }
-
-  const srv = createServiceRoleClient();
-  const { data: restaurant } = await srv
-    .from("restaurants")
-    .select("id, name, cuisine_type, stadt, telefon, onboarding_completed")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  if (!restaurant) {
-    redirect("/dashboard");
-  }
-
-  if (restaurant.onboarding_completed) {
-    redirect("/dashboard");
+  if (!prefill) {
+    return (
+      <div
+        className="flex min-h-dvh items-center justify-center font-sans text-sm"
+        style={{ backgroundColor: "#06040e", color: "rgba(255,255,255,0.5)" }}
+      >
+        Onboarding wird geladen …
+      </div>
+    );
   }
 
   return (
     <OnboardingWizard
-      initialName={restaurant.name ?? ""}
-      initialCuisine={restaurant.cuisine_type ?? ""}
-      initialStadt={restaurant.stadt ?? ""}
-      initialTelefon={restaurant.telefon ?? ""}
+      initialName={prefill.name}
+      initialCuisine={prefill.cuisine}
+      initialStadt={prefill.stadt}
+      initialTelefon={prefill.telefon}
     />
   );
 }

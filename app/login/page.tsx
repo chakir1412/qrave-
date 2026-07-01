@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -47,6 +47,23 @@ function LoginInner() {
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Wenn schon eingeloggt (z. B. localStorage-Session ohne Server-Cookie), sofort
+  // zum Ziel-Pfad weiterleiten — verhindert Login-Formular-Flimmern in Loops.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!cancelled && session) {
+        router.replace(redirect);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, redirect]);
 
   async function signInWithGoogle() {
     setError(null);
