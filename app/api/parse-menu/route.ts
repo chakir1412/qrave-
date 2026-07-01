@@ -59,7 +59,7 @@ const PAGES_PER_CHUNK = 3;
  *  Riesen-PDFs mit > ~60 Seiten. */
 const MAX_PAGE_CHUNKS = 20;
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-6";
 const CHUNK_SIZE = 2000;
 const MAX_CHUNKS = 32;
 const CHUNK_MAX_TOKENS = 4000;
