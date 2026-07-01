@@ -16,16 +16,10 @@ import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit"
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
-/** Founder-Auth: Endpoint nutzt Anthropic-Calls, daher nur für den
- *  konfigurierten Founder freigegeben. */
-async function assertFounderOrUnauthorized(): Promise<NextResponse | null> {
-  const founderId = process.env.FOUNDER_USER_ID;
-  if (!founderId) {
-    return NextResponse.json(
-      { success: false, error: "Server nicht konfiguriert (FOUNDER_USER_ID fehlt)." },
-      { status: 500 },
-    );
-  }
+/** Auth: Wirt ODER Founder. Bearer-Token bevorzugt (Wirt-Client lebt
+ *  in localStorage, Cookie ist ggf. eine parallele Founder-Session), Cookie
+ *  als Fallback für OAuth-Wirte. Anthropic-Rate-Limit läuft weiter pro IP. */
+async function assertUserOrUnauthorized(req: Request): Promise<NextResponse | null> {
   const cookieStore = await cookies();
   const supabaseAuth = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,13 +33,17 @@ async function assertFounderOrUnauthorized(): Promise<NextResponse | null> {
       },
     },
   );
-  const {
-    data: { user },
-  } = await supabaseAuth.auth.getUser();
-  if (!user || user.id !== founderId) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+
+  const bearer = req.headers.get("authorization") ?? "";
+  const token = bearer.toLowerCase().startsWith("bearer ") ? bearer.slice(7).trim() : "";
+  if (token) {
+    const { data } = await supabaseAuth.auth.getUser(token);
+    if (data.user) return null;
   }
-  return null;
+  const { data } = await supabaseAuth.auth.getUser();
+  if (data.user) return null;
+
+  return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 }
 
 /** Grober Schutz vor riesigem Form-Body (Vercel ~4,5 MB Request-Limit). */
@@ -574,7 +572,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const denied = await assertFounderOrUnauthorized();
+  const denied = await assertUserOrUnauthorized(req);
   if (denied) return denied;
 
   try {

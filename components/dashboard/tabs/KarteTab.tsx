@@ -12,6 +12,7 @@ import {
 import type { DailyPush, LunchOffer } from "@/lib/supabase";
 import type { MenuItem } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
+import { authFetch } from "@/lib/auth-fetch";
 import { LUNCH_WEEKDAY_KEYS } from "@/lib/supabase";
 import { isDrinkCategory } from "@/lib/category-types";
 import {
@@ -713,7 +714,7 @@ export function KarteTab({
     }
 
     try {
-      const res = await fetch("/api/parse-menu", {
+      const res = await authFetch("/api/parse-menu", {
         method: "POST",
         body: fd,
       });
