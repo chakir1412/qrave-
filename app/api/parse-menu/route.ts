@@ -12,8 +12,10 @@ import {
 import { enrichItemsWithDescriptions } from "@/lib/auto-describe";
 import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
-/** Vercel Serverless Timeout (PDF-Rendering + KI). */
-export const maxDuration = 120;
+/** Vercel Serverless Timeout: bis zu 300s (Pro-Plan / Fluid Compute). Nötig,
+ *  weil Page-Chunks jetzt sequentiell verarbeitet werden — bei 12 Seiten
+ *  → 6 Chunks × ~25-30s ≈ 150-180s. */
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 /** Auth: Wirt ODER Founder. Bearer-Token bevorzugt (Wirt-Client lebt
@@ -448,43 +450,51 @@ async function parsePdfByPageChunks(
 
   const ranges = buildPageRanges(pageCount, PAGES_PER_CHUNK);
 
-  const groups = await Promise.all(
-    ranges.map(async ({ from, to }) => {
-      let pngs: string[] = [];
-      try {
-        pngs = await pdfBufferToPngBase64PagesRange(pdfBuf, from, to);
-      } catch (err) {
-        console.error(`parse-menu page-chunk render ${from}-${to}:`, err);
-        return [] as ParsedMenuItemDto[];
-      }
-      if (pngs.length === 0) return [] as ParsedMenuItemDto[];
+  // Sequentiell statt Promise.all: bei sehr großen Karten verhindert das
+  // Anthropic-Rate-Limit-Retries (429 → exponential backoff) und macht die
+  // Ausführung deterministischer — Trade-off: höhere Gesamt-Dauer,
+  // maxDuration=300 fängt das ab.
+  const groups: ParsedMenuItemDto[][] = [];
+  for (const { from, to } of ranges) {
+    let pngs: string[] = [];
+    try {
+      pngs = await pdfBufferToPngBase64PagesRange(pdfBuf, from, to);
+    } catch (err) {
+      console.error(`parse-menu page-chunk render ${from}-${to}:`, err);
+      groups.push([]);
+      continue;
+    }
+    if (pngs.length === 0) {
+      groups.push([]);
+      continue;
+    }
 
-      const content: AnthropicContentPart[] = [
-        ...pngs.map(
-          (data): AnthropicContentPart => ({
-            type: "image",
-            source: { type: "base64", media_type: "image/png", data },
-          }),
-        ),
-        {
-          type: "text",
-          text:
-            `Seiten ${from}–${to} der Speisekarte. Extrahiere ALLE Items, die auf diesen Seiten zu sehen sind — auch wenn sie zu Kategorien gehören, die schon auf vorherigen Seiten begonnen haben.\n\n` +
-            PDF_IMPORT_PROMPT,
-        },
-      ];
+    const content: AnthropicContentPart[] = [
+      ...pngs.map(
+        (data): AnthropicContentPart => ({
+          type: "image",
+          source: { type: "base64", media_type: "image/png", data },
+        }),
+      ),
+      {
+        type: "text",
+        text:
+          `Seiten ${from}–${to} der Speisekarte. Extrahiere ALLE Items, die auf diesen Seiten zu sehen sind — auch wenn sie zu Kategorien gehören, die schon auf vorherigen Seiten begonnen haben.\n\n` +
+          PDF_IMPORT_PROMPT,
+      },
+    ];
 
-      try {
-        return await anthropicExtractMenuItems(content, apiKey, {
-          usePdfBeta: false,
-          maxTokens: VISION_MAX_TOKENS,
-        });
-      } catch (err) {
-        console.error(`parse-menu page-chunk anthropic ${from}-${to}:`, err);
-        return [] as ParsedMenuItemDto[];
-      }
-    }),
-  );
+    try {
+      const items = await anthropicExtractMenuItems(content, apiKey, {
+        usePdfBeta: false,
+        maxTokens: VISION_MAX_TOKENS,
+      });
+      groups.push(items);
+    } catch (err) {
+      console.error(`parse-menu page-chunk anthropic ${from}-${to}:`, err);
+      groups.push([]);
+    }
+  }
 
   return dedupeItems(groups.flat());
 }
