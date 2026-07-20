@@ -2,18 +2,55 @@
 export type ParsedMenuItemDto = {
   name: string;
   beschreibung: string;
-  /** Aus der Beschreibung extrahierte Allergene & Zutaten (Freitext). */
-  allergens_text: string;
   /** Diät-Tags (Subset von vegan, vegetarisch, glutenfrei, scharf). */
   tags: string[];
+  /** 14 LMIV-Allergene als Schlüssel (Subset von LMIV_ALLERGEN_KEYS). */
+  allergens: string[];
+  /** Freitext für Zusatzstoffe (Geschmacksverstärker, Konservierungsstoffe etc.). */
+  additives_text: string;
   preis: number;
   kategorie: string;
   main_tab: "speisen" | "getraenke" | "snacks";
   /** 0..1, wie sicher die Kategorie-Zuordnung ist */
   category_confidence: number;
+  /** True wenn das Item Codes am Namen hatte, aber die Karte keine
+   *  auflösbare Legende hatte — der Wirt muss allergens/additives_text
+   *  im Import-Review manuell nachtragen. */
+  needs_review: boolean;
+  /** Kurzer Grund für die Markierung. Nur relevant wenn needs_review=true. */
+  needs_review_reason?: string;
 };
 
 const ALLOWED_TAGS = ["vegan", "vegetarisch", "glutenfrei", "scharf"] as const;
+
+/** Zulässige LMIV-Allergen-Schlüssel — muss synchron zu LMIV_ALLERGENS in i18n-menu.ts. */
+const ALLOWED_ALLERGENS = [
+  "gluten",
+  "krebstiere",
+  "eier",
+  "fisch",
+  "erdnuesse",
+  "soja",
+  "milch",
+  "schalenfruechte",
+  "sellerie",
+  "senf",
+  "sesam",
+  "sulfite",
+  "lupinen",
+  "weichtiere",
+] as const;
+
+function normalizeAllergens(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out = new Set<string>();
+  for (const v of raw) {
+    if (typeof v !== "string") continue;
+    const k = v.trim().toLowerCase();
+    if ((ALLOWED_ALLERGENS as readonly string[]).includes(k)) out.add(k);
+  }
+  return Array.from(out);
+}
 
 function normalizeTags(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -157,25 +194,33 @@ function normalizeOne(raw: unknown): ParsedMenuItemDto | null {
       : typeof o.desc === "string"
         ? o.desc.trim()
         : "";
-  const allergens_text =
-    typeof o.allergens_text === "string"
-      ? o.allergens_text.trim()
-      : typeof o.allergene === "string"
-        ? o.allergene.trim()
+  const additives_text =
+    typeof o.additives_text === "string"
+      ? o.additives_text.trim()
+      : typeof o.zusatzstoffe === "string"
+        ? o.zusatzstoffe.trim()
         : "";
   const kategorie =
     typeof o.kategorie === "string" && o.kategorie.trim()
       ? o.kategorie.trim()
       : "Sonstiges";
+  const needs_review = o.needs_review === true;
+  const needs_review_reason =
+    typeof o.needs_review_reason === "string" && o.needs_review_reason.trim()
+      ? o.needs_review_reason.trim()
+      : undefined;
   return {
     name,
     beschreibung,
-    allergens_text,
     tags: normalizeTags(o.tags),
+    allergens: normalizeAllergens(o.allergens),
+    additives_text,
     preis: toNumberPreis(o.preis),
     kategorie,
     main_tab: normalizeMainTab(o.main_tab),
     category_confidence: normalizeConfidence(o.category_confidence),
+    needs_review,
+    ...(needs_review_reason ? { needs_review_reason } : {}),
   };
 }
 
@@ -207,7 +252,63 @@ export function parseMenuJsonFromModel(text: string): ParsedMenuItemDto[] {
 
 export const PARSE_MENU_PROMPT = `Analysiere diese Speisekarte und extrahiere ALLE Menü-Items als JSON — Speisen UND Getränke. Überspringe KEINE Sektion. Auch wenn ein Text-Chunk nur Getränke enthält: extrahiere alles daraus.
 
-Format: { "items": [{ "name", "beschreibung", "preis", "kategorie", "main_tab", "category_confidence" }] }
+Format: { "items": [{ "name", "beschreibung", "preis", "kategorie", "main_tab", "category_confidence", "allergens", "additives_text" }] }
+
+WICHTIG — deutsche Kennzeichnungs-Konvention:
+- BUCHSTABEN (A, B, C, D, E, F, G, H, ... oder A1, A2 auf einigen Karten) → ALLERGENE → in "allergens" als LMIV-Schlüssel.
+- ZIFFERN (1, 2, 3, ..., 14) → ZUSATZSTOFFE → in "additives_text" als deutscher Klartext. NICHT als Allergen interpretieren!
+
+allergens: Array der 14 LMIV-Allergen-Schlüssel — NUR diese Werte sind erlaubt (exakte Schreibweise):
+gluten, krebstiere, eier, fisch, erdnuesse, soja, milch, schalenfruechte, sellerie, senf, sesam, sulfite, lupinen, weichtiere.
+Einzige zulässige Quelle: Buchstaben-Codes, die AUSDRÜCKLICH am Item auf der Karte stehen (übliche Legende: A=Gluten, B=Krebstiere, C=Eier, D=Fisch, E=Erdnüsse, F=Soja, G=Milch, H=Schalenfrüchte, L=Sellerie, M=Senf, N=Sesam, O=Sulfite, P=Lupinen, R=Weichtiere — wenn eine Legende auf der Karte steht, nach dieser vorgehen).
+
+NIEMALS Allergene aus Zutaten oder Item-Namen ableiten oder schlussfolgern:
+- "Brötchen" NICHT → gluten (nur wenn A auf der Karte steht)
+- "Camembert" NICHT → milch (nur wenn G auf der Karte steht)
+- "Krabbencocktail" NICHT → krebstiere (nur wenn B auf der Karte steht)
+- Auch nicht bei "enthält Gluten" im Beschreibungstext — nur die Buchstaben-Kennzeichnung zählt.
+
+NIEMALS Ziffern 1-14 als Allergene interpretieren — das sind Zusatzstoffe.
+Wenn keine Buchstaben-Kennzeichnung am Item vorhanden: [].
+
+additives_text: Zusatzstoffe (NICHT Allergene!). Deutsche Karten kennzeichnen Zusatzstoffe meist mit Ziffern 1-14. Löse nach dieser Standard-Legende auf und schreibe komma-getrennt als deutschen Klartext:
+- 1 = mit Milcheiweiß
+- 2 = mit Geschmacksverstärker
+- 3 = mit Konservierungsstoff
+- 4 = mit Antioxidationsmittel
+- 5 = mit Farbstoff
+- 6 = mit Säuerungsmittel
+- 7 = mit Säureregulator
+- 8 = mit Stabilisator
+- 9 = mit Süßstoff Aspartam (enthält Phenylalaninquelle)
+- 10 = mit Emulgator
+- 11 = mit Süßungsmittel
+- 12 = mit Nitritpökelsalz
+- 13 = coffeinhaltig
+- 14 = chininhaltig
+
+Format: mit "enthält " starten und die Klartext-Bezeichnungen komma-getrennt anhängen, z. B. "enthält Geschmacksverstärker, Konservierungsstoff, Farbstoff".
+Auch explizite Nennungen ("phosphathaltig", "geschwefelt", "geschwärzt", "koffeinhaltig", "chininhaltig") → hier ablegen.
+Wenn nichts: "".
+
+STRIKTE TRENNUNG:
+- Buchstaben → allergens[]
+- Ziffern 1-14 → additives_text
+Setze NIE eine Ziffer als Allergen und NIE ein LMIV-Allergen in additives_text.
+
+BEISPIEL — "Wiener Schnitzel (A, C, G, 2, 3)":
+"allergens": ["gluten", "eier", "milch"], "additives_text": "enthält Geschmacksverstärker, Konservierungsstoff"
+
+BEISPIEL — "Cola (11, 13)":
+"allergens": [], "additives_text": "enthält Süßungsmittel, coffeinhaltig"
+
+BEISPIEL — "Camembert paniert (A, G)":
+"allergens": ["gluten", "milch"], "additives_text": ""
+
+BEISPIEL — "Crostini 2,3,4,5" (keine Buchstaben-Kennzeichnung):
+"allergens": [], "additives_text": "enthält Geschmacksverstärker, Konservierungsstoff, Antioxidationsmittel, Farbstoff"
+(Nicht "gluten" ergänzen — auch wenn Brot Gluten enthält. Ohne Buchstaben-Kennzeichnung bleibt allergens leer.)
+
 main_tab ist immer exakt eines von: speisen, getraenke, snacks (Schreibweise getraenke ohne Umlaut)
 - Alle Speisen: main_tab = "speisen"
 - Alle Getränke: main_tab = "getraenke"

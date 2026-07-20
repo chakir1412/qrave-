@@ -122,6 +122,10 @@ type ReviewRow = {
   main_tab: ParsedMenuItemDto["main_tab"];
   selected: boolean;
   category_confidence?: number;
+  /** True wenn Claude Codes am Item gesehen hat, aber ohne auflösbare Legende:
+   *  allergens/additives_text sind unsicher, Wirt muss manuell nachtragen. */
+  needs_review: boolean;
+  needs_review_reason?: string;
 };
 
 type CategoryMap = Record<string, CategoryBucket>;
@@ -729,6 +733,8 @@ export function KarteTab({
       main_tab: it.main_tab,
       selected: true,
       category_confidence: it.category_confidence,
+      needs_review: Boolean(it.needs_review),
+      ...(it.needs_review_reason ? { needs_review_reason: it.needs_review_reason } : {}),
     }));
     const catMap = buildInitialCategoryMap(rows);
     const rowsWithTabs = applyCategoryMapToMainTabs(rows, catMap);
@@ -1309,8 +1315,25 @@ export function KarteTab({
                       <div
                         key={r.id}
                         className="rounded-[14px] border p-3"
-                        style={{ backgroundColor: dash.s1, borderColor: dash.bo }}
+                        style={{
+                          backgroundColor: r.needs_review ? "rgba(250,204,21,0.06)" : dash.s1,
+                          borderColor: r.needs_review ? "rgba(250,204,21,0.55)" : dash.bo,
+                          borderWidth: r.needs_review ? 2 : 1,
+                        }}
                       >
+                        {r.needs_review ? (
+                          <div
+                            className="mb-2 rounded-md px-2.5 py-1.5 text-[11px] font-semibold"
+                            style={{
+                              backgroundColor: "rgba(250,204,21,0.12)",
+                              color: "#fde047",
+                              border: "1px solid rgba(250,204,21,0.3)",
+                            }}
+                          >
+                            ⚠️ Allergene konnten nicht automatisch zugeordnet werden — bitte manuell prüfen.
+                            {r.needs_review_reason ? ` (${r.needs_review_reason})` : null}
+                          </div>
+                        ) : null}
                         <label className="flex cursor-pointer items-start gap-3">
                           <input
                             type="checkbox"

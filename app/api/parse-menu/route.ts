@@ -43,6 +43,9 @@ async function assertUserOrUnauthorized(req: Request): Promise<NextResponse | nu
 }
 
 const MODEL = "claude-sonnet-4-6";
+/** Kleines/günstiges Modell für die Legend-Pre-Extraction — reine
+ *  Text-Klassifikation, Haiku reicht. */
+const LEGEND_MODEL = "claude-haiku-4-5-20251001";
 /** Ausgabetokens pro Seiten-Call — großzügig, damit dichte Karten
  *  (~50 Items pro Seite) nicht mittendrin abgeschnitten werden. */
 const PAGE_MAX_TOKENS = 16000;
@@ -65,9 +68,180 @@ const MAX_PAGE_IMAGE_BYTES = 3_500_000;
  *  JSON-Body). Vercel Request-Limit liegt bei ~4,5 MB — 5,5 MB base64 sind
  *  ~4 MB rohe PDF, das passt zusammen mit Text/Bild-Payload. */
 const MAX_PDF_DOC_BASE64_BYTES = 5_500_000;
-const PDF_IMPORT_PROMPT = `Du bist ein Experte für Restaurantspeisekarten. Extrahiere alle Menüpunkte aus der Speisekarte.
+/** Die 14 LMIV-Allergen-Schlüssel (synchron zu ALLOWED_ALLERGENS in
+ *  lib/parse-menu.ts). Für die Legenden-Pre-Extraction. */
+const LMIV_ALLERGEN_KEYS = [
+  "gluten",
+  "krebstiere",
+  "eier",
+  "fisch",
+  "erdnuesse",
+  "soja",
+  "milch",
+  "schalenfruechte",
+  "sellerie",
+  "senf",
+  "sesam",
+  "sulfite",
+  "lupinen",
+  "weichtiere",
+] as const;
+
+type LegendEntry = {
+  /** Klartext aus der Karte, z. B. "Milch & Laktose" oder "Stabilisator". */
+  label: string;
+  /** Wenn der Eintrag einem LMIV-Allergen entspricht: der Schlüssel;
+   *  sonst null (dann ist es ein reiner Zusatzstoff). */
+  lmiv_allergen_key: (typeof LMIV_ALLERGEN_KEYS)[number] | null;
+};
+
+type MenuLegend = {
+  found: boolean;
+  /** Key = Code wie er auf der Karte steht (z. B. "1", "14", "A"). */
+  entries: Record<string, LegendEntry>;
+};
+
+/** Nimmt den kompletten (konkatenierten) Menü-Text und lässt Haiku die
+ *  Deklarations-Legende extrahieren + jeden Eintrag als LMIV-Allergen oder
+ *  reinen Zusatzstoff klassifizieren. Wenn keine Legende erkennbar ist:
+ *  found=false, dann greift im Prompt der "needs_review"-Pfad. */
+async function extractMenuLegend(
+  fullText: string,
+  apiKey: string,
+): Promise<MenuLegend> {
+  const empty: MenuLegend = { found: false, entries: {} };
+  const text = fullText.trim();
+  if (text.length < 200) return empty;
+
+  const prompt = `Du analysierst den vollständigen Text einer Restaurant-Speisekarte und suchst NUR nach der Deklarations-Legende (die nummerierte oder alphabetische Liste, die Codes wie 1., 2., ... oder A, B, ... auf Klartext-Bezeichnungen wie "Farbstoff", "Milch & Laktose", "Gluten" abbildet).
+
+Typische Überschriften: "Zusatzstoffe und Allergene", "Deklarationspflichtige Zusatzstoffe", "Allergen-Kennzeichnung", "Legende", oft am Ende der Karte.
+
+Für jeden Legende-Eintrag klassifiziere, ob er einem der 14 LMIV-Allergene entspricht:
+- gluten (auch: Weizen, Roggen, Gerste, Hafer, Dinkel, Kamut, glutenhaltiges Getreide)
+- krebstiere (Crustaceans)
+- eier (Ei, Eiweiß)
+- fisch
+- erdnuesse (Peanuts — NICHT Schalenfrüchte)
+- soja
+- milch (auch: Laktose, Milcheiweiß, Käse — aber "Milcheiweiß" allein als Zusatzstoff-Angabe ohne "Milch"-Kontext bleibt Zusatzstoff)
+- schalenfruechte (Nüsse, Mandeln, Haselnüsse, Walnüsse, Cashews, Pistazien, Pekan, Paranüsse, Macadamia, Pinienkerne)
+- sellerie
+- senf
+- sesam (Sesamsamen)
+- sulfite (auch: Schwefeldioxid, Sulfide, geschwefelt)
+- lupinen
+- weichtiere (Muscheln, Tintenfisch, Austern, Schnecken)
+
+Alles andere (Farbstoff, Konservierungsstoff, Antioxidationsmittel, Süßstoff, Aromaverstärker, Geliermittel, Nitrit, Chinin, Koffein, Stabilisator, Emulgator, alkoholhaltig, gewachst, Milcheiweiß, …) → lmiv_allergen_key: null (reiner Zusatzstoff / Hinweis).
+
+Antworte NUR mit JSON, ohne Markdown, ohne Erklärung:
+{"found": true, "entries": {"1": {"label": "Farbstoff", "lmiv_allergen_key": null}, "14": {"label": "Gluten", "lmiv_allergen_key": "gluten"}, ...}}
+
+Falls du keine Deklarations-Legende auf der Karte findest:
+{"found": false, "entries": {}}
+
+Speisekarte-Text:
+${text.slice(0, 40000)}`;
+
+  try {
+    const res = await anthropicFetchWithRetry(
+      {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      JSON.stringify({
+        model: LEGEND_MODEL,
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    );
+    const raw = await res.text();
+    if (!res.ok) {
+      console.error(`[legend] HTTP ${res.status}: ${raw.slice(0, 400)}`);
+      return empty;
+    }
+    const body = JSON.parse(raw) as AnthropicMessageResponse;
+    let text = body.content?.find((c) => c.type === "text")?.text?.trim() ?? "";
+    if (text.startsWith("```")) {
+      text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    }
+    if (!text) return empty;
+    const parsed = JSON.parse(text) as { found?: unknown; entries?: unknown };
+    if (parsed.found !== true || typeof parsed.entries !== "object" || parsed.entries === null) {
+      return empty;
+    }
+    const entries: Record<string, LegendEntry> = {};
+    for (const [k, v] of Object.entries(parsed.entries as Record<string, unknown>)) {
+      if (typeof v !== "object" || v === null) continue;
+      const vo = v as Record<string, unknown>;
+      const label = typeof vo.label === "string" ? vo.label.trim() : "";
+      if (!label) continue;
+      const rawKey = typeof vo.lmiv_allergen_key === "string" ? vo.lmiv_allergen_key.trim().toLowerCase() : null;
+      const lmiv_allergen_key =
+        rawKey && (LMIV_ALLERGEN_KEYS as readonly string[]).includes(rawKey)
+          ? (rawKey as (typeof LMIV_ALLERGEN_KEYS)[number])
+          : null;
+      entries[k.trim()] = { label, lmiv_allergen_key };
+    }
+    const found = Object.keys(entries).length > 0;
+    console.error(
+      `[legend] found=${found} entries=${Object.keys(entries).length}`,
+    );
+    return { found, entries };
+  } catch (err) {
+    console.error("[legend] threw:", err);
+    return empty;
+  }
+}
+
+/** Formatiert die Legende als lesbaren Prompt-Block für Sonnet. */
+function formatLegendForPrompt(legend: MenuLegend): string {
+  if (!legend.found || Object.keys(legend.entries).length === 0) {
+    return `DIESE KARTE HAT KEINE AUFLÖSBARE DEKLARATIONS-LEGENDE.
+
+Für JEDES Item, das Codes am Namen hat (Ziffern oder Buchstaben, klein/hochgestellt/in Klammern hinter dem Item-Namen):
+- "allergens": []
+- "additives_text": ""
+- "needs_review": true
+Wenn das Item KEINE Codes hat:
+- "allergens": []
+- "additives_text": ""
+- "needs_review": false
+NICHT raten. NICHT aus Zutaten oder Item-Namen ableiten. Der Wirt trägt manuell nach.`;
+  }
+  // Codes numerisch aufsteigend sortieren, dann alphanumerisch.
+  const codes = Object.keys(legend.entries).sort((a, b) => {
+    const na = Number.parseInt(a, 10);
+    const nb = Number.parseInt(b, 10);
+    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+  const lines = codes.map((c) => {
+    const e = legend.entries[c];
+    const tag = e.lmiv_allergen_key
+      ? `LMIV-Allergen "${e.lmiv_allergen_key}"`
+      : "Zusatzstoff / Hinweis";
+    return `- Code "${c}" = "${e.label}" (${tag})`;
+  });
+  return `DIESE KARTE HAT DIE FOLGENDE LEGENDE (vom Wirt vorgegeben — GEHT VOR JEDER STANDARD-KONVENTION wie A-R/1-14):
+
+${lines.join("\n")}
+
+REGEL:
+- Für JEDES Item: sammle die Codes, die direkt am Item stehen (klein, hochgestellt oder in Komma-Liste hinter dem Namen).
+- Für jeden Code am Item: schlage in der Legende nach.
+  - Wenn Eintrag ein LMIV-Allergen ist → Schlüssel (gluten, krebstiere, eier, fisch, erdnuesse, soja, milch, schalenfruechte, sellerie, senf, sesam, sulfite, lupinen, weichtiere) in "allergens" hinzufügen.
+  - Wenn Eintrag ein Zusatzstoff / Hinweis ist → Klartext-Label in "additives_text" komma-getrennt hinzufügen, mit "enthält " Präfix (z. B. "enthält Stabilisator, Farbstoff").
+- Wenn ein Code NICHT in der Legende auftaucht: weglassen und "needs_review": true setzen.
+- Wenn ein Item GAR KEINE Codes hat: allergens: [], additives_text: "", needs_review: false.
+- NIEMALS aus Zutaten oder Item-Namen ableiten. NIEMALS Codes erfinden.`;
+}
+
+const PDF_IMPORT_PROMPT_BASE = `Du bist ein Experte für Restaurantspeisekarten. Extrahiere alle Menüpunkte aus der Speisekarte.
 Antworte NUR mit einem JSON Array, ohne Markdown, ohne Erklärung, ohne Codeblöcke:
-[{"name":"...","beschreibung":"...","allergens":["gluten","milch"],"additives_text":"","tags":["vegan","vegetarisch","glutenfrei","scharf"],"preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
+[{"name":"...","beschreibung":"...","allergens":["gluten","milch"],"additives_text":"enthält Stabilisator","needs_review":false,"tags":["vegan","vegetarisch","glutenfrei","scharf"],"preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
 
 DIÄT-TAGS:
 
@@ -106,82 +280,14 @@ NAMEN:
 
 Kurz und klar - keine Variantenbeschreibungen im Namen
 "Fritz-Kola Original | Super Zero" -> name: "Fritz-Kola", beschreibung: "Original | Super Zero, 0,33l"
-Allergen- und Zusatzstoff-Kennzeichnungen (Buchstaben wie A, B, C oder Ziffern wie 1, 2, 3) NICHT in der Beschreibung lassen — auflösen und STRIKT GETRENNT in "allergens" (Array) bzw. "additives_text" (Freitext) ablegen.
-Mengenangaben (0,33l) in die beschreibung
+Allergen- und Zusatzstoff-Kennzeichnungen (Codes wie A, B, C oder 1, 2, 3, 18, 19 direkt am Item-Namen) NICHT in der Beschreibung lassen — auflösen und STRIKT GETRENNT in "allergens" (Array) bzw. "additives_text" (Freitext) ablegen. Die genauen Klassifikationsregeln stehen im Legenden-Block unter dem Prompt.
 
-WICHTIG — deutsche Kennzeichnungs-Konvention:
-- BUCHSTABEN (A, B, C, D, E, F, G, H, ... oder A1, A2 auf einigen Karten) → ALLERGENE → in "allergens" als LMIV-Schlüssel.
-- ZIFFERN (1, 2, 3, ..., 14) → ZUSATZSTOFFE → in "additives_text" als deutscher Klartext. NICHT als Allergen interpretieren!
+ALLERGENS (Array der 14 LMIV-Schlüssel) — NUR diese Werte erlaubt:
+gluten, krebstiere, eier, fisch, erdnuesse, soja, milch, schalenfruechte, sellerie, senf, sesam, sulfite, lupinen, weichtiere.
 
-ALLERGENS (Array der 14 LMIV-Allergene):
+ADDITIVES_TEXT: Freitext mit "enthält " Präfix, komma-getrennt (z. B. "enthält Stabilisator, Farbstoff"). Leer wenn keine Zusatzstoffe.
 
-NUR diese 14 Schlüssel sind erlaubt (Werte in "allergens" müssen exakt so geschrieben sein):
-- gluten (enthält auch Weizen/Roggen/Gerste/Hafer/Dinkel/Kamut)
-- krebstiere (Garnelen, Krabben, Hummer)
-- eier (Ei, Eiweiß, Eigelb)
-- fisch (auch Fischsauce, Anchovis, Kaviar)
-- erdnuesse (Peanuts — nicht Schalenfrüchte)
-- soja (Sojasauce, Tofu, Edamame)
-- milch (auch Laktose, Käse, Butter, Sahne)
-- schalenfruechte (Mandeln, Haselnüsse, Walnüsse, Cashews, Pistazien, Pekan, Paranüsse, Macadamia)
-- sellerie
-- senf
-- sesam
-- sulfite (Schwefeldioxid, meist in Wein, Trockenobst)
-- lupinen
-- weichtiere (Muscheln, Tintenfisch, Austern, Schnecken)
-
-Einzige zulässige Quelle für "allergens":
-- Buchstaben-Codes, die AUSDRÜCKLICH am Item auf der Karte stehen (Restaurant-Legenden variieren, aber A=Gluten, B=Krebstiere, C=Eier, D=Fisch, E=Erdnüsse, F=Soja, G=Milch, H=Schalenfrüchte, L=Sellerie, M=Senf, N=Sesam, O=Sulfite, P=Lupinen, R=Weichtiere sind häufig — wenn eine Legende auf der Karte steht, nach dieser vorgehen).
-
-NIEMALS Allergene aus Zutaten oder Item-Namen ableiten oder schlussfolgern:
-- "Brötchen" NICHT → gluten (nur wenn A auf der Karte steht)
-- "Camembert" NICHT → milch (nur wenn G auf der Karte steht)
-- "Krabbencocktail" NICHT → krebstiere (nur wenn B auf der Karte steht)
-- Auch nicht bei "enthält Gluten" im Beschreibungstext — nur die Buchstaben-Kennzeichnung zählt.
-
-NIEMALS Ziffern 1-14 als Allergene interpretieren — das sind Zusatzstoffe (siehe unten).
-Wenn keine Buchstaben-Kennzeichnung am Item vorhanden: leeres Array [].
-
-ADDITIVES_TEXT (Zusatzstoffe — NICHT Allergene):
-
-Zusatzstoffe sind rechtlich getrennt von Allergenen und werden auf deutschen Karten meist mit Ziffern 1-14 kennzeichnet. Löse Ziffern nach dieser Standard-Legende auf und schreibe die Klartext-Bezeichnungen komma-getrennt in "additives_text":
-- 1 = mit Milcheiweiß
-- 2 = mit Geschmacksverstärker
-- 3 = mit Konservierungsstoff
-- 4 = mit Antioxidationsmittel
-- 5 = mit Farbstoff
-- 6 = mit Säuerungsmittel
-- 7 = mit Säureregulator
-- 8 = mit Stabilisator
-- 9 = mit Süßstoff Aspartam (enthält Phenylalaninquelle)
-- 10 = mit Emulgator
-- 11 = mit Süßungsmittel
-- 12 = mit Nitritpökelsalz
-- 13 = coffeinhaltig
-- 14 = chininhaltig
-
-Format: mit "enthält " starten und die Klartext-Bezeichnungen komma-getrennt anhängen, z. B. "enthält Geschmacksverstärker, Konservierungsstoff, Farbstoff".
-Auch explizite deutsche Nennungen ("mit Konservierungsstoff", "phosphathaltig", "geschwefelt", "geschwärzt", "koffeinhaltig", "chininhaltig") → hier ablegen.
-Wenn keine Zusatzstoff-Hinweise erkennbar: leerer String "".
-
-STRIKTE TRENNUNG:
-- Buchstaben → allergens[]
-- Ziffern 1-14 → additives_text
-Setze NIE eine Ziffer als Allergen und NIE ein LMIV-Allergen in additives_text.
-
-BEISPIEL — Wiener Schnitzel mit Kennzeichnung (A, C, G, 2, 3):
-Ausgabe: "allergens": ["gluten", "eier", "milch"], "additives_text": "enthält Geschmacksverstärker, Konservierungsstoff"
-
-BEISPIEL — Cola (11, 13):
-Ausgabe: "allergens": [], "additives_text": "enthält Süßungsmittel, coffeinhaltig"
-
-BEISPIEL — Camembert paniert (A, G):
-Ausgabe: "allergens": ["gluten", "milch"], "additives_text": ""
-
-BEISPIEL — "Crostini 2,3,4,5" (keine Buchstaben-Kennzeichnung):
-Ausgabe: "allergens": [], "additives_text": "enthält Geschmacksverstärker, Konservierungsstoff, Antioxidationsmittel, Farbstoff"
-(Nicht "gluten" ergänzen — auch wenn Brot Gluten enthält. Ohne Buchstaben-Kennzeichnung bleibt allergens leer.)
+WICHTIG: Die Zuordnung Code → Allergen vs. Zusatzstoff wird NICHT über die Standard-Konvention (A-R Allergen, 1-14 Zusatzstoff) angenommen — sie folgt IMMER der karteneigenen Legende, die in einem Block direkt unter diesem Prompt steht. Wenn dort keine Legende steht: setze needs_review=true für alle Items mit Codes und lasse allergens/additives_text leer.
 
 VARIANTEN:
 
@@ -202,6 +308,16 @@ main_tab:
 
 Alle Getränke -> "DRINKS"
 Alles andere -> "FOOD"`;
+
+/** Setzt Base-Prompt + Legenden-Block zusammen. Alle Sonnet-Calls (Text,
+ *  Vision, pdf-doc) laufen darüber, damit die Klassifikationsregel überall
+ *  identisch bleibt. */
+function buildPdfImportPrompt(legend: MenuLegend): string {
+  return `${PDF_IMPORT_PROMPT_BASE}
+
+=== KARTEN-SPEZIFISCHE LEGENDE ===
+${formatLegendForPrompt(legend)}`;
+}
 
 type AnthropicContentPart =
   | {
@@ -452,12 +568,15 @@ async function callAnthropicForPageContent(
   }
 }
 
-/** Text-Pfad einer PDF-Seite (Client hat via pdfjs Text extrahiert). */
+/** Text-Pfad einer PDF-Seite (Client hat via pdfjs Text extrahiert).
+ *  `legend` ist die vorab extrahierte karteneigene Legende — der Prompt
+ *  konsultiert ausschließlich diese für die Code-Klassifikation. */
 async function parsePageText(
   pageText: string,
   apiKey: string,
   pageIndex: number,
   totalPages: number,
+  legend: MenuLegend,
 ): Promise<PageParseResult> {
   const tag = `[parse-menu page ${pageIndex}/${totalPages} text]`;
   const trimmed = pageText.trim();
@@ -468,7 +587,7 @@ async function parsePageText(
   const content: AnthropicContentPart[] = [
     {
       type: "text",
-      text: `${PDF_IMPORT_PROMPT}
+      text: `${buildPdfImportPrompt(legend)}
 
 Text von Seite ${pageIndex} von ${totalPages} der Speisekarte:
 ${trimmed}`,
@@ -479,15 +598,15 @@ ${trimmed}`,
 
 /** Vision-Pfad einer PDF-Seite (Client hat die Seite via canvas als PNG
  *  gerendert und als base64 geschickt). Wird genutzt wenn pdfjs-Text
- *  leer/zu kurz war — typisch für gescannte PDFs. Der finale Reminder
- *  direkt vor der Model-Response ist bewusst redundant zum Haupt-Prompt:
- *  bei Vision-Ambiguität (kleine/verwaschene Codes) tendiert das Modell
- *  sonst dazu, Allergene aus Zutaten abzuleiten. */
+ *  leer/zu kurz war — typisch für gescannte PDFs. `legend` ist die vorab
+ *  extrahierte karteneigene Legende (aus text-extrahierbaren Seiten oder
+ *  {found:false} falls die ganze PDF gescannt ist). */
 async function parsePageImage(
   pageImageBase64: string,
   apiKey: string,
   pageIndex: number,
   totalPages: number,
+  legend: MenuLegend,
 ): Promise<PageParseResult> {
   const tag = `[parse-menu page ${pageIndex}/${totalPages} vision]`;
   const content: AnthropicContentPart[] = [
@@ -497,11 +616,9 @@ async function parsePageImage(
     },
     {
       type: "text",
-      text: `${PDF_IMPORT_PROMPT}
+      text: `${buildPdfImportPrompt(legend)}
 
-Das obige Bild ist Seite ${pageIndex} von ${totalPages} einer gescannten Speisekarte. Extrahiere alle Items der Seite.
-
-WICHTIG bei diesem Scan: Buchstaben-Allergen-Codes (A, B, C, ..., R) und Zusatzstoff-Ziffern (1-14) stehen häufig sehr klein, hochgestellt oder in Klammern direkt hinter dem Item-Namen (z. B. "Wiener Schnitzel A, C, G, 2, 3"). Prüfe für JEDES Item, ob Buchstaben- oder Zifferncodes daneben stehen. Wenn ja: Buchstaben → allergens[] (LMIV-Schlüssel), Ziffern → additives_text (Klartext). Wenn KEINE Codes am Item stehen: allergens leer und additives_text leer — NIEMALS aus Zutaten/Item-Namen ableiten.`,
+Das obige Bild ist Seite ${pageIndex} von ${totalPages} einer gescannten Speisekarte. Extrahiere alle Items der Seite. Die Zuordnung Code → Allergen/Zusatzstoff folgt EXKLUSIV der Legende oben — bei fehlender Legende needs_review=true statt zu raten.`,
     },
   ];
   return callAnthropicForPageContent(content, apiKey, tag);
@@ -715,6 +832,15 @@ async function handlePageTextsStream(req: Request, apiKey: string): Promise<Resp
       try {
         emit({ type: "start", totalPages });
 
+        // Vorab: karteneigene Legende aus dem konkatenierten Text ziehen.
+        // Wenn found=true, wird sie in jeden per-page-Prompt injiziert;
+        // wenn found=false, greift der needs_review-Pfad.
+        const fullText = pageTexts.filter((t) => t.trim().length > 0).join("\n\n");
+        const legend = await extractMenuLegend(fullText, apiKey);
+        console.error(
+          `[parse-menu] legend.found=${legend.found} entries=${Object.keys(legend.entries).length}`,
+        );
+
         const collected: ParsedMenuItemDto[] = [];
         let maxOutputTokensUsed = 0;
 
@@ -728,8 +854,8 @@ async function handlePageTextsStream(req: Request, apiKey: string): Promise<Resp
           const useVision = text.trim().length < MIN_PAGE_TEXT_CHARS_FOR_TEXT_PATH && image !== null;
 
           const result = useVision
-            ? await parsePageImage(image!, apiKey, current, totalPages)
-            : await parsePageText(text, apiKey, current, totalPages);
+            ? await parsePageImage(image!, apiKey, current, totalPages, legend)
+            : await parsePageText(text, apiKey, current, totalPages, legend);
 
           if (result.outputTokens > maxOutputTokensUsed) {
             maxOutputTokensUsed = result.outputTokens;
@@ -762,7 +888,7 @@ async function handlePageTextsStream(req: Request, apiKey: string): Promise<Resp
                   data: pdfBase64,
                 },
               },
-              { type: "text", text: PDF_IMPORT_PROMPT },
+              { type: "text", text: buildPdfImportPrompt(legend) },
             ];
             const items = await anthropicExtractMenuItems(docContent, apiKey, {
               usePdfBeta: true,
@@ -912,6 +1038,14 @@ export async function POST(req: Request) {
 
     let userContent: AnthropicContentPart[];
 
+    // Single-Image-Upload: keine Text-Basis für Legenden-Vorab-Extraktion
+    // vorhanden. Wir übergeben eine leere Legende — dann greift automatisch
+    // der needs_review-Pfad für alle Items mit Codes, der Wirt kann's im
+    // Review korrigieren. (Alternative: eigener Vision-Legend-Call; unnötig
+    // teuer bei Einzelbild-Import.)
+    const emptyLegend: MenuLegend = { found: false, entries: {} };
+    const imagePrompt = buildPdfImportPrompt(emptyLegend);
+
     if (isPng) {
       userContent = [
         {
@@ -922,7 +1056,7 @@ export async function POST(req: Request) {
             data: base64,
           },
         },
-        { type: "text", text: PDF_IMPORT_PROMPT },
+        { type: "text", text: imagePrompt },
       ];
     } else if (isJpeg) {
       userContent = [
@@ -934,7 +1068,7 @@ export async function POST(req: Request) {
             data: base64,
           },
         },
-        { type: "text", text: PDF_IMPORT_PROMPT },
+        { type: "text", text: imagePrompt },
       ];
     } else {
       return NextResponse.json(
