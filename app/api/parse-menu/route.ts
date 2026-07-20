@@ -2,19 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { parseMenuJsonFromModel, type ParsedMenuItemDto } from "@/lib/parse-menu";
-import {
-  extractPdfTextFromBuffer,
-  getPdfPageCount,
-  MIN_TEXT_CHARS_TEXT_PATH,
-  pdfBufferToPngBase64Pages,
-  pdfBufferToPngBase64PagesRange,
-} from "@/lib/server/pdf-scan";
 import { enrichItemsWithDescriptions } from "@/lib/auto-describe";
 import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
-/** Vercel Serverless Timeout: bis zu 300s (Pro-Plan / Fluid Compute). Nötig,
- *  weil Page-Chunks jetzt sequentiell verarbeitet werden — bei 12 Seiten
- *  → 6 Chunks × ~25-30s ≈ 150-180s. */
+/** Vercel Serverless Timeout: bis zu 300s (Pro-Plan / Fluid Compute).
+ *  Reicht auch für dichte Karten: PDF geht als Ganzes an Claude
+ *  (native PDF-Unterstützung via anthropic-beta), Text-Fallback chunked
+ *  parallel. */
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
@@ -48,30 +42,30 @@ async function assertUserOrUnauthorized(req: Request): Promise<NextResponse | nu
   return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 }
 
-/** Grober Schutz vor riesigem Form-Body (Vercel ~4,5 MB Request-Limit). */
-const MAX_EXTRACTED_TEXT_CHARS = 3_500_000;
-
-/** PDF-Binary direkt an Anthropic (Base64 im JSON); unter Limit bleibt Request unter Vercel ~4,5 MB. */
-const MAX_PDF_BYTES_DIRECT = 4_000_000;
-
-/** Page-Chunking: Seiten pro Anthropic-Call. 2 Seiten = kleinerer Output
- *  → passt zuverlässig in max_tokens, auch bei sehr dichten Karten. */
-const PAGES_PER_CHUNK = 2;
-/** Hartes Limit für die Anzahl paralleler Chunks pro Request — schützt vor
- *  Riesen-PDFs mit > ~60 Seiten. */
-const MAX_PAGE_CHUNKS = 20;
-
 const MODEL = "claude-sonnet-4-6";
-const CHUNK_SIZE = 2000;
-const MAX_CHUNKS = 32;
-const CHUNK_MAX_TOKENS = 8000;
-/** Vision-Calls: großzügig, damit dichte Karten mit ~50 Items pro Chunk
- *  nicht mittendrin abgeschnitten werden. Sonnet 4.6 verkraftet das direkt. */
-const VISION_MAX_TOKENS = 16000;
-const CHUNK_RETRY_SPLIT_MIN_LENGTH = 1000;
+/** Ausgabetokens pro Seiten-Call — großzügig, damit dichte Karten
+ *  (~50 Items pro Seite) nicht mittendrin abgeschnitten werden. */
+const PAGE_MAX_TOKENS = 16000;
+/** Obergrenze für PDF-Seitenzahl pro Request. 40 × ~15s sequenziell
+ *  ≈ 600s → maxDuration=300 würde reißen; realistisch: 30 Seiten. */
+const MAX_PAGES_PER_REQUEST = 40;
+/** Hartes Limit pro einzelnem Seitentext — schützt vor Request-Body-Bloat
+ *  und Prompt-Token-Explosion. */
+const MAX_PAGE_TEXT_CHARS = 200_000;
+/** Ab dieser Zeichenzahl gilt der Client-seitig extrahierte Text als „genug",
+ *  darunter greift der Vision-Fallback (Seite als Bild an Claude). Passt zu
+ *  dem Client-Fallback-Threshold in KarteTab.tsx. */
+const MIN_PAGE_TEXT_CHARS_FOR_TEXT_PATH = 100;
+/** Grober Schutz vor Riesen-PNG-Payloads pro Seite (base64 im JSON-Body).
+ *  ~2 MB base64 ≈ 1,5 MB Bild — ausreichend für DIN-A4 bei 150 dpi. */
+const MAX_PAGE_IMAGE_BYTES = 2_500_000;
+/** Größen-Guard für den optionalen pdf-doc-Fallback (rohes PDF base64 im
+ *  JSON-Body). Vercel Request-Limit liegt bei ~4,5 MB — 5,5 MB base64 sind
+ *  ~4 MB rohe PDF, das passt zusammen mit Text/Bild-Payload. */
+const MAX_PDF_DOC_BASE64_BYTES = 5_500_000;
 const PDF_IMPORT_PROMPT = `Du bist ein Experte für Restaurantspeisekarten. Extrahiere alle Menüpunkte aus der Speisekarte.
 Antworte NUR mit einem JSON Array, ohne Markdown, ohne Erklärung, ohne Codeblöcke:
-[{"name":"...","beschreibung":"...","allergens_text":"...","tags":["vegan","vegetarisch","glutenfrei","scharf"],"preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
+[{"name":"...","beschreibung":"...","allergens":["gluten","milch"],"additives_text":"","tags":["vegan","vegetarisch","glutenfrei","scharf"],"preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
 
 DIÄT-TAGS:
 
@@ -110,14 +104,82 @@ NAMEN:
 
 Kurz und klar - keine Variantenbeschreibungen im Namen
 "Fritz-Kola Original | Super Zero" -> name: "Fritz-Kola", beschreibung: "Original | Super Zero, 0,33l"
-Allergenkennzeichnungen (A1, C, G, J etc.) NICHT in der Beschreibung lassen, sondern auflösen und in "allergens_text" verschieben
+Allergen- und Zusatzstoff-Kennzeichnungen (Buchstaben wie A, B, C oder Ziffern wie 1, 2, 3) NICHT in der Beschreibung lassen — auflösen und STRIKT GETRENNT in "allergens" (Array) bzw. "additives_text" (Freitext) ablegen.
 Mengenangaben (0,33l) in die beschreibung
 
-ALLERGENS_TEXT:
+WICHTIG — deutsche Kennzeichnungs-Konvention:
+- BUCHSTABEN (A, B, C, D, E, F, G, H, ... oder A1, A2 auf einigen Karten) → ALLERGENE → in "allergens" als LMIV-Schlüssel.
+- ZIFFERN (1, 2, 3, ..., 14) → ZUSATZSTOFFE → in "additives_text" als deutscher Klartext. NICHT als Allergen interpretieren!
 
-Erkenne Allergen-Hinweise aus der Original-Beschreibung (z. B. Buchstaben-/Zahlen-Codes wie "A,B,C,D,E,F,G" oder "1,2,3,4", oder explizit genannte Stoffe wie "enthält Gluten, Milch") und gib sie in "allergens_text" als kurze deutsche Klartext-Auflistung zurück, z. B.:
-"enthält Gluten, Milch, Sellerie"
-Wenn keine Allergen-Hinweise erkennbar sind: leerer String "".
+ALLERGENS (Array der 14 LMIV-Allergene):
+
+NUR diese 14 Schlüssel sind erlaubt (Werte in "allergens" müssen exakt so geschrieben sein):
+- gluten (enthält auch Weizen/Roggen/Gerste/Hafer/Dinkel/Kamut)
+- krebstiere (Garnelen, Krabben, Hummer)
+- eier (Ei, Eiweiß, Eigelb)
+- fisch (auch Fischsauce, Anchovis, Kaviar)
+- erdnuesse (Peanuts — nicht Schalenfrüchte)
+- soja (Sojasauce, Tofu, Edamame)
+- milch (auch Laktose, Käse, Butter, Sahne)
+- schalenfruechte (Mandeln, Haselnüsse, Walnüsse, Cashews, Pistazien, Pekan, Paranüsse, Macadamia)
+- sellerie
+- senf
+- sesam
+- sulfite (Schwefeldioxid, meist in Wein, Trockenobst)
+- lupinen
+- weichtiere (Muscheln, Tintenfisch, Austern, Schnecken)
+
+Einzige zulässige Quelle für "allergens":
+- Buchstaben-Codes, die AUSDRÜCKLICH am Item auf der Karte stehen (Restaurant-Legenden variieren, aber A=Gluten, B=Krebstiere, C=Eier, D=Fisch, E=Erdnüsse, F=Soja, G=Milch, H=Schalenfrüchte, L=Sellerie, M=Senf, N=Sesam, O=Sulfite, P=Lupinen, R=Weichtiere sind häufig — wenn eine Legende auf der Karte steht, nach dieser vorgehen).
+
+NIEMALS Allergene aus Zutaten oder Item-Namen ableiten oder schlussfolgern:
+- "Brötchen" NICHT → gluten (nur wenn A auf der Karte steht)
+- "Camembert" NICHT → milch (nur wenn G auf der Karte steht)
+- "Krabbencocktail" NICHT → krebstiere (nur wenn B auf der Karte steht)
+- Auch nicht bei "enthält Gluten" im Beschreibungstext — nur die Buchstaben-Kennzeichnung zählt.
+
+NIEMALS Ziffern 1-14 als Allergene interpretieren — das sind Zusatzstoffe (siehe unten).
+Wenn keine Buchstaben-Kennzeichnung am Item vorhanden: leeres Array [].
+
+ADDITIVES_TEXT (Zusatzstoffe — NICHT Allergene):
+
+Zusatzstoffe sind rechtlich getrennt von Allergenen und werden auf deutschen Karten meist mit Ziffern 1-14 kennzeichnet. Löse Ziffern nach dieser Standard-Legende auf und schreibe die Klartext-Bezeichnungen komma-getrennt in "additives_text":
+- 1 = mit Milcheiweiß
+- 2 = mit Geschmacksverstärker
+- 3 = mit Konservierungsstoff
+- 4 = mit Antioxidationsmittel
+- 5 = mit Farbstoff
+- 6 = mit Säuerungsmittel
+- 7 = mit Säureregulator
+- 8 = mit Stabilisator
+- 9 = mit Süßstoff Aspartam (enthält Phenylalaninquelle)
+- 10 = mit Emulgator
+- 11 = mit Süßungsmittel
+- 12 = mit Nitritpökelsalz
+- 13 = coffeinhaltig
+- 14 = chininhaltig
+
+Format: mit "enthält " starten und die Klartext-Bezeichnungen komma-getrennt anhängen, z. B. "enthält Geschmacksverstärker, Konservierungsstoff, Farbstoff".
+Auch explizite deutsche Nennungen ("mit Konservierungsstoff", "phosphathaltig", "geschwefelt", "geschwärzt", "koffeinhaltig", "chininhaltig") → hier ablegen.
+Wenn keine Zusatzstoff-Hinweise erkennbar: leerer String "".
+
+STRIKTE TRENNUNG:
+- Buchstaben → allergens[]
+- Ziffern 1-14 → additives_text
+Setze NIE eine Ziffer als Allergen und NIE ein LMIV-Allergen in additives_text.
+
+BEISPIEL — Wiener Schnitzel mit Kennzeichnung (A, C, G, 2, 3):
+Ausgabe: "allergens": ["gluten", "eier", "milch"], "additives_text": "enthält Geschmacksverstärker, Konservierungsstoff"
+
+BEISPIEL — Cola (11, 13):
+Ausgabe: "allergens": [], "additives_text": "enthält Süßungsmittel, coffeinhaltig"
+
+BEISPIEL — Camembert paniert (A, G):
+Ausgabe: "allergens": ["gluten", "milch"], "additives_text": ""
+
+BEISPIEL — "Crostini 2,3,4,5" (keine Buchstaben-Kennzeichnung):
+Ausgabe: "allergens": [], "additives_text": "enthält Geschmacksverstärker, Konservierungsstoff, Antioxidationsmittel, Farbstoff"
+(Nicht "gluten" ergänzen — auch wenn Brot Gluten enthält. Ohne Buchstaben-Kennzeichnung bleibt allergens leer.)
 
 VARIANTEN:
 
@@ -163,6 +225,8 @@ type AnthropicContentPart =
 
 type AnthropicMessageResponse = {
   content: Array<{ type: string; text?: string }>;
+  stop_reason?: string;
+  usage?: { input_tokens?: number; output_tokens?: number };
 };
 
 type AnthropicErrorBody = {
@@ -278,25 +342,70 @@ function repairJson(text: string): string {
   }
 }
 
-function splitTextIntoChunks(text: string, chunkSize: number): string[] {
-  const normalized = text.trim();
-  if (!normalized) return [];
-  const chunks: string[] = [];
-  let i = 0;
-  while (i < normalized.length && chunks.length < MAX_CHUNKS) {
-    let end = Math.min(i + chunkSize, normalized.length);
-    if (end < normalized.length) {
-      const lastNewline = normalized.lastIndexOf("\n", end);
-      if (lastNewline > i) end = lastNewline;
+type PageParseResult = {
+  items: ParsedMenuItemDto[];
+  stopReason: string;
+  outputTokens: number;
+};
+
+/** Robuste JSON-Extraktion aus Claude-Antworten mit Repair-Fallbacks. */
+function extractItemsFromModelText(
+  text: string,
+  tag: string,
+): ParsedMenuItemDto[] {
+  const tryParseToItems = (rawJson: string): ParsedMenuItemDto[] | null => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawJson) as unknown;
+    } catch {
+      return null;
     }
-    const chunk = normalized.slice(i, end).trim();
-    if (chunk) chunks.push(chunk);
-    i = end;
+    try {
+      if (Array.isArray(parsed)) {
+        return parseMenuJsonFromModel(JSON.stringify({ items: parsed }));
+      }
+      const asObj = parsed as { items?: unknown };
+      if (Array.isArray(asObj?.items)) {
+        return parseMenuJsonFromModel(JSON.stringify({ items: asObj.items }));
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
+  try {
+    return parseMenuJsonFromModel(text);
+  } catch {
+    const cleaned = normalizeModelJsonText(text);
+    const repaired = repairJson(cleaned);
+    try {
+      return parseMenuJsonFromModel(repaired);
+    } catch {
+      const fromRepaired = tryParseToItems(repaired);
+      if (fromRepaired) return fromRepaired;
+      const fromClean = tryParseToItems(cleaned);
+      if (fromClean) return fromClean;
+      console.error(`${tag} ALL parse paths failed. RAW first 1500: ${text.slice(0, 1500)}`);
+      console.error(`${tag} RAW last 500: ${text.slice(-500)}`);
+      console.error(`${tag} CLEANED first 1500: ${cleaned.slice(0, 1500)}`);
+      console.error(`${tag} CLEANED last 500: ${cleaned.slice(-500)}`);
+      console.error(`${tag} REPAIRED first 1500: ${repaired.slice(0, 1500)}`);
+      console.error(`${tag} REPAIRED last 500: ${repaired.slice(-500)}`);
+      return [];
+    }
   }
-  return chunks;
 }
 
-async function parseChunkOnce(chunk: string, apiKey: string): Promise<ParsedMenuItemDto[]> {
+/** Ein Anthropic-Call mit vorbereitetem User-Content. Zentraler Response-
+ *  Parser für parsePageText + parsePageImage — gleicher Logging-Prefix
+ *  (stop_reason, output_tokens, text_len). */
+async function callAnthropicForPageContent(
+  userContent: AnthropicContentPart[],
+  apiKey: string,
+  tag: string,
+): Promise<PageParseResult> {
+  const empty: PageParseResult = { items: [], stopReason: "empty", outputTokens: 0 };
   try {
     const res = await anthropicFetchWithRetry(
       {
@@ -306,109 +415,89 @@ async function parseChunkOnce(chunk: string, apiKey: string): Promise<ParsedMenu
       },
       JSON.stringify({
         model: MODEL,
-        max_tokens: CHUNK_MAX_TOKENS,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `${PDF_IMPORT_PROMPT}
-
-Text-Chunk der Speisekarte:
-${chunk}`,
-              },
-            ],
-          },
-        ],
+        max_tokens: PAGE_MAX_TOKENS,
+        messages: [{ role: "user", content: userContent }],
       }),
     );
     const raw = await res.text();
     if (!res.ok) {
-      return [];
+      console.error(`${tag} anthropic HTTP ${res.status}: ${raw.slice(0, 500)}`);
+      return empty;
     }
     let body: AnthropicMessageResponse;
     try {
       body = JSON.parse(raw) as AnthropicMessageResponse;
     } catch {
-      return [];
+      console.error(`${tag} anthropic body not JSON. Preview: ${raw.slice(0, 500)}`);
+      return empty;
     }
-    const text = body.content?.find((c) => c.type === "text")?.text?.trim() ?? "";
-    if (!text) {
-      return [];
+    const modelText = body.content?.find((c) => c.type === "text")?.text?.trim() ?? "";
+    const stopReason = body.stop_reason ?? "unknown";
+    const outputTokens = body.usage?.output_tokens ?? 0;
+    console.error(
+      `${tag} stop_reason=${stopReason} output_tokens=${outputTokens} text_len=${modelText.length}`,
+    );
+    if (!modelText) {
+      console.error(`${tag} EMPTY text block. Full body: ${raw.slice(0, 1500)}`);
+      return { items: [], stopReason, outputTokens };
     }
-    try {
-      const items = parseMenuJsonFromModel(text);
-      return items;
-    } catch {
-      const cleanedResponse = normalizeModelJsonText(text);
-      const repaired = repairJson(cleanedResponse);
-
-      const tryParseToItems = (rawJson: string): ParsedMenuItemDto[] | null => {
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(rawJson) as unknown;
-        } catch {
-          return null;
-        }
-        try {
-          if (Array.isArray(parsed)) {
-            return parseMenuJsonFromModel(JSON.stringify({ items: parsed }));
-          }
-          const asObj = parsed as { items?: unknown };
-          if (Array.isArray(asObj?.items)) {
-            return parseMenuJsonFromModel(JSON.stringify({ items: asObj.items }));
-          }
-        } catch {
-          return null;
-        }
-        return null;
-      };
-
-      try {
-        const fromRepairedModel = parseMenuJsonFromModel(repaired);
-        return fromRepairedModel;
-      } catch {
-        const fromRepaired = tryParseToItems(repaired);
-        if (fromRepaired) {
-          return fromRepaired;
-        }
-        const fromClean = tryParseToItems(cleanedResponse);
-        if (fromClean) {
-          return fromClean;
-        }
-        return [];
-      }
-    }
-  } catch {
-    return [];
+    const items = extractItemsFromModelText(modelText, tag);
+    console.error(`${tag} extracted ${items.length} items`);
+    return { items, stopReason, outputTokens };
+  } catch (err) {
+    console.error(`${tag} threw:`, err);
+    return empty;
   }
 }
 
-async function parseChunk(chunk: string, apiKey: string): Promise<ParsedMenuItemDto[]> {
-  const items = await parseChunkOnce(chunk, apiKey);
-
-  if (items.length === 0 && chunk.length > CHUNK_RETRY_SPLIT_MIN_LENGTH) {
-    const mid = Math.floor(chunk.length / 2);
-    const lastNewline = chunk.lastIndexOf("\n", mid);
-    const splitAt = lastNewline > 0 ? lastNewline : mid;
-
-    const half1 = chunk.slice(0, splitAt).trim();
-    const half2 = chunk.slice(splitAt).trim();
-
-    const [items1, items2] = await Promise.all([
-      half1.length > 0
-        ? parseChunkOnce(half1, apiKey)
-        : Promise.resolve([] as ParsedMenuItemDto[]),
-      half2.length > 0
-        ? parseChunkOnce(half2, apiKey)
-        : Promise.resolve([] as ParsedMenuItemDto[]),
-    ]);
-
-    return [...items1, ...items2];
+/** Text-Pfad einer PDF-Seite (Client hat via pdfjs Text extrahiert). */
+async function parsePageText(
+  pageText: string,
+  apiKey: string,
+  pageIndex: number,
+  totalPages: number,
+): Promise<PageParseResult> {
+  const tag = `[parse-menu page ${pageIndex}/${totalPages} text]`;
+  const trimmed = pageText.trim();
+  if (!trimmed) {
+    console.error(`${tag} skipped — no text on page`);
+    return { items: [], stopReason: "empty", outputTokens: 0 };
   }
+  const content: AnthropicContentPart[] = [
+    {
+      type: "text",
+      text: `${PDF_IMPORT_PROMPT}
 
-  return items;
+Text von Seite ${pageIndex} von ${totalPages} der Speisekarte:
+${trimmed}`,
+    },
+  ];
+  return callAnthropicForPageContent(content, apiKey, tag);
+}
+
+/** Vision-Pfad einer PDF-Seite (Client hat die Seite via canvas als PNG
+ *  gerendert und als base64 geschickt). Wird genutzt wenn pdfjs-Text
+ *  leer/zu kurz war — typisch für gescannte PDFs. */
+async function parsePageImage(
+  pageImageBase64: string,
+  apiKey: string,
+  pageIndex: number,
+  totalPages: number,
+): Promise<PageParseResult> {
+  const tag = `[parse-menu page ${pageIndex}/${totalPages} vision]`;
+  const content: AnthropicContentPart[] = [
+    {
+      type: "image",
+      source: { type: "base64", media_type: "image/png", data: pageImageBase64 },
+    },
+    {
+      type: "text",
+      text: `${PDF_IMPORT_PROMPT}
+
+Das obige Bild ist Seite ${pageIndex} von ${totalPages} der Speisekarte. Extrahiere alle Items der Seite.`,
+    },
+  ];
+  return callAnthropicForPageContent(content, apiKey, tag);
 }
 
 function dedupeItems(items: ParsedMenuItemDto[]): ParsedMenuItemDto[] {
@@ -423,89 +512,14 @@ function dedupeItems(items: ParsedMenuItemDto[]): ParsedMenuItemDto[] {
   return out;
 }
 
-/** Teilt eine 1-basierte Seitenliste [1..pageCount] in Gruppen à `pagesPerChunk`
- *  Seiten und gibt für jede Gruppe { from, to } zurück. */
-function buildPageRanges(
-  pageCount: number,
-  pagesPerChunk: number,
-): Array<{ from: number; to: number }> {
-  const out: Array<{ from: number; to: number }> = [];
-  for (let from = 1; from <= pageCount; from += pagesPerChunk) {
-    const to = Math.min(pageCount, from + pagesPerChunk - 1);
-    out.push({ from, to });
-    if (out.length >= MAX_PAGE_CHUNKS) break;
-  }
-  return out;
-}
-
-/** Verarbeitet eine PDF seitenweise in Gruppen à `PAGES_PER_CHUNK` Seiten,
- *  rendert jede Gruppe als PNGs und ruft Anthropic parallel pro Gruppe auf.
- *  Liefert die zusammengeführte, dedupierte Items-Liste. */
-async function parsePdfByPageChunks(
-  pdfBuf: Buffer,
-  apiKey: string,
-): Promise<ParsedMenuItemDto[]> {
-  const pageCount = await getPdfPageCount(pdfBuf);
-  if (pageCount <= 0) return [];
-
-  const ranges = buildPageRanges(pageCount, PAGES_PER_CHUNK);
-
-  // Sequentiell statt Promise.all: bei sehr großen Karten verhindert das
-  // Anthropic-Rate-Limit-Retries (429 → exponential backoff) und macht die
-  // Ausführung deterministischer — Trade-off: höhere Gesamt-Dauer,
-  // maxDuration=300 fängt das ab.
-  const groups: ParsedMenuItemDto[][] = [];
-  for (const { from, to } of ranges) {
-    let pngs: string[] = [];
-    try {
-      pngs = await pdfBufferToPngBase64PagesRange(pdfBuf, from, to);
-    } catch (err) {
-      console.error(`parse-menu page-chunk render ${from}-${to}:`, err);
-      groups.push([]);
-      continue;
-    }
-    if (pngs.length === 0) {
-      groups.push([]);
-      continue;
-    }
-
-    const content: AnthropicContentPart[] = [
-      ...pngs.map(
-        (data): AnthropicContentPart => ({
-          type: "image",
-          source: { type: "base64", media_type: "image/png", data },
-        }),
-      ),
-      {
-        type: "text",
-        text:
-          `Seiten ${from}–${to} der Speisekarte. Extrahiere ALLE Items, die auf diesen Seiten zu sehen sind — auch wenn sie zu Kategorien gehören, die schon auf vorherigen Seiten begonnen haben.\n\n` +
-          PDF_IMPORT_PROMPT,
-      },
-    ];
-
-    try {
-      const items = await anthropicExtractMenuItems(content, apiKey, {
-        usePdfBeta: false,
-        maxTokens: VISION_MAX_TOKENS,
-      });
-      groups.push(items);
-    } catch (err) {
-      console.error(`parse-menu page-chunk anthropic ${from}-${to}:`, err);
-      groups.push([]);
-    }
-  }
-
-  return dedupeItems(groups.flat());
-}
-
 /** Ein Anthropic messages-Call mit Bild oder PDF-Dokument → strukturierte Menü-Items. */
 async function anthropicExtractMenuItems(
   userContent: AnthropicContentPart[],
   apiKey: string,
-  options: { usePdfBeta: boolean; maxTokens: number },
+  options: { usePdfBeta: boolean; maxTokens: number; label?: string },
 ): Promise<ParsedMenuItemDto[]> {
-  const { usePdfBeta, maxTokens } = options;
+  const { usePdfBeta, maxTokens, label } = options;
+  const tag = label ? `[parse-menu ${label}]` : "[parse-menu]";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "x-api-key": apiKey,
@@ -538,6 +552,7 @@ async function anthropicExtractMenuItems(
     } catch {
       if (rawText) msg = rawText.slice(0, 200);
     }
+    console.error(`${tag} anthropic HTTP ${anthropicRes.status}: ${rawText.slice(0, 500)}`);
     throw new Error(msg);
   }
 
@@ -545,12 +560,21 @@ async function anthropicExtractMenuItems(
   try {
     anthropicBody = JSON.parse(rawText) as AnthropicMessageResponse;
   } catch {
+    console.error(`${tag} anthropic body not JSON. Preview: ${rawText.slice(0, 500)}`);
     throw new Error("Ungültige Antwort der KI.");
   }
 
   const textBlock = anthropicBody.content?.find((c) => c.type === "text");
   const text = textBlock?.text?.trim() ?? "";
+  const stopReason = anthropicBody.stop_reason ?? "unknown";
+  const outputTokens = anthropicBody.usage?.output_tokens ?? 0;
+
+  console.error(
+    `${tag} stop_reason=${stopReason} output_tokens=${outputTokens} text_len=${text.length}`,
+  );
+
   if (!text) {
+    console.error(`${tag} EMPTY text block. Full body: ${rawText.slice(0, 1500)}`);
     throw new Error("Kein Text in der KI-Antwort.");
   }
 
@@ -585,10 +609,203 @@ async function anthropicExtractMenuItems(
       } catch {
         // fällt in den finalen throw
       }
-      console.error("anthropicExtractMenuItems repair failed. Preview:", cleanedResponse.slice(0, 500));
+      // Umfangreiches Logging für Diagnose in Vercel-Logs.
+      // Wir loggen die rohe Text-Antwort (Start + Ende), das normalisierte JSON
+      // (Start + Ende) sowie das repair-Ergebnis (Start + Ende), damit klar wird
+      // ob Truncation, Prompt-Deviation oder Repair-Bug die Ursache ist.
+      console.error(`${tag} repair failed. RAW text_len=${text.length}, first 1500: ${text.slice(0, 1500)}`);
+      console.error(`${tag} RAW text last 500: ${text.slice(-500)}`);
+      console.error(`${tag} CLEANED first 1500: ${cleanedResponse.slice(0, 1500)}`);
+      console.error(`${tag} CLEANED last 500: ${cleanedResponse.slice(-500)}`);
+      console.error(`${tag} REPAIRED first 1500: ${repaired.slice(0, 1500)}`);
+      console.error(`${tag} REPAIRED last 500: ${repaired.slice(-500)}`);
       throw new Error("KI-Antwort konnte nicht verarbeitet werden. Bitte erneut versuchen.");
     }
   }
+}
+
+/** Streaming-Handler für den neuen per-page PDF-Pfad. NDJSON: jede Zeile ist
+ *  ein JSON-Event. Sequenzielle Claude-Calls pro Seite (max_tokens=16000).
+ *  Nach jedem Call werden stop_reason + output_tokens geloggt. Am Ende ein
+ *  done-Event mit dem finalen Item-Array. */
+async function handlePageTextsStream(req: Request, apiKey: string): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Ungültiger JSON-Body." },
+      { status: 400 },
+    );
+  }
+  if (typeof body !== "object" || body === null) {
+    return NextResponse.json({ success: false, error: "Ungültiger Body." }, { status: 400 });
+  }
+  const o = body as Record<string, unknown>;
+
+  if (typeof o.restaurantId !== "string" || !o.restaurantId.trim()) {
+    return NextResponse.json({ success: false, error: "restaurantId fehlt." }, { status: 400 });
+  }
+  if (!Array.isArray(o.pageTexts)) {
+    return NextResponse.json({ success: false, error: "pageTexts fehlt." }, { status: 400 });
+  }
+  const rawPages = o.pageTexts.filter((p): p is string => typeof p === "string");
+  if (rawPages.length === 0) {
+    return NextResponse.json(
+      { success: false, error: "Keine Seiten-Texte übermittelt." },
+      { status: 400 },
+    );
+  }
+  if (rawPages.length > MAX_PAGES_PER_REQUEST) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `PDF hat zu viele Seiten (max. ${MAX_PAGES_PER_REQUEST}). Bitte teilen.`,
+      },
+      { status: 413 },
+    );
+  }
+  const pageTexts = rawPages.map((p) => (p.length > MAX_PAGE_TEXT_CHARS ? p.slice(0, MAX_PAGE_TEXT_CHARS) : p));
+  const totalPages = pageTexts.length;
+
+  // Optionaler Vision-Fallback pro Seite: Client rendert die Seite via
+  // pdfjs+canvas als PNG-base64 wenn der extrahierte Text < 100 Zeichen
+  // ist (typisch für gescannte PDFs). Länge muss zu pageTexts passen —
+  // Elemente können null/leer sein wenn Text ausreicht.
+  const rawImages = Array.isArray(o.pageImages) ? o.pageImages : [];
+  const pageImages: (string | null)[] = pageTexts.map((_t, idx) => {
+    const raw = rawImages[idx];
+    if (typeof raw !== "string" || raw.length === 0) return null;
+    if (raw.length > MAX_PAGE_IMAGE_BYTES) {
+      console.error(
+        `[parse-menu] page ${idx + 1} image payload ${raw.length} > ${MAX_PAGE_IMAGE_BYTES} — dropping`,
+      );
+      return null;
+    }
+    return raw;
+  });
+
+  // Optionaler pdf-doc-Fallback: rohe PDF als base64. Wird nur genutzt wenn
+  // der per-page-Pfad 0 Items liefert — sonst wandert Server-Traffic +
+  // Anthropic-Cost sinnlos hoch.
+  const pdfBase64Raw = typeof o.pdfBase64 === "string" ? o.pdfBase64 : null;
+  const pdfBase64: string | null =
+    pdfBase64Raw && pdfBase64Raw.length > 0 && pdfBase64Raw.length <= MAX_PDF_DOC_BASE64_BYTES
+      ? pdfBase64Raw
+      : null;
+  if (pdfBase64Raw && !pdfBase64) {
+    console.error(
+      `[parse-menu] pdfBase64 payload ${pdfBase64Raw.length} exceeds ${MAX_PDF_DOC_BASE64_BYTES} — fallback disabled for this request`,
+    );
+  }
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const emit = (event: Record<string, unknown>) => {
+        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      };
+      try {
+        emit({ type: "start", totalPages });
+
+        const collected: ParsedMenuItemDto[] = [];
+        let maxOutputTokensUsed = 0;
+
+        for (let i = 0; i < pageTexts.length; i++) {
+          const current = i + 1;
+          // Frühes Progress-Event, damit UI sofort "Seite X von N" zeigen kann.
+          emit({ type: "page", current, total: totalPages });
+
+          const text = pageTexts[i] ?? "";
+          const image = pageImages[i] ?? null;
+          const useVision = text.trim().length < MIN_PAGE_TEXT_CHARS_FOR_TEXT_PATH && image !== null;
+
+          const result = useVision
+            ? await parsePageImage(image!, apiKey, current, totalPages)
+            : await parsePageText(text, apiKey, current, totalPages);
+
+          if (result.outputTokens > maxOutputTokensUsed) {
+            maxOutputTokensUsed = result.outputTokens;
+          }
+          if (result.items.length > 0) collected.push(...result.items);
+        }
+
+        let merged = dedupeItems(collected);
+        console.error(
+          `[parse-menu done] total_items=${merged.length} total_pages=${totalPages} max_output_tokens_used=${maxOutputTokensUsed}`,
+        );
+
+        // pdf-doc-Fallback: wenn per-page-Loop nichts liefert und die rohe
+        // PDF mitgeschickt wurde, schicken wir die ganze PDF nochmal an
+        // Claude via anthropic-beta pdfs-2024-09-25. Historisch war das der
+        // zuverlässigste Pfad für Text-PDFs.
+        let fallbackAttempted = false;
+        let fallbackErrorMessage: string | null = null;
+        if (merged.length === 0 && pdfBase64) {
+          fallbackAttempted = true;
+          console.error("[parse-menu pdf-doc fallback] starting");
+          emit({ type: "page", current: totalPages, total: totalPages });
+          try {
+            const docContent: AnthropicContentPart[] = [
+              {
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: "application/pdf",
+                  data: pdfBase64,
+                },
+              },
+              { type: "text", text: PDF_IMPORT_PROMPT },
+            ];
+            const items = await anthropicExtractMenuItems(docContent, apiKey, {
+              usePdfBeta: true,
+              maxTokens: PAGE_MAX_TOKENS,
+              label: "pdf-doc fallback",
+            });
+            merged = dedupeItems(items);
+            console.error(
+              `[parse-menu pdf-doc fallback] total_items=${merged.length}`,
+            );
+          } catch (err) {
+            console.error("[parse-menu pdf-doc fallback] threw:", err);
+            fallbackErrorMessage =
+              err instanceof Error ? err.message : "PDF-Ganzanalyse fehlgeschlagen.";
+          }
+        }
+
+        if (merged.length === 0) {
+          const errorMessage = fallbackErrorMessage
+            ? `PDF-Ganzanalyse (Fallback) fehlgeschlagen: ${fallbackErrorMessage}`
+            : fallbackAttempted
+              ? "Keine Gerichte erkannt — auch der PDF-Ganzanalyse-Fallback lieferte keine Items. Bitte Speisekarte als JPG/PNG hochladen."
+              : "Keine Gerichte erkannt. Gescannte PDFs oft ohne Text: Speisekarte als JPG/PNG hochladen oder Text-PDF verwenden.";
+          emit({ type: "error", error: errorMessage });
+          controller.close();
+          return;
+        }
+
+        await enrichItemsWithDescriptions(merged, apiKey);
+        emit({ type: "done", items: merged });
+        controller.close();
+      } catch (err) {
+        console.error("[parse-menu stream] threw:", err);
+        emit({
+          type: "error",
+          error: err instanceof Error ? err.message : "Analyse fehlgeschlagen.",
+        });
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
 
 export async function POST(req: Request) {
@@ -607,15 +824,27 @@ export async function POST(req: Request) {
   const denied = await assertUserOrUnauthorized(req);
   if (denied) return denied;
 
-  try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "ANTHROPIC_API_KEY nicht gesetzt" },
-        { status: 500 },
-      );
-    }
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey?.trim()) {
+    return NextResponse.json(
+      { success: false, error: "ANTHROPIC_API_KEY nicht gesetzt" },
+      { status: 500 },
+    );
+  }
 
+  // JSON-Body: neuer per-page Streaming-Pfad für PDFs.
+  //   Body: { restaurantId: string, pageTexts: string[] }
+  //   Response: NDJSON-Stream — je Zeile ein Event
+  //     { type: "start", totalPages }
+  //     { type: "page",  current, total }
+  //     { type: "done",  items }
+  //     { type: "error", error }
+  const contentType = (req.headers.get("content-type") ?? "").toLowerCase();
+  if (contentType.includes("application/json")) {
+    return handlePageTextsStream(req, apiKey);
+  }
+
+  try {
     let formData: FormData;
     try {
       formData = await req.formData();
@@ -629,209 +858,6 @@ export async function POST(req: Request) {
         },
         { status: 400 },
       );
-    }
-
-    const pdfDocumentRaw = formData.get("pdfDocument");
-    const pdfDocument =
-      pdfDocumentRaw === "1" ||
-      pdfDocumentRaw === "true" ||
-      String(pdfDocumentRaw ?? "").toLowerCase() === "true";
-
-    const pdfTextOnlyRaw = formData.get("pdfTextOnly");
-    const pdfTextOnly =
-      pdfTextOnlyRaw === "1" ||
-      pdfTextOnlyRaw === "true" ||
-      String(pdfTextOnlyRaw ?? "").toLowerCase() === "true";
-
-    const extractedTextField = formData.get("extractedText");
-    const extractedTextStr =
-      typeof extractedTextField === "string"
-        ? extractedTextField
-        : extractedTextField != null
-          ? String(extractedTextField)
-          : null;
-
-    /** PDF: Binary direkt an Anthropic (kleine Dateien; zuverlässiger als nur Browser-Text). */
-    if (pdfDocument) {
-      const pdfFile = formData.get("file");
-      if (!(pdfFile instanceof File)) {
-        return NextResponse.json(
-          { success: false, error: "Keine PDF-Datei übermittelt." },
-          { status: 400 },
-        );
-      }
-      const dm = (pdfFile.type || "").toLowerCase();
-      const nl = pdfFile.name.toLowerCase();
-      const isPdfMime = dm === "application/pdf" || nl.endsWith(".pdf");
-      if (!isPdfMime) {
-        return NextResponse.json(
-          { success: false, error: "Nur PDF-Dateien für pdfDocument erlaubt." },
-          { status: 400 },
-        );
-      }
-      const pdfBuf = Buffer.from(await pdfFile.arrayBuffer());
-      if (pdfBuf.length === 0) {
-        return NextResponse.json({ success: false, error: "Leere PDF-Datei." }, { status: 400 });
-      }
-      if (pdfBuf.length > MAX_PDF_BYTES_DIRECT) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `PDF zu groß für Direkt-Analyse (max. ${Math.round(MAX_PDF_BYTES_DIRECT / 1_000_000)} MB). Bitte PDF komprimieren – es wird automatisch der Text-Fallback verwendet.`,
-          },
-          { status: 413 },
-        );
-      }
-      try {
-        let pageCount = 0;
-        try {
-          pageCount = await getPdfPageCount(pdfBuf);
-        } catch (cntErr) {
-          console.error("parse-menu getPdfPageCount:", cntErr);
-        }
-
-        /**
-         * HAUPTPFAD bei mehrseitigen PDFs: Seiten in Gruppen à PAGES_PER_CHUNK
-         * rendern und parallel an Anthropic. Robust für gescannte und auch
-         * text-basierte PDFs (Modell sieht Layout/Spalten/Preise direkt).
-         */
-        if (pageCount > 1) {
-          const pageChunkItems = await parsePdfByPageChunks(pdfBuf, apiKey);
-          if (pageChunkItems.length > 0) {
-            await enrichItemsWithDescriptions(pageChunkItems, apiKey);
-            return NextResponse.json({ success: true, items: pageChunkItems });
-          }
-        }
-
-        /**
-         * Single-Page-PDF oder Page-Chunking lieferte nichts: alter Pfad mit
-         * Text-Extraktion + Chunks (für text-basierte einseitige Karten).
-         */
-        let extracted = "";
-        try {
-          extracted = await extractPdfTextFromBuffer(pdfBuf);
-        } catch (texErr) {
-          console.error("parse-menu extractPdfTextFromBuffer:", texErr);
-        }
-        const textNorm = extracted.replace(/\s+/g, " ").trim();
-        const isTextBased = textNorm.length >= MIN_TEXT_CHARS_TEXT_PATH;
-
-        let merged: ParsedMenuItemDto[] = [];
-        if (isTextBased) {
-          const chunks = splitTextIntoChunks(extracted, CHUNK_SIZE);
-          const allItemArrays = await Promise.all(chunks.map((chunk) => parseChunk(chunk, apiKey)));
-          merged = dedupeItems(allItemArrays.flat());
-        }
-
-        if (merged.length > 0) {
-          await enrichItemsWithDescriptions(merged, apiKey);
-          return NextResponse.json({ success: true, items: merged });
-        }
-
-        /** Single-Page Vision Fallback: bis zu 4 Seiten als PNG zusammen. */
-        if (pageCount <= 1) {
-          let pngs: string[] = [];
-          try {
-            pngs = await pdfBufferToPngBase64Pages(pdfBuf, 4);
-          } catch (renderErr) {
-            console.error("parse-menu pdfBufferToPngBase64Pages:", renderErr);
-          }
-
-          if (pngs.length > 0) {
-            const imageContent: AnthropicContentPart[] = [
-              ...pngs.map(
-                (data): AnthropicContentPart => ({
-                  type: "image",
-                  source: {
-                    type: "base64",
-                    media_type: "image/png",
-                    data,
-                  },
-                }),
-              ),
-              { type: "text", text: PDF_IMPORT_PROMPT },
-            ];
-            const imgItems = await anthropicExtractMenuItems(imageContent, apiKey, {
-              usePdfBeta: false,
-              maxTokens: VISION_MAX_TOKENS,
-            });
-            if (imgItems.length > 0) {
-              await enrichItemsWithDescriptions(imgItems, apiKey);
-              return NextResponse.json({ success: true, items: imgItems });
-            }
-          }
-        }
-
-        /** Letzter Fallback: natives PDF an Anthropic (Beta). */
-        const pdfB64 = pdfBuf.toString("base64");
-        const docContent: AnthropicContentPart[] = [
-          {
-            type: "document",
-            source: {
-              type: "base64",
-              media_type: "application/pdf",
-              data: pdfB64,
-            },
-          },
-          { type: "text", text: PDF_IMPORT_PROMPT },
-        ];
-        const docItems = await anthropicExtractMenuItems(docContent, apiKey, {
-          usePdfBeta: true,
-          maxTokens: VISION_MAX_TOKENS,
-        });
-        if (docItems.length === 0) {
-          return NextResponse.json(
-            { success: false, error: "Keine Gerichte erkannt." },
-            { status: 422 },
-          );
-        }
-        await enrichItemsWithDescriptions(docItems, apiKey);
-        return NextResponse.json({ success: true, items: docItems });
-      } catch (err) {
-        console.error("parse-menu pdfDocument:", err);
-        return NextResponse.json(
-          {
-            success: false,
-            error: err instanceof Error ? err.message : "Analyse fehlgeschlagen",
-          },
-          { status: 502 },
-        );
-      }
-    }
-
-    /** PDF: nur extrahierter Text — ohne PDF-Binary (große PDFs / Vercel-Limit). */
-    if (pdfTextOnly) {
-      const normalizedExtractedText = extractedTextStr?.trim() ?? "";
-      if (!normalizedExtractedText) {
-        return NextResponse.json(
-          { success: false, error: "Kein Text aus PDF übermittelt." },
-          { status: 422 },
-        );
-      }
-      if (normalizedExtractedText.length > MAX_EXTRACTED_TEXT_CHARS) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Extrahierter Text zu lang (max. ca. ${Math.floor(MAX_EXTRACTED_TEXT_CHARS / 1_000_000)} Mio. Zeichen).`,
-          },
-          { status: 413 },
-        );
-      }
-      const chunks = splitTextIntoChunks(normalizedExtractedText, CHUNK_SIZE);
-      const allItemArrays = await Promise.all(chunks.map((chunk) => parseChunk(chunk, apiKey)));
-      const merged = dedupeItems(allItemArrays.flat());
-      if (merged.length === 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Keine Gerichte erkannt. Gescannte PDFs oft ohne Text: kleineres PDF hochladen (direkte PDF-Analyse bis ca. 2,5 MB) oder Speisekarte als JPG/PNG exportieren.",
-          },
-          { status: 422 },
-        );
-      }
-      await enrichItemsWithDescriptions(merged, apiKey);
-      return NextResponse.json({ success: true, items: merged });
     }
 
     const file = formData.get("file");
@@ -913,7 +939,7 @@ export async function POST(req: Request) {
     try {
       const imgItems = await anthropicExtractMenuItems(userContent, apiKey, {
         usePdfBeta: false,
-        maxTokens: VISION_MAX_TOKENS,
+        maxTokens: PAGE_MAX_TOKENS,
       });
       if (imgItems.length === 0) {
         return NextResponse.json(

@@ -28,7 +28,7 @@ import {
 } from "@/lib/category-sort-order";
 
 const DASHBOARD_MENU_ITEM_SELECT =
-  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, sold_out, tags, emoji, main_tab, sort_order, allergens_text";
+  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, sold_out, tags, emoji, main_tab, sort_order, allergens_text, allergens, additives_text";
 
 function menuItemKategorieLabel(m: MenuItem): string {
   return m.kategorie?.trim() || "Sonstiges";
@@ -109,7 +109,13 @@ type ReviewRow = {
   id: string;
   name: string;
   beschreibung: string;
+  /** Legacy Freitext — wird beim Import nicht mehr befüllt, aber Bestandsdaten
+   *  können noch was drin haben. */
   allergens_text: string;
+  /** 14 LMIV-Allergen-Schlüssel als Subset. */
+  allergens: string[];
+  /** Freitext für Zusatzstoffe (getrennt von Allergenen). */
+  additives_text: string;
   tags: string[];
   preis: number;
   kategorie: string;
@@ -159,15 +165,27 @@ function isAllowedUploadFile(file: File): boolean {
   return false;
 }
 
-async function extractTextFromPdf(file: File): Promise<string> {
-  // Dynamic import: nur clientseitig beim Upload-Pfad laden.
+/** Schwelle: Seiten mit weniger als so vielen Zeichen extrahiertem Text
+ *  gelten als "gescannt" — Client rendert sie zusätzlich als PNG-base64
+ *  für den Vision-Fallback auf dem Server. Muss mit
+ *  MIN_PAGE_TEXT_CHARS_FOR_TEXT_PATH in /api/parse-menu übereinstimmen. */
+const PDF_PAGE_TEXT_THRESHOLD = 100;
+/** Zielhöhe fürs Canvas-Rendering (px). ~1500 px bei DIN-A4 ≈ 150 dpi —
+ *  reicht für Claude Vision, PNG bleibt unter ~1,5 MB → base64 < 2 MB. */
+const PDF_PAGE_RENDER_HEIGHT_PX = 1500;
+
+/** Extrahiert pro PDF-Seite Text UND (bei zu kurzem Text) ein PNG-base64.
+ *  Reihenfolge bleibt 1:1 mit den Seitenzahlen erhalten. */
+async function extractPagesFromPdf(
+  file: File,
+): Promise<{ texts: string[]; images: (string | null)[] }> {
   const pdfjsLib = await import("pdfjs-dist");
-  // PDF.js Worker über eine fixe Public-URL laden (zuverlässiger als import.meta.url).
   pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   const arrayBuffer = await file.arrayBuffer();
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
-  let fullText = "";
+  const texts: string[] = [];
+  const images: (string | null)[] = [];
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
@@ -175,11 +193,62 @@ async function extractTextFromPdf(file: File): Promise<string> {
       .map((item) => ("str" in item ? item.str : ""))
       .join(" ")
       .trim();
-    if (pageText) {
-      fullText += `${pageText}\n`;
+    texts.push(pageText);
+
+    if (pageText.length < PDF_PAGE_TEXT_THRESHOLD) {
+      try {
+        const image = await renderPdfPageToPngBase64(page, PDF_PAGE_RENDER_HEIGHT_PX);
+        images.push(image);
+      } catch {
+        images.push(null);
+      }
+    } else {
+      images.push(null);
     }
   }
-  return fullText;
+  return { texts, images };
+}
+
+/** Rendert eine pdfjs-PageProxy in ein Canvas und liefert das PNG als
+ *  base64-String (ohne "data:"-Prefix). Höhe skaliert auf `targetHeightPx`.
+ *  Typ ist bewusst `unknown`, damit wir nicht an die pdfjs-Types binden. */
+async function renderPdfPageToPngBase64(
+  page: unknown,
+  targetHeightPx: number,
+): Promise<string | null> {
+  const p = page as {
+    getViewport: (opts: { scale: number }) => { width: number; height: number };
+    render: (opts: {
+      canvas: HTMLCanvasElement;
+      canvasContext: CanvasRenderingContext2D;
+      viewport: { width: number; height: number };
+    }) => { promise: Promise<void> };
+  };
+  const baseViewport = p.getViewport({ scale: 1 });
+  const scale = targetHeightPx / baseViewport.height;
+  const viewport = p.getViewport({ scale });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(viewport.width);
+  canvas.height = Math.ceil(viewport.height);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  await p.render({ canvas, canvasContext: ctx, viewport }).promise;
+  const dataUrl = canvas.toDataURL("image/png");
+  const commaIdx = dataUrl.indexOf(",");
+  return commaIdx > -1 ? dataUrl.slice(commaIdx + 1) : null;
+}
+
+/** ArrayBuffer → base64 (Chunk-basiert, damit große PDFs den Call-Stack
+ *  nicht sprengen wenn wir mit `String.fromCharCode(...bytes)` arbeiten). */
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const chunkSize = 0x8000;
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const sub = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    parts.push(String.fromCharCode(...sub));
+  }
+  return btoa(parts.join(""));
 }
 
 function normalizeCategoryKey(category: string): string {
@@ -267,6 +336,9 @@ export function KarteTab({
 
   const [importPhase, setImportPhase] = useState<ImportPhase>("idle");
   const [importError, setImportError] = useState<string | null>(null);
+  /** Server-Fortschritt bei mehrseitigem PDF-Import via SSE. `null`, wenn kein
+   *  Seiten-Fortschritt bekannt ist (Bild-Upload, Init, oder nach Fertigstellung). */
+  const [pageProgress, setPageProgress] = useState<{ current: number; total: number } | null>(null);
   const [reviewRows, setReviewRows] = useState<ReviewRow[]>([]);
   const [submittingImport, setSubmittingImport] = useState(false);
   const [categoryMap, setCategoryMap] = useState<CategoryMap>({});
@@ -645,7 +717,9 @@ export function KarteTab({
       id: newReviewId(),
       name: it.name,
       beschreibung: it.beschreibung,
-      allergens_text: it.allergens_text ?? "",
+      allergens_text: "",
+      allergens: Array.isArray(it.allergens) ? [...it.allergens] : [],
+      additives_text: it.additives_text ?? "",
       tags: Array.isArray(it.tags) ? [...it.tags] : [],
       preis: it.preis,
       kategorie: it.kategorie,
@@ -670,82 +744,146 @@ export function KarteTab({
     }
     lastFileRef.current = file;
     setImportError(null);
+    setPageProgress(null);
 
-    setImportPhase("reading");
-    try {
-      await file.arrayBuffer();
-    } catch {
-      setImportError("Datei konnte nicht gelesen werden.");
-      setImportPhase("error");
-      onToast("Datei konnte nicht gelesen werden.");
-      return;
-    }
-
-    await new Promise((r) => window.setTimeout(r, 350));
-
-    setImportPhase("analyzing");
-    const fd = new FormData();
     const isPdf =
       file.type.toLowerCase() === "application/pdf" ||
       file.name.toLowerCase().endsWith(".pdf");
-    fd.append("restaurantId", restaurantId);
-
-    /** Bis ~4 MB: Binary direkt an API → Server zerlegt seitenweise in
-     *  Chunks à 3 Seiten und ruft Anthropic parallel pro Chunk. Größer:
-     *  pdf.js extrahiert Text auf dem Client, Server chunked Text. */
-    const MAX_PDF_DIRECT_BYTES = 4_000_000;
-    if (isPdf) {
-      if (file.size <= MAX_PDF_DIRECT_BYTES) {
-        fd.append("file", file);
-        fd.append("pdfDocument", "1");
-      } else {
-        const extractedText = await extractTextFromPdf(file);
-        const MAX_TEXT = 3_500_000;
-        if (extractedText.length > MAX_TEXT) {
-          throw new Error(
-            `Extrahierter Text zu lang (${extractedText.length} Zeichen). Bitte PDF teilen oder komprimieren.`,
-          );
-        }
-        fd.append("extractedText", extractedText);
-        fd.append("pdfTextOnly", "1");
-      }
-    } else {
-      fd.append("file", file);
-    }
 
     try {
-      const res = await authFetch("/api/parse-menu", {
-        method: "POST",
-        body: fd,
-      });
+      if (isPdf) {
+        setImportPhase("reading");
+        const { texts: pageTexts, images: pageImages } = await extractPagesFromPdf(file);
+        const usableTextPages = pageTexts.filter((t) => t.length > 0).length;
+        const usableImagePages = pageImages.filter((img) => img !== null).length;
+        if (usableTextPages === 0 && usableImagePages === 0) {
+          throw new Error(
+            "Weder Text noch Seitenrendering aus PDF möglich. Bitte Speisekarte als JPG/PNG hochladen.",
+          );
+        }
+        // Rohe PDF als base64 mitschicken für den pdf-doc-Fallback auf dem
+        // Server. Nur bis ~4 MB roh — größere PDFs sprengen das Vercel
+        // Request-Limit; dann greift nur der per-page-Pfad.
+        const MAX_PDF_RAW_BYTES = 4_000_000;
+        let pdfBase64: string | null = null;
+        if (file.size <= MAX_PDF_RAW_BYTES) {
+          try {
+            const buf = await file.arrayBuffer();
+            pdfBase64 = arrayBufferToBase64(buf);
+          } catch {
+            pdfBase64 = null;
+          }
+        }
+        const items = await callParseMenuStreaming({
+          restaurantId,
+          pageTexts,
+          pageImages,
+          pdfBase64,
+        });
+        commitParsedItems(items);
+        return;
+      }
+
+      // Bild-Upload: JPG/PNG direkt an Server (Vision-Pfad, ein Call).
+      setImportPhase("analyzing");
+      const fd = new FormData();
+      fd.append("restaurantId", restaurantId);
+      fd.append("file", file);
+      const res = await authFetch("/api/parse-menu", { method: "POST", body: fd });
       const raw = await res.text();
       let body: { items?: ParsedMenuItemDto[]; error?: string; success?: boolean };
       try {
         body = raw ? (JSON.parse(raw) as typeof body) : {};
       } catch {
-        const hint =
-          res.status === 413 || raw.includes("Request Entity Too Large")
-            ? "Upload zu groß (Server-Limit). Bei PDFs nur Text wird gesendet — bitte Seite neu laden oder kleinere Datei."
-            : raw.slice(0, 200);
-        throw new Error(hint || `Analyse fehlgeschlagen (${res.status})`);
+        throw new Error(raw.slice(0, 200) || `Analyse fehlgeschlagen (${res.status})`);
       }
-
       if (!res.ok) {
         throw new Error(body.error ?? `Analyse fehlgeschlagen (${res.status})`);
       }
-      // Shape-Validierung: API könnte items als null, object, primitive zurückliefern.
-      // Optional chaining schützt vor null/undefined, aber wir wollen explizit ein Array.
       if (!Array.isArray(body.items) || body.items.length === 0) {
         throw new Error("Keine Gerichte erkannt.");
       }
-
       commitParsedItems(body.items);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unbekannter Fehler";
       setImportError(msg);
       setImportPhase("error");
       onToast(msg);
+    } finally {
+      setPageProgress(null);
     }
+  }
+
+  /** Streamt /api/parse-menu (SSE-ähnlicher NDJSON-Stream): jede Zeile
+   *  ein JSON-Objekt. Server-Events:
+   *    {type:"start", totalPages}
+   *    {type:"page",  current, total}
+   *    {type:"done",  items}
+   *    {type:"error", error} */
+  async function callParseMenuStreaming(input: {
+    restaurantId: string;
+    pageTexts: string[];
+    /** Optionaler Vision-Fallback pro Seite: PNG-base64 wenn Text < 100 Zeichen.
+     *  Länge muss zu pageTexts passen; Elemente können null sein. */
+    pageImages: (string | null)[];
+    /** Rohe PDF als base64 für den serverseitigen pdf-doc-Fallback
+     *  (Anthropic PDF-Beta). Wird nur genutzt wenn per-page 0 Items liefert. */
+    pdfBase64: string | null;
+  }): Promise<ParsedMenuItemDto[]> {
+    setImportPhase("analyzing");
+    setPageProgress({ current: 0, total: input.pageTexts.length });
+
+    const res = await authFetch("/api/parse-menu", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+
+    if (!res.ok || !res.body) {
+      let msg = `Analyse fehlgeschlagen (${res.status})`;
+      try {
+        const txt = await res.text();
+        if (txt) msg = txt.slice(0, 200);
+      } catch {
+        // ignore
+      }
+      throw new Error(msg);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let items: ParsedMenuItemDto[] | null = null;
+    let streamError: string | null = null;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let evt: { type?: string; totalPages?: number; current?: number; total?: number; items?: ParsedMenuItemDto[]; error?: string };
+        try {
+          evt = JSON.parse(trimmed);
+        } catch {
+          continue;
+        }
+        if (evt.type === "page" && typeof evt.current === "number" && typeof evt.total === "number") {
+          setPageProgress({ current: evt.current, total: evt.total });
+        } else if (evt.type === "done" && Array.isArray(evt.items)) {
+          items = evt.items;
+        } else if (evt.type === "error") {
+          streamError = evt.error ?? "Unbekannter Fehler";
+        }
+      }
+    }
+
+    if (streamError) throw new Error(streamError);
+    if (!items || items.length === 0) throw new Error("Keine Gerichte erkannt.");
+    return items;
   }
 
   function closeImportOverlay() {
@@ -817,7 +955,8 @@ export function KarteTab({
           restaurant_id: restaurantId,
           name: r.name.trim(),
           beschreibung: r.beschreibung.trim() || null,
-          allergens_text: r.allergens_text.trim() || null,
+          allergens: Array.isArray(r.allergens) ? r.allergens : [],
+          additives_text: r.additives_text.trim() || null,
           tags: Array.isArray(r.tags) ? r.tags : [],
           preis: Number.isFinite(r.preis) && r.preis >= 0 ? r.preis : 0,
           kategorie: kat,
@@ -1490,7 +1629,11 @@ export function KarteTab({
                 style={{ borderColor: dash.s2, borderTopColor: dash.or }}
               />
               <div className="text-center text-[15px] font-bold">
-                {importPhase === "reading" ? "📄 Datei wird gelesen…" : "🔍 KI analysiert deine Speisekarte…"}
+                {importPhase === "reading"
+                  ? "📄 Datei wird gelesen…"
+                  : pageProgress && pageProgress.current > 0
+                    ? `🔍 Seite ${pageProgress.current} von ${pageProgress.total} wird analysiert…`
+                    : "🔍 KI analysiert deine Speisekarte…"}
               </div>
               <div className="text-center text-xs" style={{ color: dash.mu }}>
                 Bitte warten, das kann einige Sekunden dauern.
