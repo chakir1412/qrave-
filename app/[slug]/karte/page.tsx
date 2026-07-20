@@ -17,7 +17,6 @@ import StreetFoodTemplate from "@/components/templates/StreetFood";
 import MediterraneanTemplate from "@/components/templates/Mediterranean";
 import BlossomTemplate from "@/components/templates/Blossom";
 import { KarteLocaleSync } from "@/components/speisekarte/KarteLocaleSync";
-import { OverscrollGuard } from "@/components/speisekarte/OverscrollGuard";
 
 const templateMap: Record<string, React.ComponentType<SpeisekarteProps>> = {
   heritage: HeritageTemplate,
@@ -96,7 +95,6 @@ export default async function SpeisekartePage({
         renderedLocale={locale}
         urlHasLocale={typeof localeOverride === "string"}
       />
-      <OverscrollGuard />
       <TemplateComponent {...templateProps} />
     </div>
   );
