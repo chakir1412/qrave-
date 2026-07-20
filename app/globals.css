@@ -29,15 +29,18 @@
   --font-sans: var(--font-dm-sans), system-ui, sans-serif;
 }
 
+html {
+  /* iOS-Safari braucht overscroll-behavior teils auf html-Ebene, damit
+   * das Document-Rubber-Band unterdrückt wird. body allein reicht nicht
+   * zuverlässig auf allen iOS-Ständen. Der finale Fallback (touchmove-
+   * Guard) sitzt in components/speisekarte/OverscrollGuard.tsx. */
+  overscroll-behavior-y: none;
+}
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-dm-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  /* iOS-Safari Rubber-Band unterdrücken. Ohne das federt beim Ziehen am
-   * Dokument-Rand die ganze Seite mit — sticky-Elemente (z. B. die
-   * Kategorie-Tabs auf der Speisekarte) wandern sichtbar mit. Deaktiviert
-   * zwangsläufig pull-to-refresh, was hier aber irrelevant ist. */
   overscroll-behavior-y: none;
 }
 
