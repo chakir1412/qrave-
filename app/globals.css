@@ -80,6 +80,19 @@ body {
     opacity: 1;
   }
 }
+/* Item-Modal-Öffnung: dezenter Scale-In + Fade statt SlideUp-Overshoot.
+ * Der SlideUp aus 100% translateY war bei einem nahezu vollflächigen Modal
+ * zu wuchtig und der Bounce ließ es abrupt wirken. */
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 
 /* Dashboard: Tab-Wechsel (Prototyp) */
 @keyframes dashboard-slR {

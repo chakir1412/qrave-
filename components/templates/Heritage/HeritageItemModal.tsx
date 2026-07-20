@@ -330,7 +330,7 @@ export default function HeritageItemModal({
 
   return (
     <div
-      className="fixed inset-0 z-[500] animate-[fadeIn_0.2s_ease]"
+      className="fixed inset-0 z-[500] animate-[fadeIn_0.22s_ease-out]"
       style={{
         background: COL.overlay,
         backdropFilter: "blur(4px)",
@@ -339,7 +339,7 @@ export default function HeritageItemModal({
       onClick={onClose}
     >
       <div
-        className="fixed left-0 right-0 top-[12px] z-[501] flex h-[calc(100dvh-12px)] flex-col overflow-hidden animate-[slideUp_0.35s_cubic-bezier(0.34,1.56,0.64,1)] sm:top-auto sm:bottom-0 sm:h-auto sm:max-h-[88vh] sm:left-0 sm:right-0 sm:mx-auto sm:max-w-[520px]"
+        className="fixed left-0 right-0 top-[12px] z-[501] flex h-[calc(100dvh-12px)] flex-col overflow-hidden animate-[modalIn_0.22s_ease-out] sm:top-auto sm:bottom-0 sm:h-auto sm:max-h-[88vh] sm:left-0 sm:right-0 sm:mx-auto sm:max-w-[520px]"
         style={{
           background: COL.bg,
           color: COL.text,
