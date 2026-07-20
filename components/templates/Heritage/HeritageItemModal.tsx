@@ -11,7 +11,7 @@ import {
 } from "@/lib/speisekarte-logic";
 import { getItemEmoji, getDisplayPrice } from "@/components/speisekarte/utils";
 import { isDarkHex } from "@/lib/template-background";
-import { t, translateAllergenText } from "@/lib/i18n-menu";
+import { t, translateAllergenText, translateAllergensArray } from "@/lib/i18n-menu";
 
 const JUST_ADDED_DURATION_MS = 300;
 
@@ -328,24 +328,122 @@ export default function HeritageItemModal({
   const showPopularity =
     typeof scanCount === "number" && !Number.isNaN(scanCount) && scanCount > 5;
 
+  // ─── Swipe-to-dismiss ─────────────────────────────────────────────────
+  // iOS-Sheet-Verhalten: vertikaler Downward-Drag verschiebt das Panel,
+  // Backdrop dimmt proportional. Erst nach der modalIn-Öffnungsanimation
+  // aktiv (`ready`) — sonst würde ein Touch in den ersten ~230 ms mit dem
+  // Scale-Keyframe konkurrieren. Nur wenn scrollTop=0 im Content-Bereich,
+  // damit vertikales Scrollen im Modal nicht blockiert wird. Threshold:
+  // 100 px Distanz ODER >0.5 px/ms Velocity → onClose (mit 200 ms Slide-out).
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [ready, setReady] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const startYRef = useRef(0);
+  const startTimeRef = useRef(0);
+  const draggingRef = useRef(false);
+  const dragYRef = useRef(0);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setReady(true), 230);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (!ready || isClosing) return;
+      startYRef.current = e.touches[0].clientY;
+      startTimeRef.current = Date.now();
+      draggingRef.current = false;
+      dragYRef.current = 0;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!ready || isClosing) return;
+      const y = e.touches[0].clientY;
+      const dy = y - startYRef.current;
+      const scrollTop = scrollRef.current?.scrollTop ?? 0;
+      if (dy > 0 && scrollTop <= 0) {
+        if (!draggingRef.current) {
+          draggingRef.current = true;
+          setIsDragging(true);
+        }
+        dragYRef.current = dy;
+        setDragY(dy);
+        // Verhindert dass iOS-Safari die Seite (dahinter) mitscrollt.
+        e.preventDefault();
+      } else if (draggingRef.current) {
+        // Nutzer wechselt Richtung nach oben oder scrollt innerhalb — Drag abbrechen.
+        draggingRef.current = false;
+        dragYRef.current = 0;
+        setIsDragging(false);
+        setDragY(0);
+      }
+    };
+    const onTouchEnd = () => {
+      if (!ready || isClosing) return;
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+      setIsDragging(false);
+      const dy = dragYRef.current;
+      const dt = Date.now() - startTimeRef.current;
+      const velocity = dt > 0 ? dy / dt : 0;
+      dragYRef.current = 0;
+      if (dy > 100 || velocity > 0.5) {
+        setIsClosing(true);
+        setDragY(window.innerHeight);
+        window.setTimeout(onClose, 200);
+      } else {
+        setDragY(0);
+      }
+    };
+
+    panel.addEventListener("touchstart", onTouchStart, { passive: true });
+    panel.addEventListener("touchmove", onTouchMove, { passive: false });
+    panel.addEventListener("touchend", onTouchEnd, { passive: true });
+    panel.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    return () => {
+      panel.removeEventListener("touchstart", onTouchStart);
+      panel.removeEventListener("touchmove", onTouchMove);
+      panel.removeEventListener("touchend", onTouchEnd);
+      panel.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [ready, isClosing, onClose]);
+
+  const backdropOpacity = Math.max(0.35, 1 - dragY / 480);
+
   return (
     <div
-      className="fixed inset-0 z-[500] animate-[fadeIn_0.22s_ease-out]"
-      style={{
-        background: COL.overlay,
-        backdropFilter: "blur(4px)",
-        touchAction: "none",
-      }}
+      className="fixed inset-0 z-[500]"
+      style={{ touchAction: "none" }}
       onClick={onClose}
     >
       <div
-        className="fixed left-0 right-0 top-[12px] z-[501] flex h-[calc(100dvh-12px)] flex-col overflow-hidden animate-[modalIn_0.22s_ease-out] sm:top-auto sm:bottom-0 sm:h-auto sm:max-h-[88vh] sm:left-0 sm:right-0 sm:mx-auto sm:max-w-[520px]"
+        aria-hidden
+        className="absolute inset-0 animate-[fadeIn_0.22s_ease-out]"
+        style={{
+          background: COL.overlay,
+          backdropFilter: "blur(4px)",
+          opacity: backdropOpacity,
+          transition: isDragging ? "opacity 0s" : "opacity 0.24s ease-out",
+        }}
+      />
+      <div
+        ref={panelRef}
+        className="absolute left-0 right-0 top-[12px] z-[501] flex h-[calc(100dvh-12px)] flex-col overflow-hidden animate-[modalIn_0.22s_ease-out] sm:top-auto sm:bottom-0 sm:h-auto sm:max-h-[88vh] sm:left-0 sm:right-0 sm:mx-auto sm:max-w-[520px]"
         style={{
           background: COL.bg,
           color: COL.text,
           // 16px Top-Rundung — Modal ist 12px unter dem Viewport-Rand.
           borderRadius: "16px 16px 0 0",
           border: `1px solid ${COL.divider}`,
+          transform: `translateY(${dragY}px)`,
+          transition: isDragging ? "none" : "transform 0.24s cubic-bezier(0.32,0.72,0,1)",
+          willChange: "transform",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -388,6 +486,7 @@ export default function HeritageItemModal({
 
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
           <div
+            ref={scrollRef}
             className="min-h-0 flex-1 overflow-y-auto"
             style={{
               padding: hasImage ? "16px 18px 28px" : "16px 18px 28px",
@@ -521,92 +620,100 @@ export default function HeritageItemModal({
               </p>
             ) : null}
 
-            {item.allergens_text && item.allergens_text.trim() ? (
-              <div
-                style={{
-                  borderRadius: 8,
-                  background: COL.cream,
-                  border: `1px solid ${COL.divider}`,
-                  overflow: "hidden",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setAllergensOpen((v) => !v)}
-                  aria-expanded={allergensOpen}
-                  aria-controls="allergens-panel"
+            {(() => {
+              const allergensLine = Array.isArray(item.allergens) && item.allergens.length > 0
+                ? translateAllergensArray(item.allergens, locale)
+                : "";
+              const additivesLine = (item.additives_text ?? "").trim();
+              const legacyLine = (item.allergens_text ?? "").trim();
+              const hasAny = allergensLine || additivesLine || legacyLine;
+              if (!hasAny) return null;
+              return (
+                <div
                   style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    padding: "12px 16px",
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
+                    borderRadius: 8,
+                    background: COL.cream,
+                    border: `1px solid ${COL.divider}`,
+                    overflow: "hidden",
                   }}
                 >
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => setAllergensOpen((v) => !v)}
+                    aria-expanded={allergensOpen}
+                    aria-controls="allergens-panel"
                     style={{
-                      fontSize: 11,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.14em",
-                      color: COL.accent,
-                      fontWeight: 600,
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      padding: "12px 16px",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
                     }}
                   >
-                    {t("allergens_only", locale)}
-                  </span>
-                  <span
-                    aria-hidden
-                    style={{
-                      fontSize: 14,
-                      color: COL.accent,
-                      transition: "transform 200ms ease",
-                      transform: allergensOpen ? "rotate(180deg)" : "rotate(0deg)",
-                      lineHeight: 1,
-                    }}
-                  >
-                    ▾
-                  </span>
-                </button>
-                {allergensOpen ? (
-                  <div
-                    id="allergens-panel"
-                    style={{
-                      padding: "0 16px 14px",
-                      borderTop: `1px solid ${COL.divider}`,
-                      paddingTop: 12,
-                    }}
-                  >
-                    <p
+                    <span
                       style={{
-                        fontSize: 13,
-                        lineHeight: 1.5,
-                        color: COL.text,
-                        margin: "0 0 10px",
+                        fontSize: 11,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.14em",
+                        color: COL.accent,
+                        fontWeight: 600,
                       }}
                     >
-                      {translateAllergenText(item.allergens_text, locale)}
-                    </p>
-                    <p
+                      {t("allergens_only", locale)}
+                    </span>
+                    <span
+                      aria-hidden
                       style={{
-                        fontSize: 12,
-                        lineHeight: 1.5,
-                        color: COL.textMuted,
-                        margin: 0,
+                        fontSize: 14,
+                        color: COL.accent,
+                        transition: "transform 200ms ease",
+                        transform: allergensOpen ? "rotate(180deg)" : "rotate(0deg)",
+                        lineHeight: 1,
                       }}
                     >
-                      <span aria-hidden className="mr-1.5 inline-block">
-                        ⚠️
-                      </span>
-                      {t("allergens_service", locale)}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+                      ▾
+                    </span>
+                  </button>
+                  {allergensOpen ? (
+                    <div
+                      id="allergens-panel"
+                      style={{
+                        padding: "0 16px 14px",
+                        borderTop: `1px solid ${COL.divider}`,
+                        paddingTop: 12,
+                      }}
+                    >
+                      {allergensLine ? (
+                        <p style={{ fontSize: 13, lineHeight: 1.5, color: COL.text, margin: "0 0 8px" }}>
+                          {allergensLine}
+                        </p>
+                      ) : null}
+                      {additivesLine ? (
+                        <p style={{ fontSize: 12, lineHeight: 1.5, color: COL.textMuted, margin: "0 0 8px" }}>
+                          <span style={{ fontWeight: 600 }}>{t("additives_label", locale)}:</span>{" "}
+                          {additivesLine}
+                        </p>
+                      ) : null}
+                      {legacyLine && !allergensLine ? (
+                        <p style={{ fontSize: 12, lineHeight: 1.5, color: COL.textMuted, margin: "0 0 8px" }}>
+                          {translateAllergenText(legacyLine, locale)}
+                        </p>
+                      ) : null}
+                      <p style={{ fontSize: 12, lineHeight: 1.5, color: COL.textMuted, margin: 0 }}>
+                        <span aria-hidden className="mr-1.5 inline-block">
+                          ⚠️
+                        </span>
+                        {t("allergens_service", locale)}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()}
 
             {suggestions.length > 0 ? (
               <div
