@@ -57,8 +57,10 @@ const MAX_PAGE_TEXT_CHARS = 200_000;
  *  dem Client-Fallback-Threshold in KarteTab.tsx. */
 const MIN_PAGE_TEXT_CHARS_FOR_TEXT_PATH = 100;
 /** Grober Schutz vor Riesen-PNG-Payloads pro Seite (base64 im JSON-Body).
- *  ~2 MB base64 ≈ 1,5 MB Bild — ausreichend für DIN-A4 bei 150 dpi. */
-const MAX_PAGE_IMAGE_BYTES = 2_500_000;
+ *  ~3,5 MB base64 ≈ 2,6 MB Bild — nötig damit die 2000-px-Renderings vom
+ *  Client (nötig für kleine Allergen-/Zusatzstoff-Codes) durchkommen und
+ *  nicht stillschweigend verworfen werden. */
+const MAX_PAGE_IMAGE_BYTES = 3_500_000;
 /** Größen-Guard für den optionalen pdf-doc-Fallback (rohes PDF base64 im
  *  JSON-Body). Vercel Request-Limit liegt bei ~4,5 MB — 5,5 MB base64 sind
  *  ~4 MB rohe PDF, das passt zusammen mit Text/Bild-Payload. */
@@ -477,7 +479,10 @@ ${trimmed}`,
 
 /** Vision-Pfad einer PDF-Seite (Client hat die Seite via canvas als PNG
  *  gerendert und als base64 geschickt). Wird genutzt wenn pdfjs-Text
- *  leer/zu kurz war — typisch für gescannte PDFs. */
+ *  leer/zu kurz war — typisch für gescannte PDFs. Der finale Reminder
+ *  direkt vor der Model-Response ist bewusst redundant zum Haupt-Prompt:
+ *  bei Vision-Ambiguität (kleine/verwaschene Codes) tendiert das Modell
+ *  sonst dazu, Allergene aus Zutaten abzuleiten. */
 async function parsePageImage(
   pageImageBase64: string,
   apiKey: string,
@@ -494,7 +499,9 @@ async function parsePageImage(
       type: "text",
       text: `${PDF_IMPORT_PROMPT}
 
-Das obige Bild ist Seite ${pageIndex} von ${totalPages} der Speisekarte. Extrahiere alle Items der Seite.`,
+Das obige Bild ist Seite ${pageIndex} von ${totalPages} einer gescannten Speisekarte. Extrahiere alle Items der Seite.
+
+WICHTIG bei diesem Scan: Buchstaben-Allergen-Codes (A, B, C, ..., R) und Zusatzstoff-Ziffern (1-14) stehen häufig sehr klein, hochgestellt oder in Klammern direkt hinter dem Item-Namen (z. B. "Wiener Schnitzel A, C, G, 2, 3"). Prüfe für JEDES Item, ob Buchstaben- oder Zifferncodes daneben stehen. Wenn ja: Buchstaben → allergens[] (LMIV-Schlüssel), Ziffern → additives_text (Klartext). Wenn KEINE Codes am Item stehen: allergens leer und additives_text leer — NIEMALS aus Zutaten/Item-Namen ableiten.`,
     },
   ];
   return callAnthropicForPageContent(content, apiKey, tag);

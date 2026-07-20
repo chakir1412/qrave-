@@ -170,9 +170,12 @@ function isAllowedUploadFile(file: File): boolean {
  *  für den Vision-Fallback auf dem Server. Muss mit
  *  MIN_PAGE_TEXT_CHARS_FOR_TEXT_PATH in /api/parse-menu übereinstimmen. */
 const PDF_PAGE_TEXT_THRESHOLD = 100;
-/** Zielhöhe fürs Canvas-Rendering (px). ~1500 px bei DIN-A4 ≈ 150 dpi —
- *  reicht für Claude Vision, PNG bleibt unter ~1,5 MB → base64 < 2 MB. */
-const PDF_PAGE_RENDER_HEIGHT_PX = 1500;
+/** Zielhöhe fürs Canvas-Rendering (px). 2000 px bei DIN-A4 ≈ 170 dpi —
+ *  nötig damit kleine Allergen-Buchstaben (A-R) und Zusatzstoff-Ziffern
+ *  (1-14) neben Item-Namen für Claude Vision zuverlässig lesbar bleiben.
+ *  Bei ~2000 px bleibt die PNG unter ~2 MB → base64 unter ~2,7 MB, was mit
+ *  MAX_PAGE_IMAGE_BYTES im Server-Route zusammenpasst. */
+const PDF_PAGE_RENDER_HEIGHT_PX = 2000;
 
 /** Extrahiert pro PDF-Seite Text UND (bei zu kurzem Text) ein PNG-base64.
  *  Reihenfolge bleibt 1:1 mit den Seitenzahlen erhalten. */
