@@ -34,6 +34,11 @@ body {
   color: var(--text);
   font-family: var(--font-dm-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* iOS-Safari Rubber-Band unterdrücken. Ohne das federt beim Ziehen am
+   * Dokument-Rand die ganze Seite mit — sticky-Elemente (z. B. die
+   * Kategorie-Tabs auf der Speisekarte) wandern sichtbar mit. Deaktiviert
+   * zwangsläufig pull-to-refresh, was hier aber irrelevant ist. */
+  overscroll-behavior-y: none;
 }
 
 /* Hide scrollbars for horizontal navs */
