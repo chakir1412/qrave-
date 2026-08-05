@@ -7,8 +7,12 @@ import { supabase } from "@/lib/supabase";
 import { authFetch } from "@/lib/auth-fetch";
 import { sortOrderIndexForKategorie } from "@/lib/category-sort-order";
 import { compressImageFile } from "@/lib/compress-image";
+import { LMIV_ALLERGENS } from "@/lib/i18n-menu";
 import { formatPreisEUR } from "../utils";
 import { dash, dashPrimaryButtonStyle } from "../constants";
+
+const EDIT_ITEM_SELECT =
+  "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text, allergens, additives_text";
 
 type Props = {
   item: MenuItem | null;
@@ -41,7 +45,8 @@ export function EditItemOverlay({
 }: Props) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
-  const [allergens, setAllergens] = useState("");
+  const [allergens, setAllergens] = useState<string[]>([]);
+  const [additivesText, setAdditivesText] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [preisStr, setPreisStr] = useState("");
   const [kategorie, setKategorie] = useState("");
@@ -57,7 +62,8 @@ export function EditItemOverlay({
     if (item) {
       setName(item.name);
       setDesc(item.beschreibung ?? "");
-      setAllergens(item.allergens_text ?? "");
+      setAllergens(Array.isArray(item.allergens) ? [...item.allergens] : []);
+      setAdditivesText(item.additives_text ?? "");
       setTags(Array.isArray(item.tags) ? [...item.tags] : []);
       setPreisStr(formatPreisEUR(item.preis));
       setKategorie(item.kategorie || "Sonstiges");
@@ -66,7 +72,8 @@ export function EditItemOverlay({
       setName("");
       setDesc("");
       setImageUrl(null);
-      setAllergens("");
+      setAllergens([]);
+      setAdditivesText("");
       setTags([]);
       setPreisStr("0");
       setKategorie(defaultCategory?.trim() || "Sonstiges");
@@ -75,6 +82,12 @@ export function EditItemOverlay({
 
   function toggleTag(tag: string) {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
+
+  function toggleAllergen(key: string) {
+    setAllergens((prev) =>
+      prev.includes(key) ? prev.filter((a) => a !== key) : [...prev, key],
+    );
   }
 
   if (!open) return null;
@@ -102,7 +115,8 @@ export function EditItemOverlay({
     const payload: Record<string, unknown> = {
       name: newName,
       beschreibung: newDesc,
-      allergens_text: allergens.trim() || null,
+      allergens,
+      additives_text: additivesText.trim() || null,
       tags,
       preis: p,
       kategorie: kat,
@@ -124,9 +138,7 @@ export function EditItemOverlay({
       ? supabase.from("menu_items").insert({ ...payload, restaurant_id: restaurantId, aktiv: true })
       : supabase.from("menu_items").update(payload).eq("id", editing.id);
     const { data, error } = await query
-      .select(
-        "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text",
-      )
+      .select(EDIT_ITEM_SELECT)
       .single();
 
     setBusy(false);
@@ -184,7 +196,7 @@ export function EditItemOverlay({
         .from("menu_items")
         .update({ bild_url: url })
         .eq("id", editing.id)
-        .select("id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text")
+        .select(EDIT_ITEM_SELECT)
         .single();
       if (updateErr || !updateData) {
         onToast(updateErr?.message ?? "Speichern fehlgeschlagen");
@@ -208,7 +220,7 @@ export function EditItemOverlay({
         .from("menu_items")
         .update({ bild_url: null })
         .eq("id", editing.id)
-        .select("id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text")
+        .select(EDIT_ITEM_SELECT)
         .single();
       if (error || !data) {
         onToast(error?.message ?? "Entfernen fehlgeschlagen");
@@ -425,13 +437,57 @@ export function EditItemOverlay({
           }}
         />
         <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
-          Allergene & Zutaten
+          Allergene (LMIV)
+        </label>
+        <div className="mb-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {LMIV_ALLERGENS.map((a) => {
+            const active = allergens.includes(a.key);
+            return (
+              <button
+                key={a.key}
+                type="button"
+                onClick={() => toggleAllergen(a.key)}
+                aria-pressed={active}
+                className="flex min-h-[44px] items-center gap-2.5 rounded-[11px] border px-3 text-left text-sm font-medium transition active:scale-[0.98]"
+                style={
+                  active
+                    ? {
+                        borderColor: "var(--qrave-accent)",
+                        backgroundColor: "color-mix(in srgb, var(--qrave-accent) 15%, transparent)",
+                        color: dash.tx,
+                      }
+                    : {
+                        borderColor: dash.bo,
+                        backgroundColor: dash.s2,
+                        color: dash.mi,
+                      }
+                }
+              >
+                <span
+                  aria-hidden
+                  className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border"
+                  style={{
+                    borderColor: active ? "var(--qrave-accent)" : dash.bo,
+                    backgroundColor: active ? "var(--qrave-accent)" : "transparent",
+                  }}
+                >
+                  {active ? (
+                    <i className="fa-solid fa-check text-[10px]" style={{ color: "#fff" }} />
+                  ) : null}
+                </span>
+                {a.de}
+              </button>
+            );
+          })}
+        </div>
+        <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
+          Zusatzstoffe (Freitext)
         </label>
         <textarea
-          value={allergens}
-          onChange={(e) => setAllergens(e.target.value)}
+          value={additivesText}
+          onChange={(e) => setAdditivesText(e.target.value)}
           rows={2}
-          placeholder="z. B. enthält Gluten, Milch, Sellerie"
+          placeholder="z. B. enthält Geschmacksverstärker, Konservierungsstoffe"
           className="mb-3 w-full resize-none rounded-[11px] border px-3.5 py-3 text-sm outline-none"
           style={{
             backgroundColor: dash.s2,

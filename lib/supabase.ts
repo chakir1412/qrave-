@@ -191,10 +191,17 @@ export type MenuItem = {
   /** Einzelnes Emoji (z.B. 🍺) */
   emoji?: string | null;
   sort_order?: number;
-  /** Freitext-Allergene & Zutaten (vom PDF-Import autom. vorbefuellt).
-   *  Einzige funktionierende Allergen-Quelle — wird im Item-Modal angezeigt
-   *  und vom AllergenSheet deduppliziert aufgelistet. */
+  /** Deprecated seit 2026-07-18: Freitext-Allergenhinweise. Neue Daten gehen
+   *  in `allergens` (14 LMIV-Schlüssel als Array) und `additives_text`
+   *  (Zusatzstoffe). Bleibt für bestehende Restaurants als Fallback. */
   allergens_text?: string | null;
+  /** 14 LMIV-Allergene als Schlüssel-Array: gluten, krebstiere, eier, fisch,
+   *  erdnuesse, soja, milch, schalenfruechte, sellerie, senf, sesam, sulfite,
+   *  lupinen, weichtiere. */
+  allergens?: string[] | null;
+  /** Freitext für Zusatzstoffe (Geschmacksverstärker, Konservierungsstoffe,
+   *  Farbstoffe etc.) — bewusst getrennt von Allergenen. */
+  additives_text?: string | null;
   /** Scan-Events (z. B. pro Woche), für Stat-Pills im Item-Modal */
   scan_count?: number | null;
   /** Übersetzungen (NULL = noch nicht übersetzt; werden via DeepL beim

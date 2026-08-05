@@ -1,7 +1,7 @@
 "use client";
 
 import type { MenuItem } from "@/lib/supabase";
-import { t } from "@/lib/i18n-menu";
+import { t, translateAllergensArray } from "@/lib/i18n-menu";
 
 export type AllergenSheetTheme = "light" | "dark" | "playful";
 
@@ -70,11 +70,9 @@ type AllergenSheetProps = {
   locale?: string;
 };
 
-/** Passives Info-Sheet: zeigt die im Restaurant vorkommenden Allergen-/
- *  Zutaten-Hinweise (`allergens_text`) als deduppliziertes Listing.
- *  Filter-Mechanik wurde entfernt, da die DB-Spalte `allergen_ids` nie
- *  befüllt wurde. `allergens_text` ist die einzige funktionierende Quelle
- *  und wird zusätzlich im Item-Detail-Modal pro Gericht angezeigt. */
+/** Passives Info-Sheet: zeigt die im Restaurant vorkommenden LMIV-Allergene
+ *  (`allergens`-Array), Zusatzstoff-Hinweise (`additives_text`) sowie den
+ *  Legacy-Freitext (`allergens_text`) als deduppliziertes Listing. */
 export function AllergenSheet({
   open,
   onClose,
@@ -85,18 +83,31 @@ export function AllergenSheet({
   if (!open) return null;
   const tokens = ALLERGEN_SHEET_THEMES[theme];
 
-  // Unique allergen-Texte sammeln (Trim + LowerCase als Dedupe-Key, Original
-  // für die Anzeige). Items ohne `allergens_text` werden übersprungen.
-  const seen = new Set<string>();
-  const allergenLines: string[] = [];
+  // 1) Unique LMIV-Allergen-Schlüssel aus dem gesamten Menü zusammensammeln.
+  const allergenKeys = new Set<string>();
+  // 2) Unique additives_text- + Legacy-allergens_text-Zeilen dedupen.
+  const seenText = new Set<string>();
+  const textLines: string[] = [];
   for (const item of menuItems) {
-    const raw = (item.allergens_text ?? "").trim();
-    if (!raw) continue;
-    const key = raw.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    allergenLines.push(raw);
+    if (Array.isArray(item.allergens)) {
+      for (const k of item.allergens) {
+        if (typeof k === "string" && k.trim()) allergenKeys.add(k.trim());
+      }
+    }
+    for (const raw of [item.additives_text, item.allergens_text]) {
+      const trimmed = (raw ?? "").trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (seenText.has(key)) continue;
+      seenText.add(key);
+      textLines.push(trimmed);
+    }
   }
+
+  const allergensLine = translateAllergensArray(Array.from(allergenKeys), locale);
+  const allergenLines: string[] = [];
+  if (allergensLine) allergenLines.push(allergensLine);
+  for (const line of textLines) allergenLines.push(line);
 
   return (
     <div
