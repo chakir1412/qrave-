@@ -9,6 +9,7 @@ import {
   trackEvent,
   type TrackEventParams,
 } from "@/lib/tracking";
+import { isTrackingConsented } from "@/lib/consent";
 import { filterTrackingItemTags, mapBeverageSubcategory } from "@/lib/beverage-classification";
 import type { FilterKey } from "./constants";
 
@@ -48,21 +49,10 @@ export function useSpeisekarteTier1Tracking({
   const safeTrack = useCallback(
     async (partial: Omit<TrackEventParams, "restaurantId" | "sessionId">) => {
       if (!restaurantId || !sessionId) return;
-      // DSGVO: Tier-1 Events nur senden, wenn der Gast aktiv eingewilligt hat.
-      // `declined` und „noch nicht entschieden" werden gleich behandelt — kein
-      // Tracking bis explizites accepted.
-      if (typeof window !== "undefined") {
-        try {
-          if (window.localStorage.getItem("qrave_consent") !== "accepted") {
-            return;
-          }
-        } catch {
-          // localStorage nicht verfügbar (z. B. Privacy-Modus) → nicht tracken.
-          return;
-        }
-      } else {
-        return;
-      }
+      // DSGVO: Tier-1 Events nur senden, wenn der Gast aktiv eingewilligt hat
+      // und die Consent-Version noch aktuell ist. declined, „noch nicht
+      // entschieden" und veraltete Version werden gleich behandelt.
+      if (!isTrackingConsented()) return;
       // Erst HIER (nach Consent-Check) die Visitor-ID aufbauen/lesen.
       const { returnVisit } = getOrCreateVisitorId();
       try {
