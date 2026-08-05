@@ -1,14 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { t } from "@/lib/i18n-menu";
-
-type ConsentValue = "accepted" | "declined";
-
-type ConsentTheme = "default" | "warm" | "dark";
+import {
+  CONSENT_ANIM_MS as ANIM_MS,
+  CONSENT_THEMES,
+  type ConsentTheme,
+} from "@/lib/consent-theme";
+import {
+  hasValidStoredChoice,
+  logConsent,
+  writeConsentDecision,
+  type ConsentValue,
+} from "@/lib/consent";
 
 type ConsentBannerProps = {
   onConsent: (value: ConsentValue) => void;
+  /** Restaurant-UUID für den serverseitigen Consent-Log. Fehlt sie
+   *  (z. B. während Preview-Rendering ohne DB-Kontext), wird lokal
+   *  gespeichert aber kein Server-Log-Eintrag erzeugt. */
+  restaurantId?: string;
   /** "warm" für Heritage/Clean/Blossom/Trattoria/Mediterranean (creme/sand),
    *  "dark" für Noir/AsianDark/StreetFood (dunkles Card-BG),
    *  "default" = neutrales Hell. */
@@ -17,75 +29,32 @@ type ConsentBannerProps = {
   locale?: string;
 };
 
-const STORAGE_KEY = "qrave_consent";
-const ANIM_MS = 400;
-
-const THEMES = {
-  default: {
-    panel: "#fdfcfa",
-    panelBorder: "rgba(0,0,0,0.06)",
-    headline: "#111111",
-    subText: "#555555",
-    linkColor: "#111111",
-    footerLink: "#777777",
-    btnBg: "#f5f2ee",
-    btnBgHover: "#ece8e1",
-    btnBorder: "rgba(0,0,0,0.06)",
-    btnText: "#111111",
-    headlineFontFamily: "inherit",
-  },
-  warm: {
-    panel: "#F5F0E8",
-    panelBorder: "rgba(200,137,78,0.25)",
-    headline: "#1A1209",
-    subText: "#6E665C",
-    linkColor: "#1A1209",
-    footerLink: "#8B7355",
-    btnBg: "rgba(200,137,78,0.1)",
-    btnBgHover: "rgba(200,137,78,0.18)",
-    btnBorder: "rgba(200,137,78,0.3)",
-    btnText: "#1A1209",
-    headlineFontFamily: 'Georgia, "Times New Roman", ui-serif, serif',
-  },
-  dark: {
-    panel: "#1a1a1d",
-    panelBorder: "rgba(255,255,255,0.08)",
-    headline: "#f5f5f5",
-    subText: "rgba(245,245,245,0.65)",
-    linkColor: "#f5f5f5",
-    footerLink: "rgba(245,245,245,0.55)",
-    btnBg: "rgba(255,255,255,0.08)",
-    btnBgHover: "rgba(255,255,255,0.13)",
-    btnBorder: "rgba(255,255,255,0.1)",
-    btnText: "#f5f5f5",
-    headlineFontFamily: "inherit",
-  },
-} as const;
-
 export default function ConsentBanner({
   onConsent,
+  restaurantId,
   theme = "default",
   locale = "de",
 }: ConsentBannerProps) {
-  const tokens = THEMES[theme];
+  const tokens = CONSENT_THEMES[theme];
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const hasChoice = useMemo(() => {
-    if (typeof window === "undefined") return true;
-    return Boolean(window.localStorage.getItem(STORAGE_KEY));
-  }, []);
-
+  // hasValidStoredChoice() prüft Wert + Version. Wenn die gespeicherte
+  // Consent-Version nicht mehr aktuell ist (Zwecke geändert), gilt die
+  // alte Wahl als abgelaufen und der Banner erscheint erneut.
   useEffect(() => {
-    if (hasChoice) return;
+    if (hasValidStoredChoice()) return;
+    // Erst open, dann im nächsten Frame visible — genug Zeit für den
+    // initialen Render mit visible=false, damit die Slide-in-Transition
+    // greift. Kein doppeltes rAF: einige Desktop-Browser fassen die
+    // beiden Frames zu einem Layout-Pass zusammen und die Transition
+    // wird geskippt, was den Banner unsichtbar erscheinen lässt.
     setOpen(true);
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setVisible(true));
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [hasChoice]);
+    const timer = window.setTimeout(() => setVisible(true), 16);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -100,10 +69,13 @@ export default function ConsentBanner({
   };
 
   const decide = (value: ConsentValue) => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, value);
-    } catch {
-      // ignore
+    writeConsentDecision(value);
+    // Nur granted geht in den Consent-Log — initialer Decline wird nicht
+    // protokolliert (nichts wurde erteilt, es gibt nichts nachzuweisen).
+    // Ohne restaurantId (Preview-Rendering ohne DB-Kontext) wird lokal
+    // gespeichert aber kein Server-Log-Eintrag erzeugt.
+    if (value === "accepted" && restaurantId) {
+      void logConsent({ restaurantId, action: "granted", locale });
     }
     setVisible(false);
     window.setTimeout(() => setOpen(false), ANIM_MS);
@@ -116,6 +88,7 @@ export default function ConsentBanner({
   };
 
   if (!open) return null;
+  if (typeof document === "undefined") return null;
 
   const buttonStyle: React.CSSProperties = {
     padding: "14px 0",
@@ -129,12 +102,22 @@ export default function ConsentBanner({
     transition: "background 0.15s ease",
   };
 
-  return (
+  // Portal in document.body: sonst positioniert eine transform/will-change-
+  // Vorfahre (siehe app/[slug]/karte/template.tsx `.qrave-slide-up-in`) den
+  // position:fixed-Wrapper relativ zum Vorfahren statt zum Viewport — das
+  // Overlay füllt dann die Seite statt das Fenster und das Panel liegt am
+  // Seiten-Ende außerhalb des sichtbaren Bereichs.
+  return createPortal(
     <>
       <div
-        className="fixed inset-0 z-[950]"
         onClick={() => decide("declined")}
         style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 2147483646,
           backgroundColor: "rgba(0,0,0,0.5)",
           opacity: visible ? 1 : 0,
           transition: `opacity ${ANIM_MS}ms ease`,
@@ -142,8 +125,13 @@ export default function ConsentBanner({
       />
 
       <div
-        className="fixed left-0 right-0 bottom-0 z-[1000] px-4 pb-4"
+        className="px-4 pb-4"
         style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 2147483647,
           transform: visible ? "translateY(0)" : "translateY(100%)",
           transition: `transform ${ANIM_MS}ms ease`,
         }}
@@ -238,9 +226,13 @@ export default function ConsentBanner({
 
       {toast && (
         <div
-          className="fixed left-1/2 z-[1100] -translate-x-1/2 rounded-full px-4 py-2 text-[0.82rem] font-semibold"
+          className="rounded-full px-4 py-2 text-[0.82rem] font-semibold"
           style={{
+            position: "fixed",
+            left: "50%",
             bottom: 88,
+            transform: "translateX(-50%)",
+            zIndex: 2147483647,
             backgroundColor: "#111",
             color: "#fff",
             boxShadow: "0 10px 28px rgba(0,0,0,0.28)",
@@ -249,6 +241,7 @@ export default function ConsentBanner({
           {toast}
         </div>
       )}
-    </>
+    </>,
+    document.body,
   );
 }
