@@ -1,5 +1,5 @@
 "use client";
-import { tCategory, translateAllergenText } from "@/lib/i18n-menu";
+import { tCategory, translateAllergenText, translateAllergensArray } from "@/lib/i18n-menu";
 
 import Image from "next/image";
 import {
@@ -14,6 +14,8 @@ import type { MenuItem } from "@/lib/supabase";
 import { useWishlist } from "@/components/shared/useWishlist";
 import { useAnalytics } from "@/components/shared/useAnalytics";
 import ConsentBanner from "@/components/ConsentBanner";
+import PrivacySettingsLink from "@/components/PrivacySettingsLink";
+import { hasValidStoredChoice } from "@/lib/consent";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { AllergenSheet } from "@/components/speisekarte/FilterBar";
 import LunchSection from "@/components/speisekarte/LunchSection";
@@ -114,9 +116,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
   const { track } = useAnalytics();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const v = window.localStorage.getItem("qrave_consent");
-    if (v) setConsentGiven(true);
+    if (hasValidStoredChoice()) setConsentGiven(true);
   }, []);
 
   const [hasActiveLunch, setHasActiveLunch] = useState(false);
@@ -327,7 +327,7 @@ export default function NoirTemplate(props: SpeisekarteProps) {
       `}</style>
 
       {!consentGiven && (
-        <ConsentBanner locale={locale} theme="dark" onConsent={() => setConsentGiven(true)} />
+        <ConsentBanner locale={locale} theme="dark" restaurantId={restaurantId} onConsent={() => setConsentGiven(true)} />
       )}
 
       {/* Ambient Glow */}
@@ -502,6 +502,8 @@ export default function NoirTemplate(props: SpeisekarteProps) {
             <a href="/impressum" style={{ color: COL.muted, textDecoration: "none" }}>Impressum</a>
             {" · "}
             <a href="/datenschutz" style={{ color: COL.muted, textDecoration: "none" }}>Datenschutz</a>
+            {" · "}
+            <PrivacySettingsLink theme="dark" locale={locale} restaurantId={restaurantId} color={COL.muted} />
           </p>
         </footer>
       </div>
@@ -834,11 +836,19 @@ function NoirItemCard({
             {item.beschreibung}
           </p>
         ) : null}
-        {item.allergens_text && item.allergens_text.trim() ? (
-          <p style={{ fontSize: 10, color: "rgba(201,168,76,0.45)", fontStyle: "italic", marginBottom: 6 }}>
-            {translateAllergenText(item.allergens_text, locale)}
-          </p>
-        ) : null}
+        {(() => {
+          const allergensLine = Array.isArray(item.allergens) && item.allergens.length > 0
+            ? translateAllergensArray(item.allergens, locale)
+            : "";
+          const line = allergensLine
+            || translateAllergenText(item.allergens_text, locale);
+          if (!line) return null;
+          return (
+            <p style={{ fontSize: 10, color: "rgba(201,168,76,0.45)", fontStyle: "italic", marginBottom: 6 }}>
+              {line}
+            </p>
+          );
+        })()}
         {(isVegan || isVeg) ? (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {isVegan ? (

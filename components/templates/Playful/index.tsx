@@ -8,6 +8,8 @@ import type { MenuItem } from "@/lib/supabase";
 import { useWishlist } from "@/components/shared/useWishlist";
 import { useAnalytics } from "@/components/shared/useAnalytics";
 import ConsentBanner from "@/components/ConsentBanner";
+import PrivacySettingsLink from "@/components/PrivacySettingsLink";
+import { hasValidStoredChoice } from "@/lib/consent";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { AllergenSheet } from "@/components/speisekarte/FilterBar";
 import LunchSection from "@/components/speisekarte/LunchSection";
@@ -46,7 +48,9 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
   const popModal = useCallback(() => setModalStack((p) => p.slice(0, -1)), []);
   const { entries, open: wishlistOpen, itemCount: cartCount, totalPrice: cartTotal, addToWishlist, updateQty, removeFromWishlist, clearWishlist, openWishlist, closeWishlist, isInWishlist } = useWishlist();
   const { track } = useAnalytics();
-  useEffect(() => { if (typeof window === "undefined") return; const v = window.localStorage.getItem("qrave_consent"); if (v) setConsentGiven(true); }, []);
+  useEffect(() => {
+    if (hasValidStoredChoice()) setConsentGiven(true);
+  }, []);
   const [hasActiveLunch, setHasActiveLunch] = useState(false);
   useEffect(() => { const u = () => setHasActiveLunch(activeLunchOffers(lunchOffers).length > 0); u(); const t = window.setInterval(u, 60_000); return () => window.clearInterval(t); }, [lunchOffers]);
   useMemo(() => { track("view_menu", { restaurantName, hasDailyPush: dailyPushes.length > 0, itemCount: menuItems.length, template: "playful" }); return undefined; }, [track, restaurantName, dailyPushes.length, menuItems.length]);
@@ -122,7 +126,7 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
         @keyframes playSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes playFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-      {!consentGiven && <ConsentBanner locale={locale} onConsent={() => setConsentGiven(true)} />}
+      {!consentGiven && <ConsentBanner locale={locale} restaurantId={restaurantId} onConsent={() => setConsentGiven(true)} />}
 
       <div className="play-template" style={{ maxWidth: 430, margin: "0 auto", width: "100%", paddingBottom: 100 }}>
         {splashOpen ? (
@@ -293,6 +297,8 @@ export default function PlayfulTemplate(props: SpeisekarteProps) {
               <p style={{ fontSize: 10, color: COL.muted, margin: 0 }}>
                 <a href="/impressum" style={{ color: COL.muted, textDecoration: "none" }}>Impressum</a>{" · "}
                 <a href="/datenschutz" style={{ color: COL.muted, textDecoration: "none" }}>Datenschutz</a>
+                {" · "}
+                <PrivacySettingsLink theme="default" locale={locale} restaurantId={restaurantId} color={COL.muted} />
               </p>
             </footer>
           </>

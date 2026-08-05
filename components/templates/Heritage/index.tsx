@@ -13,6 +13,8 @@ import type { MenuItem } from "@/lib/supabase";
 import { useWishlist } from "@/components/shared/useWishlist";
 import { useAnalytics } from "@/components/shared/useAnalytics";
 import ConsentBanner from "@/components/ConsentBanner";
+import PrivacySettingsLink from "@/components/PrivacySettingsLink";
+import { hasValidStoredChoice } from "@/lib/consent";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { AllergenSheet } from "@/components/speisekarte/FilterBar";
 import LunchSection from "@/components/speisekarte/LunchSection";
@@ -30,7 +32,7 @@ import { useSpeisekarteTier1Tracking } from "@/components/speisekarte/useSpeisek
 import { type FilterKey, IMG_BLUR_DATA_URL } from "@/components/speisekarte/constants";
 import { getDisplayPrice } from "@/components/speisekarte/utils";
 import { resolveBackground, type BackgroundMode } from "@/lib/template-background";
-import { t, tCategory, translateAllergenText } from "@/lib/i18n-menu";
+import { t, tCategory, translateAllergenText, translateAllergensArray } from "@/lib/i18n-menu";
 import HeritageItemModal from "./HeritageItemModal";
 
 const COL_DEFAULT = {
@@ -140,9 +142,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
   const { track } = useAnalytics();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const v = window.localStorage.getItem("qrave_consent");
-    if (v) setConsentGiven(true);
+    if (hasValidStoredChoice()) setConsentGiven(true);
   }, []);
 
   const [hasActiveLunch, setHasActiveLunch] = useState(false);
@@ -352,7 +352,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
       style={{ backgroundColor: bgTheme.bg, color: bgTheme.text }}
     >
       {!consentGiven && (
-        <ConsentBanner locale={locale} theme="warm" onConsent={() => setConsentGiven(true)} />
+        <ConsentBanner locale={locale} theme="warm" restaurantId={restaurantId} onConsent={() => setConsentGiven(true)} />
       )}
 
       {/* Header — gedruckte Speisekarte */}
@@ -688,6 +688,8 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
           >
             {t("privacy", locale)}
           </a>
+          {" · "}
+          <PrivacySettingsLink theme="warm" locale={locale} restaurantId={restaurantId} color={COL.textSubtle} />
         </p>
       </footer>
 
@@ -890,18 +892,26 @@ function ItemList({
                             {item.beschreibung}
                           </p>
                         ) : null}
-                        {item.allergens_text && item.allergens_text.trim() ? (
-                          <p
-                            style={{
-                              fontSize: 11,
-                              color: COL.textSubtle,
-                              margin: "3px 0 0",
-                              fontStyle: "italic",
-                            }}
-                          >
-                            {translateAllergenText(item.allergens_text, locale)}
-                          </p>
-                        ) : null}
+                        {(() => {
+                          const allergensLine = Array.isArray(item.allergens) && item.allergens.length > 0
+                            ? translateAllergensArray(item.allergens, locale)
+                            : "";
+                          const line = allergensLine
+                            || translateAllergenText(item.allergens_text, locale);
+                          if (!line) return null;
+                          return (
+                            <p
+                              style={{
+                                fontSize: 11,
+                                color: COL.textSubtle,
+                                margin: "3px 0 0",
+                                fontStyle: "italic",
+                              }}
+                            >
+                              {line}
+                            </p>
+                          );
+                        })()}
                       </div>
                     </button>
                   </li>

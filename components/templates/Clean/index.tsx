@@ -14,6 +14,8 @@ import type { MenuItem } from "@/lib/supabase";
 import { useWishlist } from "@/components/shared/useWishlist";
 import { useAnalytics } from "@/components/shared/useAnalytics";
 import ConsentBanner from "@/components/ConsentBanner";
+import PrivacySettingsLink from "@/components/PrivacySettingsLink";
+import { hasValidStoredChoice } from "@/lib/consent";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { AllergenSheet } from "@/components/speisekarte/FilterBar";
 import LunchSection from "@/components/speisekarte/LunchSection";
@@ -113,9 +115,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
   const { track } = useAnalytics();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const v = window.localStorage.getItem("qrave_consent");
-    if (v) setConsentGiven(true);
+    if (hasValidStoredChoice()) setConsentGiven(true);
   }, []);
 
   const [hasActiveLunch, setHasActiveLunch] = useState(false);
@@ -330,7 +330,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
       `}</style>
 
       {!consentGiven && (
-        <ConsentBanner locale={locale} theme="warm" onConsent={() => setConsentGiven(true)} />
+        <ConsentBanner locale={locale} theme="warm" restaurantId={restaurantId} onConsent={() => setConsentGiven(true)} />
       )}
 
       <div
@@ -528,6 +528,8 @@ export default function CleanTemplate(props: SpeisekarteProps) {
             <a href="/impressum" style={{ color: COL.muted, textDecoration: "none" }}>Impressum</a>
             {" · "}
             <a href="/datenschutz" style={{ color: COL.muted, textDecoration: "none" }}>Datenschutz</a>
+            {" · "}
+            <PrivacySettingsLink theme="warm" locale={locale} restaurantId={restaurantId} color={COL.muted} />
           </p>
         </footer>
       </div>

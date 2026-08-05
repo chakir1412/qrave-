@@ -8,6 +8,8 @@ import type { MenuItem } from "@/lib/supabase";
 import { useWishlist } from "@/components/shared/useWishlist";
 import { useAnalytics } from "@/components/shared/useAnalytics";
 import ConsentBanner from "@/components/ConsentBanner";
+import PrivacySettingsLink from "@/components/PrivacySettingsLink";
+import { hasValidStoredChoice } from "@/lib/consent";
 import Wishlist from "@/components/speisekarte/Wishlist";
 import { AllergenSheet } from "@/components/speisekarte/FilterBar";
 import LunchSection from "@/components/speisekarte/LunchSection";
@@ -109,9 +111,7 @@ export default function BlossomTemplate(props: SpeisekarteProps) {
   const { track } = useAnalytics();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const v = window.localStorage.getItem("qrave_consent");
-    if (v) setConsentGiven(true);
+    if (hasValidStoredChoice()) setConsentGiven(true);
   }, []);
 
   const [hasActiveLunch, setHasActiveLunch] = useState(false);
@@ -310,7 +310,7 @@ export default function BlossomTemplate(props: SpeisekarteProps) {
         .blossom-template .blossom-item:hover::before { transform: scaleY(1); }
         @keyframes blossomFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-      {!consentGiven && <ConsentBanner locale={locale} theme="warm" onConsent={() => setConsentGiven(true)} />}
+      {!consentGiven && <ConsentBanner locale={locale} theme="warm" restaurantId={restaurantId} onConsent={() => setConsentGiven(true)} />}
 
       {/* Fixe Blur-Blobs für Tiefe */}
       <div aria-hidden style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
@@ -779,6 +779,8 @@ export default function BlossomTemplate(props: SpeisekarteProps) {
             <a href="/impressum" style={{ color: COL.text3, textDecoration: "none" }}>Impressum</a>
             {" · "}
             <a href="/datenschutz" style={{ color: COL.text3, textDecoration: "none" }}>Datenschutz</a>
+            {" · "}
+            <PrivacySettingsLink theme="warm" locale={locale} restaurantId={restaurantId} color={COL.text3} />
           </p>
         </footer>
       </div>
