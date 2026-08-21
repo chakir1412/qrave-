@@ -49,6 +49,9 @@ const LEGEND_MODEL = "claude-haiku-4-5-20251001";
 /** Ausgabetokens pro Seiten-Call — großzügig, damit dichte Karten
  *  (~50 Items pro Seite) nicht mittendrin abgeschnitten werden. */
 const PAGE_MAX_TOKENS = 16000;
+/** Fallback nach stop_reason=max_tokens: einmalig auf das Doppelte hoch.
+ *  Sonnet 4.6 kann bis 64k output — 32k ist sicherer Cap. */
+const PAGE_MAX_TOKENS_RETRY = 32000;
 /** Obergrenze für PDF-Seitenzahl pro Request. 40 × ~15s sequenziell
  *  ≈ 600s → maxDuration=300 würde reißen; realistisch: 30 Seiten. */
 const MAX_PAGES_PER_REQUEST = 40;
@@ -69,7 +72,8 @@ const MAX_PAGE_IMAGE_BYTES = 3_500_000;
  *  ~4 MB rohe PDF, das passt zusammen mit Text/Bild-Payload. */
 const MAX_PDF_DOC_BASE64_BYTES = 5_500_000;
 /** Die 14 LMIV-Allergen-Schlüssel (synchron zu ALLOWED_ALLERGENS in
- *  lib/parse-menu.ts). Für die Legenden-Pre-Extraction. */
+ *  lib/parse-menu.ts). Für die Legenden-Pre-Extraction und als enum
+ *  im Menu-Items-Structured-Output-Schema. */
 const LMIV_ALLERGEN_KEYS = [
   "gluten",
   "krebstiere",
@@ -86,6 +90,56 @@ const LMIV_ALLERGEN_KEYS = [
   "lupinen",
   "weichtiere",
 ] as const;
+
+/** Diät-Tags-Enum für das Structured-Output-Schema (synchron zu
+ *  ALLOWED_TAGS in lib/parse-menu.ts). */
+const DIET_TAGS = ["vegan", "vegetarisch", "glutenfrei", "scharf"] as const;
+
+/** JSON-Schema für Structured Outputs (output_config.format). Bildet
+ *  ParsedMenuItemDto ab. `enum` auf allergens + tags erzwingt API-seitig
+ *  die zulässigen Werte — Post-Parse-Normalizer bleibt trotzdem als
+ *  Safety-Net (Trim, Casing, Deduplication). Anthropic-Schema-Limits:
+ *  additionalProperties: false PFLICHT auf allen Objekten; kein
+ *  minimum/maximum/minLength — numerische Constraints (preis >= 0,
+ *  category_confidence 0..1) macht der Normalizer weiter.
+ *  main_tab: bleibt plain string, kein enum — Prompt und Post-Parse
+ *  arbeiten mit zwei parallelen Konventionen (FOOD/DRINKS im Prompt
+ *  vs. speisen/getraenke/snacks im Normalizer), fixen wäre Scope-Creep. */
+const MENU_ITEMS_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["items"],
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "preis", "kategorie"],
+        properties: {
+          name: { type: "string" },
+          beschreibung: { type: "string" },
+          preis: { type: "number" },
+          kategorie: { type: "string" },
+          main_tab: { type: "string" },
+          emoji: { type: "string" },
+          allergens: {
+            type: "array",
+            items: { type: "string", enum: [...LMIV_ALLERGEN_KEYS] },
+          },
+          additives_text: { type: "string" },
+          tags: {
+            type: "array",
+            items: { type: "string", enum: [...DIET_TAGS] },
+          },
+          needs_review: { type: "boolean" },
+          needs_review_reason: { type: "string" },
+          category_confidence: { type: "number" },
+        },
+      },
+    },
+  },
+} as const;
 
 type LegendEntry = {
   /** Klartext aus der Karte, z. B. "Milch & Laktose" oder "Stabilisator". */
@@ -240,8 +294,8 @@ REGEL:
 }
 
 const PDF_IMPORT_PROMPT_BASE = `Du bist ein Experte für Restaurantspeisekarten. Extrahiere alle Menüpunkte aus der Speisekarte.
-Antworte NUR mit einem JSON Array, ohne Markdown, ohne Erklärung, ohne Codeblöcke:
-[{"name":"...","beschreibung":"...","allergens":["gluten","milch"],"additives_text":"enthält Stabilisator","needs_review":false,"tags":["vegan","vegetarisch","glutenfrei","scharf"],"preis":12.90,"kategorie":"...","emoji":"...","main_tab":"FOOD oder DRINKS"}]
+
+Die Struktur der Antwort (Feldnamen, Typen, zulässige Werte für allergens/tags) wird durch das output_config-Schema erzwungen — konzentriere dich auf den Inhalt.
 
 DIÄT-TAGS:
 
@@ -517,55 +571,93 @@ function extractItemsFromModelText(
 
 /** Ein Anthropic-Call mit vorbereitetem User-Content. Zentraler Response-
  *  Parser für parsePageText + parsePageImage — gleicher Logging-Prefix
- *  (stop_reason, output_tokens, text_len). */
+ *  (stop_reason, output_tokens, text_len). Nutzt Structured Outputs
+ *  (output_config.format) mit MENU_ITEMS_SCHEMA — Antworten sind
+ *  schema-konformes JSON. Bei stop_reason=max_tokens einmalig Retry
+ *  mit PAGE_MAX_TOKENS_RETRY. extractItemsFromModelText bleibt als
+ *  Sicherheitsnetz falls Grammar mit ausgehendem max_tokens doch mal
+ *  eine unvollständige Antwort produziert. */
 async function callAnthropicForPageContent(
   userContent: AnthropicContentPart[],
   apiKey: string,
   tag: string,
 ): Promise<PageParseResult> {
   const empty: PageParseResult = { items: [], stopReason: "empty", outputTokens: 0 };
-  try {
-    const res = await anthropicFetchWithRetry(
-      {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      JSON.stringify({
-        model: MODEL,
-        max_tokens: PAGE_MAX_TOKENS,
-        messages: [{ role: "user", content: userContent }],
-      }),
-    );
-    const raw = await res.text();
-    if (!res.ok) {
-      console.error(`${tag} anthropic HTTP ${res.status}: ${raw.slice(0, 500)}`);
-      return empty;
-    }
-    let body: AnthropicMessageResponse;
+
+  const sendOnce = async (
+    maxTokens: number,
+  ): Promise<{ body: AnthropicMessageResponse; rawText: string } | null> => {
     try {
-      body = JSON.parse(raw) as AnthropicMessageResponse;
-    } catch {
-      console.error(`${tag} anthropic body not JSON. Preview: ${raw.slice(0, 500)}`);
-      return empty;
+      const res = await anthropicFetchWithRetry(
+        {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        JSON.stringify({
+          model: MODEL,
+          max_tokens: maxTokens,
+          messages: [{ role: "user", content: userContent }],
+          output_config: {
+            format: { type: "json_schema", schema: MENU_ITEMS_SCHEMA },
+          },
+        }),
+      );
+      const raw = await res.text();
+      if (!res.ok) {
+        console.error(`${tag} anthropic HTTP ${res.status}: ${raw.slice(0, 500)}`);
+        return null;
+      }
+      try {
+        return { body: JSON.parse(raw) as AnthropicMessageResponse, rawText: raw };
+      } catch {
+        console.error(`${tag} anthropic body not JSON. Preview: ${raw.slice(0, 500)}`);
+        return null;
+      }
+    } catch (err) {
+      console.error(`${tag} threw:`, err);
+      return null;
     }
-    const modelText = body.content?.find((c) => c.type === "text")?.text?.trim() ?? "";
-    const stopReason = body.stop_reason ?? "unknown";
-    const outputTokens = body.usage?.output_tokens ?? 0;
-    console.error(
-      `${tag} stop_reason=${stopReason} output_tokens=${outputTokens} text_len=${modelText.length}`,
+  };
+
+  let sent = await sendOnce(PAGE_MAX_TOKENS);
+  if (!sent) return empty;
+
+  // stop_reason=max_tokens: einmaliger Retry mit höherer Grenze. Grammar-
+  // gebundenes Decoding kann bei dichten Karten mitten in einem Item die
+  // Token-Grenze reißen — dann ist der JSON-Output evtl. abgeschnitten
+  // (repair-Kette fängt Restschäden). 32k statt 16k gibt genug Puffer.
+  if (sent.body.stop_reason === "max_tokens") {
+    console.warn(
+      `${tag} stop_reason=max_tokens bei ${PAGE_MAX_TOKENS} → Retry mit ${PAGE_MAX_TOKENS_RETRY}`,
     );
-    if (!modelText) {
-      console.error(`${tag} EMPTY text block. Full body: ${raw.slice(0, 1500)}`);
-      return { items: [], stopReason, outputTokens };
-    }
-    const items = extractItemsFromModelText(modelText, tag);
-    console.error(`${tag} extracted ${items.length} items`);
-    return { items, stopReason, outputTokens };
-  } catch (err) {
-    console.error(`${tag} threw:`, err);
-    return empty;
+    const retry = await sendOnce(PAGE_MAX_TOKENS_RETRY);
+    if (retry) sent = retry;
   }
+
+  const { body, rawText } = sent;
+  const stopReason = body.stop_reason ?? "unknown";
+  const outputTokens = body.usage?.output_tokens ?? 0;
+
+  // stop_reason=refusal: klar durchreichen. Caller (Streaming-Handler)
+  // kann bei 0 Total-Items eine spezifische Fehlermeldung emitten statt
+  // dem generischen "Keine Gerichte erkannt".
+  if (stopReason === "refusal") {
+    console.error(`${tag} REFUSAL. Body: ${rawText.slice(0, 500)}`);
+    return { items: [], stopReason: "refusal", outputTokens };
+  }
+
+  const modelText = body.content?.find((c) => c.type === "text")?.text?.trim() ?? "";
+  console.error(
+    `${tag} stop_reason=${stopReason} output_tokens=${outputTokens} text_len=${modelText.length}`,
+  );
+  if (!modelText) {
+    console.error(`${tag} EMPTY text block. Full body: ${rawText.slice(0, 1500)}`);
+    return { items: [], stopReason, outputTokens };
+  }
+  const items = extractItemsFromModelText(modelText, tag);
+  console.error(`${tag} extracted ${items.length} items`);
+  return { items, stopReason, outputTokens };
 }
 
 /** Text-Pfad einer PDF-Seite (Client hat via pdfjs Text extrahiert).
@@ -636,7 +728,11 @@ function dedupeItems(items: ParsedMenuItemDto[]): ParsedMenuItemDto[] {
   return out;
 }
 
-/** Ein Anthropic messages-Call mit Bild oder PDF-Dokument → strukturierte Menü-Items. */
+/** Ein Anthropic messages-Call mit Bild oder PDF-Dokument → strukturierte
+ *  Menü-Items. Nutzt Structured Outputs (output_config.format) mit
+ *  MENU_ITEMS_SCHEMA. Bei stop_reason=max_tokens einmalig Retry mit
+ *  PAGE_MAX_TOKENS_RETRY. Bei stop_reason=refusal wird ein klarer Fehler
+ *  geworfen statt der generischen "Analyse fehlgeschlagen"-Meldung. */
 async function anthropicExtractMenuItems(
   userContent: AnthropicContentPart[],
   apiKey: string,
@@ -653,45 +749,67 @@ async function anthropicExtractMenuItems(
     headers["anthropic-beta"] = "pdfs-2024-09-25";
   }
 
-  const anthropicRes = await anthropicFetchWithRetry(
-    headers,
-    JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      messages: [
-        {
-          role: "user",
-          content: userContent,
+  const sendOnce = async (
+    tokens: number,
+  ): Promise<{ body: AnthropicMessageResponse; rawText: string }> => {
+    const res = await anthropicFetchWithRetry(
+      headers,
+      JSON.stringify({
+        model: MODEL,
+        max_tokens: tokens,
+        messages: [{ role: "user", content: userContent }],
+        output_config: {
+          format: { type: "json_schema", schema: MENU_ITEMS_SCHEMA },
         },
-      ],
-    }),
-  );
-
-  const rawText = await anthropicRes.text();
-  if (!anthropicRes.ok) {
-    let msg = `Anthropic API (${anthropicRes.status})`;
-    try {
-      const errJson = JSON.parse(rawText) as AnthropicErrorBody;
-      if (errJson.error?.message) msg = errJson.error.message;
-    } catch {
-      if (rawText) msg = rawText.slice(0, 200);
+      }),
+    );
+    const raw = await res.text();
+    if (!res.ok) {
+      let msg = `Anthropic API (${res.status})`;
+      try {
+        const errJson = JSON.parse(raw) as AnthropicErrorBody;
+        if (errJson.error?.message) msg = errJson.error.message;
+      } catch {
+        if (raw) msg = raw.slice(0, 200);
+      }
+      console.error(`${tag} anthropic HTTP ${res.status}: ${raw.slice(0, 500)}`);
+      throw new Error(msg);
     }
-    console.error(`${tag} anthropic HTTP ${anthropicRes.status}: ${rawText.slice(0, 500)}`);
-    throw new Error(msg);
+    try {
+      return { body: JSON.parse(raw) as AnthropicMessageResponse, rawText: raw };
+    } catch {
+      console.error(`${tag} anthropic body not JSON. Preview: ${raw.slice(0, 500)}`);
+      throw new Error("Ungültige Antwort der KI.");
+    }
+  };
+
+  let sent = await sendOnce(maxTokens);
+
+  // stop_reason=max_tokens: einmaliger Retry mit höherer Grenze (analog
+  // zum per-page Pfad). Nur wenn wir nicht bereits die höhere Grenze
+  // genutzt haben — sonst Endlos-Retry-Risiko.
+  if (sent.body.stop_reason === "max_tokens" && maxTokens < PAGE_MAX_TOKENS_RETRY) {
+    console.warn(
+      `${tag} stop_reason=max_tokens bei ${maxTokens} → Retry mit ${PAGE_MAX_TOKENS_RETRY}`,
+    );
+    sent = await sendOnce(PAGE_MAX_TOKENS_RETRY);
   }
 
-  let anthropicBody: AnthropicMessageResponse;
-  try {
-    anthropicBody = JSON.parse(rawText) as AnthropicMessageResponse;
-  } catch {
-    console.error(`${tag} anthropic body not JSON. Preview: ${rawText.slice(0, 500)}`);
-    throw new Error("Ungültige Antwort der KI.");
+  const { body: anthropicBody, rawText } = sent;
+  const stopReason = anthropicBody.stop_reason ?? "unknown";
+  const outputTokens = anthropicBody.usage?.output_tokens ?? 0;
+
+  // stop_reason=refusal: klare, spezifische Fehlermeldung. Der Streaming-
+  // Handler zeigt sie 1:1 dem Nutzer.
+  if (stopReason === "refusal") {
+    console.error(`${tag} REFUSAL. Body: ${rawText.slice(0, 500)}`);
+    throw new Error(
+      "Die KI hat die Analyse dieser Speisekarte abgelehnt. Bitte manuell nachtragen oder ein anderes Format (JPG/PNG) versuchen.",
+    );
   }
 
   const textBlock = anthropicBody.content?.find((c) => c.type === "text");
   const text = textBlock?.text?.trim() ?? "";
-  const stopReason = anthropicBody.stop_reason ?? "unknown";
-  const outputTokens = anthropicBody.usage?.output_tokens ?? 0;
 
   console.error(
     `${tag} stop_reason=${stopReason} output_tokens=${outputTokens} text_len=${text.length}`,
@@ -843,6 +961,7 @@ async function handlePageTextsStream(req: Request, apiKey: string): Promise<Resp
 
         const collected: ParsedMenuItemDto[] = [];
         let maxOutputTokensUsed = 0;
+        let refusalSeen = false;
 
         for (let i = 0; i < pageTexts.length; i++) {
           const current = i + 1;
@@ -860,6 +979,7 @@ async function handlePageTextsStream(req: Request, apiKey: string): Promise<Resp
           if (result.outputTokens > maxOutputTokensUsed) {
             maxOutputTokensUsed = result.outputTokens;
           }
+          if (result.stopReason === "refusal") refusalSeen = true;
           if (result.items.length > 0) collected.push(...result.items);
         }
 
@@ -907,11 +1027,13 @@ async function handlePageTextsStream(req: Request, apiKey: string): Promise<Resp
         }
 
         if (merged.length === 0) {
-          const errorMessage = fallbackErrorMessage
-            ? `PDF-Ganzanalyse (Fallback) fehlgeschlagen: ${fallbackErrorMessage}`
-            : fallbackAttempted
-              ? "Keine Gerichte erkannt — auch der PDF-Ganzanalyse-Fallback lieferte keine Items. Bitte Speisekarte als JPG/PNG hochladen."
-              : "Keine Gerichte erkannt. Gescannte PDFs oft ohne Text: Speisekarte als JPG/PNG hochladen oder Text-PDF verwenden.";
+          const errorMessage = refusalSeen
+            ? "Die KI hat die Analyse dieser Speisekarte abgelehnt. Bitte manuell nachtragen oder ein anderes Format (JPG/PNG) versuchen."
+            : fallbackErrorMessage
+              ? `PDF-Ganzanalyse (Fallback) fehlgeschlagen: ${fallbackErrorMessage}`
+              : fallbackAttempted
+                ? "Keine Gerichte erkannt — auch der PDF-Ganzanalyse-Fallback lieferte keine Items. Bitte Speisekarte als JPG/PNG hochladen."
+                : "Keine Gerichte erkannt. Gescannte PDFs oft ohne Text: Speisekarte als JPG/PNG hochladen oder Text-PDF verwenden.";
           emit({ type: "error", error: errorMessage });
           controller.close();
           return;
