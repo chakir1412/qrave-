@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { LunchOffer, MenuItem } from "@/lib/supabase";
 import { activeLunchOffers } from "@/lib/lunch";
 import { emojiGradient } from "@/lib/emojiGradient";
-import { getItemEmoji, getDisplayPrice } from "./utils";
+import { formatPrice, getItemEmoji, getDisplayPrice } from "./utils";
 
 type LunchSectionProps = {
   offers: LunchOffer[];
@@ -112,7 +112,7 @@ export default function LunchSection({
                     style={{ color: priceColor }}
                   >
                     {typeof lunchPrice === "number" && !Number.isNaN(lunchPrice)
-                      ? `${lunchPrice.toFixed(2)} €`
+                      ? formatPrice(lunchPrice)
                       : "—"}
                   </div>
                 </div>
@@ -200,7 +200,7 @@ export default function LunchSection({
                       className="text-[0.95rem] font-bold"
                       style={{ color: priceColor }}
                     >
-                      {(lunchPrice as number).toFixed(2)} €
+                      {formatPrice(lunchPrice as number)}
                     </div>
                     <div
                       className="text-[0.7rem] line-through"
@@ -215,7 +215,7 @@ export default function LunchSection({
                     style={{ color: priceColor }}
                   >
                     {typeof lunchPrice === "number" && !Number.isNaN(lunchPrice)
-                      ? `${lunchPrice.toFixed(2)} €`
+                      ? formatPrice(lunchPrice)
                       : getDisplayPrice(item)}
                   </div>
                 )}

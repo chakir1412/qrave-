@@ -506,7 +506,7 @@ export default function CleanTemplate(props: SpeisekarteProps) {
             <main>
               {effectiveMainTab === LUNCH_TAB_KEY ? (
                 <div style={{ padding: "12px 16px 16px" }}>
-                  <LunchSection offers={lunchOffers} menuItems={menuItems} onItemClick={pushModal} />
+                  <LunchSection offers={lunchOffers} menuItems={menuItems} onItemClick={pushModal} theme={bgTheme.isDark ? "dark" : "light"} />
                 </div>
               ) : (
                 <CleanItemList

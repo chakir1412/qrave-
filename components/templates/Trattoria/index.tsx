@@ -220,7 +220,7 @@ export default function TrattoriaTemplate(props: SpeisekarteProps) {
 
         <main>
           {effectiveMainTab === LUNCH_TAB_KEY ? (
-            <div style={{ padding: "0 16px" }}><LunchSection offers={lunchOffers} menuItems={menuItems} onItemClick={pushModal} /></div>
+            <div style={{ padding: "0 16px" }}><LunchSection offers={lunchOffers} menuItems={menuItems} onItemClick={pushModal} theme={bgTheme.isDark ? "dark" : "light"} /></div>
           ) : (
             <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
               {sections.map((sec) => {

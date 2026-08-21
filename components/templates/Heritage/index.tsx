@@ -522,7 +522,7 @@ export default function HeritageTemplate(props: SpeisekarteProps) {
       {/* Inhalt */}
       <main className="mx-auto max-w-[880px] px-5 pb-28 pt-6">
         {effectiveMainTab === LUNCH_TAB_KEY ? (
-          <LunchSection offers={lunchOffers} menuItems={menuItems} onItemClick={pushModal} />
+          <LunchSection offers={lunchOffers} menuItems={menuItems} onItemClick={pushModal} theme={bgTheme.isDark ? "dark" : "light"} />
         ) : (
           <ItemList
             sections={sections}
