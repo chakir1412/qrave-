@@ -330,6 +330,22 @@ Cocktails, Longdrinks, Shots, Spirituosen -> "Cocktails" + main_tab: "DRINKS"
 Kaffee, Espresso, Cappuccino, Latte, Flat White -> "Kaffee" + main_tab: "DRINKS"
 Tee, Matcha, Chai -> "Tee" + main_tab: "DRINKS"
 
+SPRACHE:
+
+Alle Textfelder (name, beschreibung, kategorie) IMMER auf Deutsch.
+
+Wenn das PDF pro Item mehrere Sprachen listet (typisch: deutsche Zeile UND englische Zeile direkt untereinander, oder DE | EN nebeneinander), nimm AUSSCHLIESSLICH die deutsche Zeile für "beschreibung". Englische, französische, italienische oder andere Übersetzungen werden komplett IGNORIERT — sie werden später über DeepL automatisch erzeugt und landen dann in eigenen Feldern (beschreibung_en, beschreibung_fr etc.), nicht in "beschreibung".
+
+Beispiel:
+PDF-Item
+  Bruschetta
+  Mit frischen Tomaten, Basilikum & Rucola
+  With fresh tomato, basil & arugula
+  6,50 €
+→ name: "Bruschetta"
+→ beschreibung: "Mit frischen Tomaten, Basilikum & Rucola"
+(die englische Zeile fällt komplett weg, nicht in irgendein Feld)
+
 NAMEN:
 
 Kurz und klar - keine Variantenbeschreibungen im Namen
