@@ -332,19 +332,38 @@ Tee, Matcha, Chai -> "Tee" + main_tab: "DRINKS"
 
 SPRACHE:
 
-Alle Textfelder (name, beschreibung, kategorie) IMMER auf Deutsch.
+- kategorie: IMMER auf Deutsch.
+- name: darf im Original-Wortlaut bleiben, auch wenn er italienisch, französisch oder englisch ist (typische Restaurant-Konvention: "Bruschetta", "Vitello Tonnato", "Ratatouille", "Fish & Chips"). NICHT übersetzen.
+- beschreibung: auf Deutsch bevorzugt.
 
-Wenn das PDF pro Item mehrere Sprachen listet (typisch: deutsche Zeile UND englische Zeile direkt untereinander, oder DE | EN nebeneinander), nimm AUSSCHLIESSLICH die deutsche Zeile für "beschreibung". Englische, französische, italienische oder andere Übersetzungen werden komplett IGNORIERT — sie werden später über DeepL automatisch erzeugt und landen dann in eigenen Feldern (beschreibung_en, beschreibung_fr etc.), nicht in "beschreibung".
+Wenn das PDF pro Item mehrere Sprachen listet (typisch: deutsche Zeile UND englische Zeile direkt untereinander, oder DE | EN nebeneinander), nimm AUSSCHLIESSLICH die deutsche Zeile für "beschreibung". Englische/französische/italienische Übersetzungs-Zeilen werden komplett IGNORIERT — sie werden später via DeepL automatisch erzeugt und landen in eigenen Feldern (beschreibung_en etc.), nicht in "beschreibung".
 
-Beispiel:
-PDF-Item
+Wenn das PDF für ein Item KEINE deutsche Beschreibungszeile hat (nur Item-Name ohne Erklärungszeile, oder nur eine fremdsprachige Beschreibung ohne DE-Entsprechung): "beschreibung" = "" (leerer String). NIEMALS den Item-Namen in "beschreibung" duplizieren. NIEMALS eine fremdsprachige Beschreibung übersetzen. NIEMALS eine Beschreibung erfinden.
+
+WICHTIG: Fehlende deutsche Beschreibung ist KEIN Grund, das ganze Item wegzulassen. Das Item MUSS trotzdem im items-Array erscheinen — mit "beschreibung": "".
+
+Beispiele:
+
+(a) PDF-Item mit DE + EN untereinander:
   Bruschetta
   Mit frischen Tomaten, Basilikum & Rucola
   With fresh tomato, basil & arugula
   6,50 €
-→ name: "Bruschetta"
-→ beschreibung: "Mit frischen Tomaten, Basilikum & Rucola"
-(die englische Zeile fällt komplett weg, nicht in irgendein Feld)
+→ name: "Bruschetta", beschreibung: "Mit frischen Tomaten, Basilikum & Rucola"
+(englische Zeile fällt weg)
+
+(b) PDF-Item OHNE Beschreibungszeile:
+  Meeresfrüchtesalat
+  Seafood Salad
+  12,50 €
+→ name: "Meeresfrüchtesalat", beschreibung: ""
+(Item ist im items-Array; beschreibung leer, weil keine DE-Beschreibung im PDF steht)
+
+(c) PDF-Item mit italienischem Namen und deutscher Beschreibung:
+  Vitello Tonnato
+  Kalbsfleisch mit Thunfischsoße und Kapern
+  16,90 €
+→ name: "Vitello Tonnato" (nicht übersetzen!), beschreibung: "Kalbsfleisch mit Thunfischsoße und Kapern"
 
 NAMEN:
 
