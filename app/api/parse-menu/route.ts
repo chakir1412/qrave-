@@ -2,7 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { parseMenuJsonFromModel, type ParsedMenuItemDto } from "@/lib/parse-menu";
-import { enrichItemsWithDescriptions } from "@/lib/auto-describe";
 import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 /** Vercel Serverless Timeout: bis zu 300s (Pro-Plan / Fluid Compute).
@@ -1039,7 +1038,11 @@ async function handlePageTextsStream(req: Request, apiKey: string): Promise<Resp
           return;
         }
 
-        await enrichItemsWithDescriptions(merged, apiKey);
+        // Enrichment (Haiku-Batch für Items ohne beschreibung) läuft NICHT
+        // mehr im Sync-Pfad — bei dichten Karten (200+ Items) reißt es das
+        // 300s-maxDuration-Limit von Vercel. Wirt sieht Items ohne
+        // beschreibung im Review-Screen markiert und triggert dort pro Item
+        // "✨ Beschreibung generieren" bei Bedarf.
         emit({ type: "done", items: merged });
         controller.close();
       } catch (err) {
@@ -1210,7 +1213,8 @@ export async function POST(req: Request) {
           { status: 422 },
         );
       }
-      await enrichItemsWithDescriptions(imgItems, apiKey);
+      // Enrichment weggelassen (siehe Streaming-Pfad) — Wirt füllt Beschreibungen
+      // pro Item im Review-Screen via "✨ Beschreibung generieren" nach.
       return NextResponse.json({ success: true, items: imgItems });
     } catch (err) {
       console.error("parse-menu image:", err);

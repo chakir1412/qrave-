@@ -1360,11 +1360,22 @@ export function KarteTab({
                               className="w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none"
                               style={{
                                 backgroundColor: dash.s2,
-                                borderColor: dash.bo,
+                                borderColor: r.beschreibung.trim() ? dash.bo : "rgba(255,180,0,0.55)",
                                 color: dash.mi,
                               }}
                               placeholder="Beschreibung"
                             />
+                            {r.beschreibung.trim().length === 0 && (
+                              <div
+                                className="-mt-1 flex items-center gap-1 text-[10px]"
+                                style={{ color: "rgba(255,180,0,0.95)" }}
+                              >
+                                <span aria-hidden>⚠</span>
+                                <span>
+                                  Keine Beschreibung — hier eintippen oder nach dem Speichern im Item-Editor „✨ Beschreibung generieren" nutzen.
+                                </span>
+                              </div>
+                            )}
                             <div className="grid grid-cols-2 gap-2">
                               <input
                                 type="number"
