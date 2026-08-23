@@ -4,13 +4,12 @@ import { NextResponse } from "next/server";
 import { parseMenuJsonFromModel, type ParsedMenuItemDto } from "@/lib/parse-menu";
 import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
-/** Vercel Serverless Timeout: bis zu 400s (Pro-Plan / Fluid Compute).
- *  Dichte Karten (LaFamiglia: 15 Seiten, 232 Items) haben zweimal die
- *  300s-Grenze gerissen — 15 sequentielle Sonnet-Calls × ~20s Realzeit
- *  reichten nicht mit Puffer für Anthropic-Latenz-Varianz. Mit 3er-
- *  Batches parallel + 400s Cap sind wir bei ~80-120s Realzeit + 280s
- *  Sicherheitspuffer. */
-export const maxDuration = 400;
+/** Vercel Serverless Timeout: 300s (Hobby-Plan Hard-Cap). Pro erlaubt
+ *  bis 900s, aber solange wir auf Hobby sind bleibt 300 die Obergrenze.
+ *  Puffer entsteht jetzt durch Parallelisierung: 3er-Batches à ~20s
+ *  Realzeit = ~100s für 15 Seiten (statt 300s+ sequenziell). Rechne mit
+ *  ~200s Sicherheitspuffer, reicht für Anthropic-Latenz-Varianz. */
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 /** Auth: Wirt ODER Founder. Bearer-Token bevorzugt (Wirt-Client lebt
