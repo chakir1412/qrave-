@@ -4,11 +4,13 @@ import { NextResponse } from "next/server";
 import { parseMenuJsonFromModel, type ParsedMenuItemDto } from "@/lib/parse-menu";
 import { checkRateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
-/** Vercel Serverless Timeout: bis zu 300s (Pro-Plan / Fluid Compute).
- *  Reicht auch für dichte Karten: PDF geht als Ganzes an Claude
- *  (native PDF-Unterstützung via anthropic-beta), Text-Fallback chunked
- *  parallel. */
-export const maxDuration = 300;
+/** Vercel Serverless Timeout: bis zu 400s (Pro-Plan / Fluid Compute).
+ *  Dichte Karten (LaFamiglia: 15 Seiten, 232 Items) haben zweimal die
+ *  300s-Grenze gerissen — 15 sequentielle Sonnet-Calls × ~20s Realzeit
+ *  reichten nicht mit Puffer für Anthropic-Latenz-Varianz. Mit 3er-
+ *  Batches parallel + 400s Cap sind wir bei ~80-120s Realzeit + 280s
+ *  Sicherheitspuffer. */
+export const maxDuration = 400;
 export const dynamic = "force-dynamic";
 
 /** Auth: Wirt ODER Founder. Bearer-Token bevorzugt (Wirt-Client lebt
@@ -961,25 +963,47 @@ async function handlePageTextsStream(req: Request, apiKey: string): Promise<Resp
         const collected: ParsedMenuItemDto[] = [];
         let maxOutputTokensUsed = 0;
         let refusalSeen = false;
+        let completedCount = 0;
 
-        for (let i = 0; i < pageTexts.length; i++) {
-          const current = i + 1;
-          // Frühes Progress-Event, damit UI sofort "Seite X von N" zeigen kann.
-          emit({ type: "page", current, total: totalPages });
-
-          const text = pageTexts[i] ?? "";
-          const image = pageImages[i] ?? null;
-          const useVision = text.trim().length < MIN_PAGE_TEXT_CHARS_FOR_TEXT_PATH && image !== null;
-
-          const result = useVision
-            ? await parsePageImage(image!, apiKey, current, totalPages, legend)
-            : await parsePageText(text, apiKey, current, totalPages, legend);
-
-          if (result.outputTokens > maxOutputTokensUsed) {
-            maxOutputTokensUsed = result.outputTokens;
+        // Sonnet-Calls in 3er-Batches parallel: 15 sequentielle Calls × ~20s
+        // reißen sonst den Vercel-Timeout bei dichten Karten. Mit 3 parallel
+        // sind wir bei ~5 Batches × ~20s = ~100s statt 300s+. Rate-Limit-
+        // Risiko klein: Anthropic Tier lässt 50+ RPM zu, 3 gleichzeitige
+        // Calls liegen deutlich darunter. Reihenfolge im Batch bleibt
+        // durch Promise.all erhalten → collected behält Seiten-Reihenfolge.
+        // Progress-Event pro Seite (post-Call), completedCount außen monoton
+        // → UI-Progress-Bar bleibt konsistent auch wenn Seite 3 vor Seite 1
+        // fertig ist.
+        const BATCH_SIZE = 3;
+        for (let batchStart = 0; batchStart < pageTexts.length; batchStart += BATCH_SIZE) {
+          const batchPromises = pageTexts
+            .slice(batchStart, batchStart + BATCH_SIZE)
+            .map((text, offset) => {
+              const idx = batchStart + offset;
+              const page = idx + 1;
+              const image = pageImages[idx] ?? null;
+              const useVision =
+                text.trim().length < MIN_PAGE_TEXT_CHARS_FOR_TEXT_PATH && image !== null;
+              const call = useVision
+                ? parsePageImage(image!, apiKey, page, totalPages, legend)
+                : parsePageText(text, apiKey, page, totalPages, legend);
+              // .then() sofort nach Call-Return, nicht erst nach Batch-Ende
+              // → Progress-Bar rutscht in Echtzeit weiter, nicht in 3er-
+              // Sprüngen alle 20s.
+              return call.then((r) => {
+                completedCount += 1;
+                emit({ type: "page", current: completedCount, total: totalPages });
+                return r;
+              });
+            });
+          const results = await Promise.all(batchPromises);
+          for (const result of results) {
+            if (result.outputTokens > maxOutputTokensUsed) {
+              maxOutputTokensUsed = result.outputTokens;
+            }
+            if (result.stopReason === "refusal") refusalSeen = true;
+            if (result.items.length > 0) collected.push(...result.items);
           }
-          if (result.stopReason === "refusal") refusalSeen = true;
-          if (result.items.length > 0) collected.push(...result.items);
         }
 
         let merged = dedupeItems(collected);
