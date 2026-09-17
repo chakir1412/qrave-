@@ -114,6 +114,8 @@ export async function POST(req: Request) {
   params.set("background.prompt", BACKGROUND_PROMPT);
   params.set("export.format", "jpeg");
   const photoroomUrl = `https://image-api.photoroom.com/v2/edit?${params.toString()}`;
+  console.log("[enhance-photo] prompt:", BACKGROUND_PROMPT);
+  console.log("[enhance-photo] full url length:", photoroomUrl.length);
 
   let photoroomRes: Response;
   try {
