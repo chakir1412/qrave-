@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const PHOTO_QUOTA_MONTHLY = 5;
 const BACKGROUND_PROMPT =
-  "warm rustic table setting, soft natural daylight, neutral marble or wood surface, minimal professional food photography styling, no people, no hands, no added props";
+  "elegant patisserie presentation, soft diffused natural light, pale marble or light stone surface, minimal and refined styling, subtle soft shadow, muted neutral tones, no people, no hands, no added props, no text";
 
 export async function POST(req: Request) {
   let body: { restaurantId?: unknown; imageUrl?: unknown };

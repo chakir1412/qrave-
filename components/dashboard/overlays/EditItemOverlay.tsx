@@ -404,7 +404,7 @@ export function EditItemOverlay({
                     <img
                       src={imageUrl ?? ""}
                       alt="Original"
-                      className="block h-[220px] w-full object-cover"
+                      className="block h-auto max-h-[420px] w-full object-contain"
                     />
                   </div>
                   <div
@@ -421,7 +421,7 @@ export function EditItemOverlay({
                     <img
                       src={enhancedDataUrl}
                       alt="Verbessert"
-                      className="block h-[220px] w-full object-cover"
+                      className="block h-auto max-h-[420px] w-full object-contain"
                     />
                   </div>
                 </div>
