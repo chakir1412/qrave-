@@ -55,6 +55,10 @@ export function EditItemOverlay({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [enhanceBusy, setEnhanceBusy] = useState(false);
+  const [enhancedDataUrl, setEnhancedDataUrl] = useState<string | null>(null);
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [quotaReached, setQuotaReached] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -78,6 +82,8 @@ export function EditItemOverlay({
       setPreisStr("0");
       setKategorie(defaultCategory?.trim() || "Sonstiges");
     }
+    setEnhancedDataUrl(null);
+    setQuotaReached(false);
   }, [item, open, defaultCategory]);
 
   function toggleTag(tag: string) {
@@ -270,6 +276,71 @@ export function EditItemOverlay({
     }
   }
 
+  async function handleEnhancePhoto() {
+    if (!editing || !imageUrl || enhanceBusy) return;
+    setEnhanceBusy(true);
+    setQuotaReached(false);
+    try {
+      const res = await authFetch("/api/dashboard/enhance-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, imageUrl }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { success?: boolean; dataUrl?: string; error?: string; message?: string }
+        | null;
+      if (res.status === 402) {
+        setQuotaReached(true);
+        return;
+      }
+      if (!res.ok || !json?.success || !json.dataUrl) {
+        onToast(json?.error ?? "Foto-Verbesserung fehlgeschlagen");
+        return;
+      }
+      setEnhancedDataUrl(json.dataUrl);
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : "Foto-Verbesserung fehlgeschlagen");
+    } finally {
+      setEnhanceBusy(false);
+    }
+  }
+
+  async function handleApplyEnhanced() {
+    if (!editing || !enhancedDataUrl || applyBusy) return;
+    setApplyBusy(true);
+    try {
+      const res = await authFetch("/api/dashboard/apply-enhanced-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId,
+          menuItemId: editing.id,
+          dataUrl: enhancedDataUrl,
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { success?: boolean; item?: MenuItem; error?: string }
+        | null;
+      if (!res.ok || !json?.success || !json.item) {
+        onToast(json?.error ?? "Übernehmen fehlgeschlagen");
+        return;
+      }
+      setImageUrl(json.item.bild_url ?? null);
+      setEnhancedDataUrl(null);
+      onSaved(json.item);
+      onToast("✓ Foto übernommen");
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : "Übernehmen fehlgeschlagen");
+    } finally {
+      setApplyBusy(false);
+    }
+  }
+
+  function handleDiscardEnhanced() {
+    if (applyBusy) return;
+    setEnhancedDataUrl(null);
+  }
+
   async function handleDelete() {
     if (!editing) return;
     setBusy(true);
@@ -316,31 +387,110 @@ export function EditItemOverlay({
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-widest" style={{ color: dash.mu }}>
               Bild
             </label>
-            {imageUrl ? (
+            {enhancedDataUrl ? (
+              <div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div
+                    className="overflow-hidden rounded-[14px] border"
+                    style={{ borderColor: dash.bo, background: dash.s2 }}
+                  >
+                    <div
+                      className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-widest"
+                      style={{ color: dash.mu }}
+                    >
+                      Original
+                    </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageUrl ?? ""}
+                      alt="Original"
+                      className="block h-[220px] w-full object-cover"
+                    />
+                  </div>
+                  <div
+                    className="overflow-hidden rounded-[14px] border"
+                    style={{ borderColor: "rgba(147,51,234,0.35)", background: dash.s2 }}
+                  >
+                    <div
+                      className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-widest"
+                      style={{ color: dash.teal }}
+                    >
+                      ✨ Verbessert
+                    </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={enhancedDataUrl}
+                      alt="Verbessert"
+                      className="block h-[220px] w-full object-cover"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    disabled={applyBusy}
+                    onClick={() => void handleApplyEnhanced()}
+                    className="flex-1 rounded-[10px] py-2.5 text-[13px] font-bold disabled:opacity-60"
+                    style={{ ...dashPrimaryButtonStyle, borderRadius: 10 }}
+                  >
+                    {applyBusy ? "Übernehme …" : "Übernehmen"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={applyBusy}
+                    onClick={() => handleDiscardEnhanced()}
+                    className="flex-1 rounded-[10px] border py-2.5 text-[13px] font-semibold disabled:opacity-50"
+                    style={{
+                      borderColor: dash.bo,
+                      backgroundColor: dash.s2,
+                      color: dash.mi,
+                    }}
+                  >
+                    Verwerfen
+                  </button>
+                </div>
+              </div>
+            ) : imageUrl ? (
               <div
                 className="relative overflow-hidden rounded-[14px] border"
                 style={{ borderColor: dash.bo, background: dash.s2 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={imageUrl} alt="" className="block h-[180px] w-full object-cover" />
-                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={imageBusy || enhanceBusy}
+                      className="text-[12px] font-semibold disabled:opacity-50"
+                      style={{ color: "var(--qrave-accent-soft)" }}
+                    >
+                      {imageBusy ? "Lädt …" : "Ändern"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleImageRemove()}
+                      disabled={imageBusy || enhanceBusy}
+                      className="text-[12px] font-semibold disabled:opacity-50"
+                      style={{ color: dash.re }}
+                    >
+                      Entfernen
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => imageInputRef.current?.click()}
-                    disabled={imageBusy}
-                    className="text-[12px] font-semibold disabled:opacity-50"
-                    style={{ color: "var(--qrave-accent-soft)" }}
+                    disabled={enhanceBusy || imageBusy}
+                    onClick={() => void handleEnhancePhoto()}
+                    className="rounded-full border px-2.5 py-1 text-[11px] font-semibold transition active:scale-95"
+                    style={{
+                      borderColor: enhanceBusy ? dash.bo : "rgba(147,51,234,0.35)",
+                      backgroundColor: enhanceBusy ? dash.s2 : "rgba(147,51,234,0.12)",
+                      color: enhanceBusy ? dash.mu : dash.teal,
+                      cursor: enhanceBusy ? "wait" : "pointer",
+                    }}
                   >
-                    {imageBusy ? "Lädt …" : "Ändern"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleImageRemove()}
-                    disabled={imageBusy}
-                    className="text-[12px] font-semibold disabled:opacity-50"
-                    style={{ color: dash.re }}
-                  >
-                    Entfernen
+                    {enhanceBusy ? "✨ Verbessert …" : "✨ Foto verbessern"}
                   </button>
                 </div>
               </div>
@@ -380,6 +530,28 @@ export function EditItemOverlay({
                 </div>
               </div>
             )}
+            {quotaReached ? (
+              <div
+                className="mt-2 rounded-[10px] border px-3 py-2 text-[12px]"
+                style={{
+                  borderColor: "rgba(248,113,113,0.28)",
+                  backgroundColor: "rgba(248,113,113,0.08)",
+                  color: dash.mi,
+                }}
+              >
+                Foto-Kontingent für diesen Monat erreicht —{" "}
+                <a
+                  href="https://wa.me/491738996449"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold underline"
+                  style={{ color: dash.teal }}
+                >
+                  schreib uns
+                </a>
+                .
+              </div>
+            ) : null}
             <input
               ref={imageInputRef}
               type="file"
