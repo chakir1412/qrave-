@@ -111,11 +111,16 @@ export async function POST(req: Request) {
 
   const params = new URLSearchParams();
   params.set("imageUrl", imageUrl);
+  params.set("removeBackground", "true");
   params.set("background.prompt", BACKGROUND_PROMPT);
+  params.set("outputSize", "originalImage");
+  params.set("scaling", "fit");
+  params.set("padding", "0.10");
+  params.set("shadow.mode", "ai.soft");
+  params.set("lighting.mode", "ai.auto");
   params.set("export.format", "jpeg");
   const photoroomUrl = `https://image-api.photoroom.com/v2/edit?${params.toString()}`;
-  console.log("[enhance-photo] prompt:", BACKGROUND_PROMPT);
-  console.log("[enhance-photo] full url length:", photoroomUrl.length);
+  console.log("[enhance-photo] params:", Object.fromEntries(params));
 
   let photoroomRes: Response;
   try {
