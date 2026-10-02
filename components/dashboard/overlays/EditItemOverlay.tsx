@@ -539,7 +539,7 @@ export function EditItemOverlay({
                   color: dash.mi,
                 }}
               >
-                Foto-Kontingent für diesen Monat erreicht —{" "}
+                Foto-Kontingent aufgebraucht —{" "}
                 <a
                   href="https://wa.me/491738996449"
                   target="_blank"

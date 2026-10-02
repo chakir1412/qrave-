@@ -89,7 +89,7 @@ export async function POST(req: Request) {
   const admin = createServiceRoleClient();
   const { data: restaurantRow, error: rErr } = await admin
     .from("restaurants")
-    .select("id, auth_user_id, photo_credits_used_month")
+    .select("id, auth_user_id, photo_credits_used_total")
     .eq("id", restaurantId)
     .maybeSingle();
   if (rErr || !restaurantRow) {
@@ -186,11 +186,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const currentUsed = Number(restaurantRow.photo_credits_used_month ?? 0);
+  const currentUsed = Number(restaurantRow.photo_credits_used_total ?? 0);
   const nextUsed = Number.isFinite(currentUsed) && currentUsed >= 0 ? currentUsed + 1 : 1;
   const { error: creditErr } = await admin
     .from("restaurants")
-    .update({ photo_credits_used_month: nextUsed })
+    .update({ photo_credits_used_total: nextUsed })
     .eq("id", restaurantId);
   if (creditErr) {
     console.error("[apply-enhanced-photo] Credit-Update fehlgeschlagen:", creditErr);

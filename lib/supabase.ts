@@ -79,9 +79,9 @@ export type Restaurant = {
   wifi_password?: string | null;
   /** Optionale Küchen-Schließzeit (HH:MM:SS). Zusätzlich zur Öffnungszeit. */
   kitchen_closes_at?: string | null;
-  /** Foto-Verbesserung: verbrauchte Credits im laufenden Monat.
-   *  Reset via monatlichem Cron `/api/cron/reset-photo-credits`. */
-  photo_credits_used_month?: number | null;
+  /** Foto-Verbesserung: einmalig gewährte Credits (lebenslang, max. 5).
+   *  Kein Reset — kein Monatszähler mehr. */
+  photo_credits_used_total?: number | null;
 };
 
 /** Wochentag-Keys des Öffnungszeiten-Plans. */
