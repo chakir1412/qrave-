@@ -456,7 +456,7 @@ export function EditItemOverlay({
                 style={{ borderColor: dash.bo, background: dash.s2 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageUrl} alt="" className="block h-[180px] w-full object-cover" />
+                <img src={imageUrl} alt="" className="block h-auto max-h-[320px] w-full object-contain" />
                 <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
                   <div className="flex items-center gap-3">
                     <button

@@ -171,7 +171,7 @@ export async function POST(req: Request) {
       );
     }
     const editJson = (await editRes.json().catch(() => null)) as
-      | { data?: { output?: { tmp_url?: string } } }
+      | { data?: { output?: { tmp_url?: string; width?: number; height?: number } }; errors?: unknown; warnings?: unknown }
       | null;
     const tmp = editJson?.data?.output?.tmp_url;
     if (typeof tmp !== "string" || tmp.length === 0) {
@@ -181,6 +181,14 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
+    console.log(
+      "[enhance-photo] claid edit ok:",
+      JSON.stringify({
+        output: editJson?.data?.output,
+        errors: editJson?.errors,
+        warnings: editJson?.warnings,
+      }),
+    );
     cutoutUrl = tmp;
   } catch (e) {
     console.error("[enhance-photo] claid edit fetch failed:", e);
@@ -222,7 +230,13 @@ export async function POST(req: Request) {
       );
     }
     const sceneJson = (await sceneRes.json().catch(() => null)) as
-      | { data?: { output?: Array<{ tmp_url?: string }> } }
+      | {
+          data?: {
+            output?: Array<{ tmp_url?: string; width?: number; height?: number; format?: string }>;
+          };
+          errors?: unknown;
+          warnings?: unknown;
+        }
       | null;
     const outArr = sceneJson?.data?.output;
     const tmp = Array.isArray(outArr) && outArr.length > 0 ? outArr[0]?.tmp_url : undefined;
@@ -233,6 +247,21 @@ export async function POST(req: Request) {
         { status: 502 },
       );
     }
+    if (tmp === cutoutUrl) {
+      console.error("[enhance-photo] claid scene returned same URL as cutout:", tmp);
+      return NextResponse.json(
+        { success: false, error: "Claid Scene lieferte nur den Cutout (keine Backdrop-Generierung)." },
+        { status: 502 },
+      );
+    }
+    console.log(
+      "[enhance-photo] claid scene ok:",
+      JSON.stringify({
+        output: outArr,
+        errors: sceneJson?.errors,
+        warnings: sceneJson?.warnings,
+      }),
+    );
     sceneUrl = tmp;
   } catch (e) {
     console.error("[enhance-photo] claid scene fetch failed:", e);
@@ -254,6 +283,7 @@ export async function POST(req: Request) {
       );
     }
     const buf = Buffer.from(await finalRes.arrayBuffer());
+    console.log("[enhance-photo] final image bytes:", buf.length);
     dataUrl = `data:image/jpeg;base64,${buf.toString("base64")}`;
   } catch (e) {
     console.error("[enhance-photo] scene download failed:", e);
