@@ -157,7 +157,7 @@ export async function POST(req: Request) {
       apiKey,
       {
         input: imageUrl,
-        operations: { background: { remove: true } },
+        operations: { background: { remove: true, color: "transparent" } },
         output: { format: "png" },
       },
     );
