@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-service-role";
 import { checkRateLimit, rateLimitHeaders, isUuid } from "@/lib/rate-limit";
+import { PHOTO_ENHANCE_ENABLED } from "@/lib/feature-flags";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -142,6 +143,10 @@ export async function POST(req: Request) {
       { success: false, error: "Rate Limit überschritten — bitte später erneut versuchen." },
       { status: 429, headers: rateLimitHeaders(rl) },
     );
+  }
+
+  if (!PHOTO_ENHANCE_ENABLED) {
+    return NextResponse.json({ success: false, error: "disabled" }, { status: 403 });
   }
 
   const apiKey = process.env.CLAID_API_KEY?.trim();

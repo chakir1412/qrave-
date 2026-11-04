@@ -10,6 +10,7 @@ import { compressImageFile } from "@/lib/compress-image";
 import { LMIV_ALLERGENS } from "@/lib/i18n-menu";
 import { formatPreisEUR } from "../utils";
 import { dash, dashPrimaryButtonStyle } from "../constants";
+import { PHOTO_ENHANCE_ENABLED } from "@/lib/feature-flags";
 
 const EDIT_ITEM_SELECT =
   "id, restaurant_id, name, beschreibung, preis, kategorie, bild_url, aktiv, tags, emoji, main_tab, sort_order, allergens_text, allergens, additives_text";
@@ -484,20 +485,22 @@ export function EditItemOverlay({
                       Entfernen
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    disabled={enhanceBusy || imageBusy}
-                    onClick={() => void handleEnhancePhoto()}
-                    className="rounded-full border px-2.5 py-1 text-[11px] font-semibold transition active:scale-95"
-                    style={{
-                      borderColor: enhanceBusy ? dash.bo : "rgba(147,51,234,0.35)",
-                      backgroundColor: enhanceBusy ? dash.s2 : "rgba(147,51,234,0.12)",
-                      color: enhanceBusy ? dash.mu : dash.teal,
-                      cursor: enhanceBusy ? "wait" : "pointer",
-                    }}
-                  >
-                    {enhanceBusy ? "✨ Verbessert …" : "✨ Foto verbessern"}
-                  </button>
+                  {PHOTO_ENHANCE_ENABLED && (
+                    <button
+                      type="button"
+                      disabled={enhanceBusy || imageBusy}
+                      onClick={() => void handleEnhancePhoto()}
+                      className="rounded-full border px-2.5 py-1 text-[11px] font-semibold transition active:scale-95"
+                      style={{
+                        borderColor: enhanceBusy ? dash.bo : "rgba(147,51,234,0.35)",
+                        backgroundColor: enhanceBusy ? dash.s2 : "rgba(147,51,234,0.12)",
+                        color: enhanceBusy ? dash.mu : dash.teal,
+                        cursor: enhanceBusy ? "wait" : "pointer",
+                      }}
+                    >
+                      {enhanceBusy ? "✨ Verbessert …" : "✨ Foto verbessern"}
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
