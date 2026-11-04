@@ -59,6 +59,7 @@ export function EditItemOverlay({
   const [enhancedDataUrl, setEnhancedDataUrl] = useState<string | null>(null);
   const [applyBusy, setApplyBusy] = useState(false);
   const [quotaReached, setQuotaReached] = useState(false);
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -280,6 +281,7 @@ export function EditItemOverlay({
     if (!editing || !imageUrl || enhanceBusy) return;
     setEnhanceBusy(true);
     setQuotaReached(false);
+    setServiceUnavailable(false);
     try {
       const res = await authFetch("/api/dashboard/enhance-photo", {
         method: "POST",
@@ -291,6 +293,10 @@ export function EditItemOverlay({
         | null;
       if (res.status === 402) {
         setQuotaReached(true);
+        return;
+      }
+      if (res.status === 503) {
+        setServiceUnavailable(true);
         return;
       }
       if (!res.ok || !json?.success || !json.dataUrl) {
@@ -550,6 +556,18 @@ export function EditItemOverlay({
                   schreib uns
                 </a>
                 .
+              </div>
+            ) : null}
+            {serviceUnavailable ? (
+              <div
+                className="mt-2 rounded-[10px] border px-3 py-2 text-[12px]"
+                style={{
+                  borderColor: "rgba(248,113,113,0.28)",
+                  backgroundColor: "rgba(248,113,113,0.08)",
+                  color: dash.mi,
+                }}
+              >
+                Die Foto-Funktion ist gerade nicht verfügbar. Bitte versuche es später noch einmal.
               </div>
             ) : null}
             <input

@@ -15,7 +15,7 @@ const SCENE_NEGATIVE_PROMPT =
 
 type ClaidError = {
   status: number;
-  code: "auth" | "quota" | "rate_limit" | "invalid_input" | "upstream";
+  code: "auth" | "service_unavailable" | "rate_limit" | "invalid_input" | "upstream";
   message: string;
 };
 
@@ -45,7 +45,10 @@ async function callClaidWithRetry(
 
 function classifyClaidError(status: number, bodyText: string): ClaidError {
   if (status === 401) return { status: 502, code: "auth", message: "Claid-Auth fehlgeschlagen — API-Key prüfen." };
-  if (status === 402) return { status: 402, code: "quota", message: "Claid-Kontingent aufgebraucht." };
+  if (status === 402) {
+    console.error("[enhance-photo] CLAID CREDITS EMPTY");
+    return { status: 503, code: "service_unavailable", message: "Die Foto-Funktion ist gerade nicht verfügbar. Bitte versuche es später noch einmal." };
+  }
   if (status === 422) return { status: 502, code: "invalid_input", message: `Claid lehnt Bild ab: ${bodyText.slice(0, 200)}` };
   if (status === 429) return { status: 429, code: "rate_limit", message: "Claid Rate-Limit — bitte gleich nochmal." };
   return { status: 502, code: "upstream", message: `Claid ${status}: ${bodyText.slice(0, 200)}` };
@@ -166,7 +169,7 @@ export async function POST(req: Request) {
       console.error("[enhance-photo] claid edit error:", editRes.status, errText.slice(0, 400));
       const cls = classifyClaidError(editRes.status, errText);
       return NextResponse.json(
-        { success: false, error: cls.code === "quota" ? "quota_reached" : cls.message },
+        { success: false, error: cls.message },
         { status: cls.status },
       );
     }
@@ -225,7 +228,7 @@ export async function POST(req: Request) {
       console.error("[enhance-photo] claid scene error:", sceneRes.status, errText.slice(0, 400));
       const cls = classifyClaidError(sceneRes.status, errText);
       return NextResponse.json(
-        { success: false, error: cls.code === "quota" ? "quota_reached" : cls.message },
+        { success: false, error: cls.message },
         { status: cls.status },
       );
     }
